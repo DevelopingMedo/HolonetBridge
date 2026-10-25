@@ -2,16 +2,21 @@ package de.medo.holonetbridge.commons.discord.ticketing;
 
 import de.medo.holonetbridge.commons.ticket.TicketDto;
 import de.medo.holonetbridge.commons.ticket.TicketProvider;
+import java.util.EnumSet;
+import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.label.Label;
 import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.components.textinput.TextInput;
 import net.dv8tion.jda.api.components.textinput.TextInputStyle;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.entities.channel.concrete.Category;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
-import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback;
 import net.dv8tion.jda.api.modals.Modal;
 import org.springframework.stereotype.Component;
 
@@ -19,9 +24,10 @@ import org.springframework.stereotype.Component;
  * The bridge's single JDA {@link ListenerAdapter}, registered once with the gateway, handling every Discord
  * interaction (button, modal) for the ticket flow.
  *
- * <p>The flow first asks whether the user found a bug or has an idea, then collects the ticket in one modal.
- * An idea collects a free-form title and description; a bug collects a title plus a four-field report (steps,
- * expected result, actual result, recurrence).
+ * <p>Clicking the persistent "Support anfragen" button creates a dedicated, private text channel and posts the
+ * bug/idea chooser there; the rest of the conversation (kind choice, modal, confirmation) stays in that
+ * channel. An idea collects a free-form title and description; a bug collects a title plus a four-field report
+ * (steps, expected result, actual result, recurrence).
  *
  * <p>The Discord-visible wording uses "Idee", while the backend keeps "Feature" (see {@link HolonetTicketKind}
  * and the {@code [Feature]} title prefix). Internal ids and constant names therefore use {@code feature} even
@@ -31,9 +37,9 @@ import org.springframework.stereotype.Component;
  *
  * <ul>
  *   <li>{@code ticket:open} - the persistent "Support anfragen" button that {@code
- *       HolonetStartConfigurationListenerAdapter} posts via {@code /start-holonet-configuration}; triggers the
- *       kind chooser
- *   <li>{@code ticket:kind:bug|feature} - the bug/idea choice right after the "Support anfragen" button
+ *       HolonetStartConfigurationListenerAdapter} posts via {@code /start-holonet-configuration}; creates the
+ *       support channel and posts the kind chooser
+ *   <li>{@code ticket:kind:bug|feature} - the bug/idea choice in the support channel
  *   <li>{@code ticket:modal:bug-report} - the bug report modal (title and four report fields)
  *   <li>{@code ticket:modal:feature} - the idea modal collecting title and description
  * </ul>
@@ -68,17 +74,21 @@ public class HolonetTicketModalDialogListenerAdapter extends ListenerAdapter {
 
     private final HolonetTicketCreationSessionStore sessionStore;
     private final TicketProvider ticketProvider;
+    private final HolonetSupportChannelRepository supportChannelRepository;
 
     HolonetTicketModalDialogListenerAdapter(
-            HolonetTicketCreationSessionStore sessionStore, TicketProvider ticketProvider) {
+            HolonetTicketCreationSessionStore sessionStore,
+            TicketProvider ticketProvider,
+            HolonetSupportChannelRepository supportChannelRepository) {
         this.sessionStore = sessionStore;
         this.ticketProvider = ticketProvider;
+        this.supportChannelRepository = supportChannelRepository;
     }
 
     @Override
     public void onButtonInteraction(ButtonInteractionEvent event) {
         switch (event.getComponentId()) {
-            case BUTTON_OPEN -> openKindChooser(event, event.getUser().getIdLong());
+            case BUTTON_OPEN -> openSupportChannel(event);
             case BUTTON_KIND_BUG -> {
                 sessionStore
                         .get(event.getUser().getIdLong())
@@ -108,16 +118,60 @@ public class HolonetTicketModalDialogListenerAdapter extends ListenerAdapter {
         }
     }
 
-    private void openKindChooser(IReplyCallback interaction, long userId) {
-        sessionStore.startOrReset(userId);
+    private void openSupportChannel(ButtonInteractionEvent event) {
+        Guild guild = event.getGuild();
+        Member member = event.getMember();
+        if (guild == null || member == null) {
+            event.reply("Support-Kanäle können nur innerhalb eines Servers erstellt werden.")
+                    .setEphemeral(true)
+                    .queue();
+            return;
+        }
 
-        interaction
-                .reply("Hast du ein Bug gefunden oder hast du eine neue Idee?")
-                .addComponents(ActionRow.of(
-                        Button.primary(BUTTON_KIND_BUG, "Bug"),
-                        Button.success(BUTTON_KIND_FEATURE, "Idee")))
-                .setEphemeral(true)
-                .queue();
+        long guildId = guild.getIdLong();
+        long userId = member.getIdLong();
+        long number = supportChannelRepository
+                .findTopByGuildIdOrderByNumberDesc(guildId)
+                .map(channel -> channel.number() + 1)
+                .orElse(1L);
+        String name = "holonetbridge-%05d".formatted(number);
+        Category parent = event.getChannel().asTextChannel().getParentCategory();
+
+        event.deferReply(true).queue();
+
+        guild.createTextChannel(name, parent)
+                .addPermissionOverride(guild.getPublicRole(), null, EnumSet.of(Permission.VIEW_CHANNEL))
+                .addPermissionOverride(
+                        member,
+                        EnumSet.of(
+                                Permission.VIEW_CHANNEL,
+                                Permission.MESSAGE_SEND,
+                                Permission.MESSAGE_HISTORY,
+                                Permission.MESSAGE_ATTACH_FILES),
+                        null)
+                .addPermissionOverride(
+                        guild.getSelfMember(),
+                        EnumSet.of(
+                                Permission.VIEW_CHANNEL,
+                                Permission.MESSAGE_SEND,
+                                Permission.MANAGE_CHANNEL,
+                                Permission.MESSAGE_HISTORY),
+                        null)
+                .queue(channel -> {
+                    supportChannelRepository.save(
+                            new HolonetSupportChannel(channel.getIdLong(), guildId, userId, number));
+                    sessionStore.startOrReset(userId);
+                    channel.sendMessage("Hast du ein Bug gefunden oder hast du eine neue Idee?")
+                            .addComponents(ActionRow.of(
+                                    Button.primary(BUTTON_KIND_BUG, "Bug"),
+                                    Button.success(BUTTON_KIND_FEATURE, "Idee")))
+                            .queue();
+                    event.getHook()
+                            .sendMessage("Support-Kanal erstellt: " + channel.getAsMention())
+                            .queue();
+                }, failure -> event.getHook()
+                        .sendMessage("Der Support-Kanal konnte nicht erstellt werden.")
+                        .queue());
     }
 
     private void onFeatureSubmitted(ModalInteractionEvent event) {
@@ -149,8 +203,14 @@ public class HolonetTicketModalDialogListenerAdapter extends ListenerAdapter {
     private void createTicket(ModalInteractionEvent event, long userId, String title, String description) {
         event.deferReply(true).queue();
         TicketDto ticket = ticketProvider.create(title, description);
+        long channelId = event.getChannel().getIdLong();
+        supportChannelRepository.findById(channelId).ifPresent(channel -> {
+            channel.ticketId(ticket.id());
+            supportChannelRepository.save(channel);
+        });
         sessionStore.clear(userId);
-        event.getHook()
+        event.getChannel()
+                .asTextChannel()
                 .sendMessage("Ticket #%s wurde angelegt: %s".formatted(ticket.id(), ticket.title()))
                 .queue();
     }

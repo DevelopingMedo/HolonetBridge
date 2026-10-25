@@ -1,24 +1,37 @@
 package de.medo.holonetbridge.commons.discord.ticketing;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import de.medo.holonetbridge.commons.ticket.TicketDto;
 import de.medo.holonetbridge.commons.ticket.TicketProvider;
+import java.util.Collection;
 import java.util.List;
+import java.util.function.Consumer;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.Role;
+import net.dv8tion.jda.api.entities.SelfMember;
 import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.modals.ModalMapping;
 import net.dv8tion.jda.api.modals.Modal;
+import net.dv8tion.jda.api.requests.restaction.ChannelAction;
+import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
 import net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction;
 import net.dv8tion.jda.api.requests.restaction.interactions.ModalCallbackAction;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
@@ -39,11 +52,15 @@ import org.mockito.Answers;
 class HolonetTicketModalDialogListenerAdapterTest {
 
     private static final long USER_ID = 123456789L;
+    private static final long GUILD_ID = 999L;
+    private static final long CHANNEL_ID = 111L;
 
     private final HolonetTicketCreationSessionStore sessionStore = new HolonetTicketCreationSessionStore();
     private final TicketProvider ticketProvider = mock(TicketProvider.class);
+    private final HolonetSupportChannelRepository supportChannelRepository =
+            mock(HolonetSupportChannelRepository.class);
     private final HolonetTicketModalDialogListenerAdapter listener =
-            new HolonetTicketModalDialogListenerAdapter(sessionStore, ticketProvider);
+            new HolonetTicketModalDialogListenerAdapter(sessionStore, ticketProvider, supportChannelRepository);
 
     private final User user = mock(User.class);
 
@@ -53,19 +70,59 @@ class HolonetTicketModalDialogListenerAdapterTest {
     }
 
     @Test
-    void persistentSupportButtonStartsASessionAndAsksForTheKind() {
+    void supportButtonCreatesAPrivateChannelAndPostsTheKindChooser() {
+        Guild guild = mock(Guild.class);
+        when(guild.getIdLong()).thenReturn(GUILD_ID);
+        Member member = mock(Member.class);
+        when(member.getIdLong()).thenReturn(USER_ID);
+        Role publicRole = mock(Role.class);
+        when(guild.getPublicRole()).thenReturn(publicRole);
+        when(guild.getSelfMember()).thenReturn(mock(SelfMember.class));
+
+        MessageChannelUnion buttonChannelUnion = mock(MessageChannelUnion.class);
+        TextChannel buttonChannel = mock(TextChannel.class);
+        when(buttonChannelUnion.asTextChannel()).thenReturn(buttonChannel);
+        when(buttonChannel.getParentCategory()).thenReturn(null);
+
+        ChannelAction<TextChannel> channelAction = mock(ChannelAction.class, Answers.RETURNS_SELF);
+        when(guild.createTextChannel("holonetbridge-00001", null)).thenReturn(channelAction);
+
         ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
         when(event.getComponentId()).thenReturn(HolonetTicketModalDialogListenerAdapter.BUTTON_OPEN);
-        when(event.getUser()).thenReturn(user);
-        ReplyCallbackAction replyAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
-        when(event.reply(anyString())).thenReturn(replyAction);
+        when(event.getGuild()).thenReturn(guild);
+        when(event.getMember()).thenReturn(member);
+        when(event.getChannel()).thenReturn(buttonChannelUnion);
+        when(event.deferReply(true)).thenReturn(mock(ReplyCallbackAction.class, Answers.RETURNS_SELF));
+        InteractionHook hook = mock(InteractionHook.class);
+        when(event.getHook()).thenReturn(hook);
+        when(hook.sendMessage(anyString())).thenReturn(newSendMessageAction());
 
         listener.onButtonInteraction(event);
 
+        verify(guild).createTextChannel("holonetbridge-00001", null);
+        verify(channelAction, times(3))
+                .addPermissionOverride(any(), nullable(Collection.class), nullable(Collection.class));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Consumer<TextChannel>> successCaptor = ArgumentCaptor.forClass(Consumer.class);
+        verify(channelAction).queue(successCaptor.capture(), any());
+        TextChannel createdChannel = mock(TextChannel.class);
+        when(createdChannel.getIdLong()).thenReturn(CHANNEL_ID);
+        when(createdChannel.getAsMention()).thenReturn("#holonetbridge-00001");
+        when(createdChannel.sendMessage(anyString()))
+                .thenReturn(mock(MessageCreateAction.class, Answers.RETURNS_SELF));
+        successCaptor.getValue().accept(createdChannel);
+
+        ArgumentCaptor<HolonetSupportChannel> channelCaptor = ArgumentCaptor.forClass(HolonetSupportChannel.class);
+        verify(supportChannelRepository).save(channelCaptor.capture());
+        assertThat(channelCaptor.getValue().channelId()).isEqualTo(CHANNEL_ID);
+        assertThat(channelCaptor.getValue().guildId()).isEqualTo(GUILD_ID);
+        assertThat(channelCaptor.getValue().requesterUserId()).isEqualTo(USER_ID);
+        assertThat(channelCaptor.getValue().number()).isEqualTo(1L);
+
         assertThat(sessionStore.get(USER_ID)).isPresent();
-        verify(event).reply("Hast du ein Bug gefunden oder hast du eine neue Idee?");
-        verify(replyAction).setEphemeral(true);
-        verify(replyAction).queue();
+        verify(createdChannel).sendMessage("Hast du ein Bug gefunden oder hast du eine neue Idee?");
+        verify(hook).sendMessage("Support-Kanal erstellt: #holonetbridge-00001");
     }
 
     @Test
@@ -105,7 +162,7 @@ class HolonetTicketModalDialogListenerAdapterTest {
     }
 
     @Test
-    void bugReportModalSubmissionCreatesABugTicketWithTheAssembledDescription() {
+    void bugReportModalSubmissionCreatesABugTicketAndPostsTheConfirmationInTheChannel() {
         sessionStore.startOrReset(USER_ID).kind(HolonetTicketKind.BUG);
 
         ModalInteractionEvent event = mock(ModalInteractionEvent.class);
@@ -122,9 +179,8 @@ class HolonetTicketModalDialogListenerAdapterTest {
         when(event.getValue("actual")).thenReturn(actual);
         when(event.getValue("recurrence")).thenReturn(recurrence);
         when(event.deferReply(true)).thenReturn(mock(ReplyCallbackAction.class, Answers.RETURNS_SELF));
-        InteractionHook hook = mock(InteractionHook.class);
-        when(event.getHook()).thenReturn(hook);
-        when(hook.sendMessage(anyString())).thenReturn(newSendMessageAction());
+        TextChannel channel = stubModalChannel(event);
+        when(channel.sendMessage(anyString())).thenReturn(mock(MessageCreateAction.class, Answers.RETURNS_SELF));
         when(ticketProvider.create(eq("[Bug] Login fails"), anyString()))
                 .thenReturn(new TicketDto("42", "[Bug] Login fails", "ignored"));
 
@@ -137,12 +193,12 @@ class HolonetTicketModalDialogListenerAdapterTest {
                 .contains("**Was hättest du erwartet?**", "It should work")
                 .contains("**Was ist stattdessen passiert?**", "It crashed")
                 .contains("**Tritt der Fehler erneut auf?**", "Jedes Mal");
-        verify(hook).sendMessage("Ticket #42 wurde angelegt: [Bug] Login fails");
+        verify(channel).sendMessage("Ticket #42 wurde angelegt: [Bug] Login fails");
         assertThat(sessionStore.get(USER_ID)).isEmpty();
     }
 
     @Test
-    void featureModalSubmissionCreatesAFeatureTicket() {
+    void featureModalSubmissionCreatesAFeatureTicketAndPostsTheConfirmationInTheChannel() {
         sessionStore.startOrReset(USER_ID).kind(HolonetTicketKind.FEATURE);
 
         ModalInteractionEvent event = mock(ModalInteractionEvent.class);
@@ -153,16 +209,15 @@ class HolonetTicketModalDialogListenerAdapterTest {
         when(event.getValue("title")).thenReturn(title);
         when(event.getValue("description")).thenReturn(description);
         when(event.deferReply(true)).thenReturn(mock(ReplyCallbackAction.class, Answers.RETURNS_SELF));
-        InteractionHook hook = mock(InteractionHook.class);
-        when(event.getHook()).thenReturn(hook);
-        when(hook.sendMessage(anyString())).thenReturn(newSendMessageAction());
+        TextChannel channel = stubModalChannel(event);
+        when(channel.sendMessage(anyString())).thenReturn(mock(MessageCreateAction.class, Answers.RETURNS_SELF));
         when(ticketProvider.create(eq("[Feature] Dark mode"), anyString()))
                 .thenReturn(new TicketDto("7", "[Feature] Dark mode", "I want a dark theme toggle in settings."));
 
         listener.onModalInteraction(event);
 
         verify(ticketProvider).create("[Feature] Dark mode", "I want a dark theme toggle in settings.");
-        verify(hook).sendMessage("Ticket #7 wurde angelegt: [Feature] Dark mode");
+        verify(channel).sendMessage("Ticket #7 wurde angelegt: [Feature] Dark mode");
         assertThat(sessionStore.get(USER_ID)).isEmpty();
     }
 
@@ -216,7 +271,7 @@ class HolonetTicketModalDialogListenerAdapterTest {
         listener.onButtonInteraction(event);
 
         verify(event, never()).reply(anyString());
-        verify(event, never()).replyModal(org.mockito.ArgumentMatchers.any());
+        verify(event, never()).replyModal(any());
     }
 
     @Test
@@ -228,6 +283,16 @@ class HolonetTicketModalDialogListenerAdapterTest {
 
         verify(event, never()).reply(anyString());
         verify(event, never()).deferReply(anyBoolean());
+    }
+
+    /** Stubs the modal event's channel (union + text channel) and returns the {@link TextChannel}. */
+    private static TextChannel stubModalChannel(ModalInteractionEvent event) {
+        MessageChannelUnion union = mock(MessageChannelUnion.class);
+        when(event.getChannel()).thenReturn(union);
+        when(union.getIdLong()).thenReturn(CHANNEL_ID);
+        TextChannel channel = mock(TextChannel.class);
+        when(union.asTextChannel()).thenReturn(channel);
+        return channel;
     }
 
     /** A {@link ModalMapping} whose {@code getAsString()} returns the given text. */
