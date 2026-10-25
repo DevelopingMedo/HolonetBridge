@@ -7,15 +7,16 @@ import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.label.Label;
+import net.dv8tion.jda.api.components.selections.EntitySelectMenu;
 import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.components.textinput.TextInput;
 import net.dv8tion.jda.api.components.textinput.TextInputStyle;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.Category;
-import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
+import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.modals.Modal;
 import org.springframework.stereotype.Component;
@@ -51,6 +52,8 @@ public class HolonetTicketModalDialogListenerAdapter extends ListenerAdapter {
 
     private static final String BUTTON_KIND_BUG = "ticket:kind:bug";
     private static final String BUTTON_KIND_FEATURE = "ticket:kind:feature";
+    private static final String BUTTON_ADD_WATCHER = "ticket:watcher:add";
+    private static final String SELECT_WATCHER = "ticket:watcher:select";
 
     private static final String MODAL_FEATURE = "ticket:modal:feature";
     private static final String MODAL_BUG_REPORT = "ticket:modal:bug-report";
@@ -101,6 +104,7 @@ public class HolonetTicketModalDialogListenerAdapter extends ListenerAdapter {
                         .ifPresent(session -> session.kind(HolonetTicketKind.FEATURE));
                 event.replyModal(featureModal()).queue();
             }
+            case BUTTON_ADD_WATCHER -> openWatcherSelector(event);
             default -> {
                 // Not one of ours; ignore.
             }
@@ -116,6 +120,50 @@ public class HolonetTicketModalDialogListenerAdapter extends ListenerAdapter {
                 // Not one of ours; ignore.
             }
         }
+    }
+
+    @Override
+    public void onEntitySelectInteraction(EntitySelectInteractionEvent event) {
+        if (!SELECT_WATCHER.equals(event.getComponentId())) {
+            return;
+        }
+
+        Member member = event.getMentions().getMembers().stream().findFirst().orElse(null);
+        if (member == null) {
+            event.reply("Die Person konnte nicht aufgelöst werden.").setEphemeral(true).queue();
+            return;
+        }
+        grantWatcher(event, member);
+    }
+
+    private void openWatcherSelector(ButtonInteractionEvent event) {
+        EntitySelectMenu menu = EntitySelectMenu.create(SELECT_WATCHER, EntitySelectMenu.SelectTarget.USER)
+                .setRequiredRange(1, 1)
+                .setPlaceholder("Person auswählen")
+                .build();
+        event.reply("Wähle eine Person aus, die den Kanal sehen und kommentieren darf.")
+                .addComponents(ActionRow.of(menu))
+                .setEphemeral(true)
+                .queue();
+    }
+
+    private void grantWatcher(EntitySelectInteractionEvent event, Member member) {
+        event.deferReply(true).queue();
+        event.getChannel()
+                .asTextChannel()
+                .upsertPermissionOverride(member)
+                .grant(
+                        Permission.VIEW_CHANNEL,
+                        Permission.MESSAGE_SEND,
+                        Permission.MESSAGE_HISTORY,
+                        Permission.MESSAGE_ATTACH_FILES)
+                .queue(
+                        success -> event.getHook()
+                                .sendMessage(member.getAsMention() + " wurde als Beobachter hinzugefügt.")
+                                .queue(),
+                        failure -> event.getHook()
+                                .sendMessage("Die Rechte konnten nicht vergeben werden.")
+                                .queue());
     }
 
     private void openSupportChannel(ButtonInteractionEvent event) {
@@ -162,9 +210,12 @@ public class HolonetTicketModalDialogListenerAdapter extends ListenerAdapter {
                             new HolonetSupportChannel(channel.getIdLong(), guildId, userId, number));
                     sessionStore.startOrReset(userId);
                     channel.sendMessage("Hast du ein Bug gefunden oder hast du eine neue Idee?")
-                            .addComponents(ActionRow.of(
-                                    Button.primary(BUTTON_KIND_BUG, "Bug"),
-                                    Button.success(BUTTON_KIND_FEATURE, "Idee")))
+                            .addComponents(
+                                    ActionRow.of(
+                                            Button.primary(BUTTON_KIND_BUG, "Bug"),
+                                            Button.success(BUTTON_KIND_FEATURE, "Idee")),
+                                    ActionRow.of(
+                                            Button.secondary(BUTTON_ADD_WATCHER, "Beobachter hinzufügen")))
                             .queue();
                     event.getHook()
                             .sendMessage("Support-Kanal erstellt: " + channel.getAsMention())

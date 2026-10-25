@@ -17,9 +17,12 @@ import de.medo.holonetbridge.commons.ticket.TicketProvider;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
+import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.entities.Mentions;
 import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.PermissionOverride;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.SelfMember;
 import net.dv8tion.jda.api.entities.User;
@@ -27,11 +30,13 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
+import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.modals.ModalMapping;
 import net.dv8tion.jda.api.modals.Modal;
 import net.dv8tion.jda.api.requests.restaction.ChannelAction;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
+import net.dv8tion.jda.api.requests.restaction.PermissionOverrideAction;
 import net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction;
 import net.dv8tion.jda.api.requests.restaction.interactions.ModalCallbackAction;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
@@ -283,6 +288,60 @@ class HolonetTicketModalDialogListenerAdapterTest {
 
         verify(event, never()).reply(anyString());
         verify(event, never()).deferReply(anyBoolean());
+    }
+
+    @Test
+    void watcherButtonOpensTheUserSelector() {
+        ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
+        when(event.getComponentId()).thenReturn("ticket:watcher:add");
+        ReplyCallbackAction replyAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
+        when(event.reply(anyString())).thenReturn(replyAction);
+
+        listener.onButtonInteraction(event);
+
+        verify(event).reply("Wähle eine Person aus, die den Kanal sehen und kommentieren darf.");
+        verify(replyAction).setEphemeral(true);
+        verify(replyAction).queue();
+    }
+
+    @Test
+    void watcherSelectionGrantsViewAndCommentPermissions() {
+        Member member = mock(Member.class);
+        when(member.getAsMention()).thenReturn("<@888>");
+
+        Mentions mentions = mock(Mentions.class);
+        when(mentions.getMembers()).thenReturn(List.of(member));
+
+        MessageChannelUnion union = mock(MessageChannelUnion.class);
+        TextChannel channel = mock(TextChannel.class);
+        when(union.asTextChannel()).thenReturn(channel);
+        PermissionOverrideAction overrideAction = mock(PermissionOverrideAction.class, Answers.RETURNS_SELF);
+        when(channel.upsertPermissionOverride(member)).thenReturn(overrideAction);
+
+        EntitySelectInteractionEvent event = mock(EntitySelectInteractionEvent.class);
+        when(event.getComponentId()).thenReturn("ticket:watcher:select");
+        when(event.getMentions()).thenReturn(mentions);
+        when(event.getChannel()).thenReturn(union);
+        when(event.deferReply(true)).thenReturn(mock(ReplyCallbackAction.class, Answers.RETURNS_SELF));
+        InteractionHook hook = mock(InteractionHook.class);
+        when(event.getHook()).thenReturn(hook);
+        when(hook.sendMessage(anyString())).thenReturn(newSendMessageAction());
+
+        listener.onEntitySelectInteraction(event);
+
+        verify(channel).upsertPermissionOverride(member);
+        verify(overrideAction).grant(
+                Permission.VIEW_CHANNEL,
+                Permission.MESSAGE_SEND,
+                Permission.MESSAGE_HISTORY,
+                Permission.MESSAGE_ATTACH_FILES);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Consumer<PermissionOverride>> successCaptor = ArgumentCaptor.forClass(Consumer.class);
+        verify(overrideAction).queue(successCaptor.capture(), any());
+        successCaptor.getValue().accept(null);
+
+        verify(hook).sendMessage("<@888> wurde als Beobachter hinzugefügt.");
     }
 
     /** Stubs the modal event's channel (union + text channel) and returns the {@link TextChannel}. */
