@@ -11,6 +11,9 @@ target/
 # Logs
 *.log
 
+# Local H2 database file (dev profile)
+data/
+
 .ci/deployment/*.jar
 
 # IntelliJ IDEA
