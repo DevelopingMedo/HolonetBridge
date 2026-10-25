@@ -55,7 +55,7 @@ class HolonetBridgeListenerAdapterTest {
     @Test
     void slashCommandStartsASessionAndOffersTheThreeChoices() {
         SlashCommandInteractionEvent event = mock(SlashCommandInteractionEvent.class);
-        when(event.getName()).thenReturn(HolonetBridgeListenerAdapter.COMMAND_NAME);
+        when(event.getName()).thenReturn(DiscordGatewayConfiguration.COMMAND_TICKET);
         when(event.getUser()).thenReturn(user);
         ReplyCallbackAction replyAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
         when(event.reply(anyString())).thenReturn(replyAction);

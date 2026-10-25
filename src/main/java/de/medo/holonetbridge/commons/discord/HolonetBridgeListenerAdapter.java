@@ -36,7 +36,6 @@ import org.springframework.stereotype.Component;
 @Component
 class HolonetBridgeListenerAdapter extends ListenerAdapter {
 
-    static final String COMMAND_NAME = "ticket";
     static final String BUTTON_OPEN = "ticket:open";
 
     private static final String BUTTON_START_CREATE = "ticket:start:create";
@@ -78,7 +77,7 @@ class HolonetBridgeListenerAdapter extends ListenerAdapter {
 
     @Override
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
-        if (!COMMAND_NAME.equals(event.getName())) {
+        if (!DiscordGatewayConfiguration.COMMAND_TICKET.equals(event.getName())) {
             return;
         }
 

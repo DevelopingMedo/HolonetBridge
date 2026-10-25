@@ -26,6 +26,18 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 class DiscordGatewayConfiguration {
 
+    /** Name of the {@code /ticket} command, handled by {@link HolonetBridgeListenerAdapter}. */
+    public static final String COMMAND_TICKET = "ticket";
+
+    /**
+     * Name of the {@code /configure-holonet-bridge} command, handled by {@link
+     * TicketChannelConfigurationListenerAdapter}.
+     */
+    public static final String COMMAND_CONFIGURE_HOLONET_BRIDGE = "configure-holonet-bridge";
+
+    /** Name of {@link #COMMAND_CONFIGURE_HOLONET_BRIDGE}'s single {@code CHANNEL} option. */
+    public static final String OPTION_CHANNEL = "channel";
+
     @Bean(destroyMethod = "shutdown")
     JDA jda(
             DiscordProperties discordProperties,
@@ -37,14 +49,13 @@ class DiscordGatewayConfiguration {
 
         jda.updateCommands()
                 .addCommands(
+                        Commands.slash(COMMAND_TICKET, "Ein Ticket anlegen oder ändern"),
                         Commands.slash(
-                                HolonetBridgeListenerAdapter.COMMAND_NAME, "Ein Ticket anlegen oder ändern"),
-                        Commands.slash(
-                                        TicketChannelConfigurationListenerAdapter.COMMAND_NAME,
+                                        COMMAND_CONFIGURE_HOLONET_BRIDGE,
                                         "Richtet die Support-Ticket-Nachricht in einem Kanal ein")
                                 .addOptions(new OptionData(
                                                 OptionType.CHANNEL,
-                                                TicketChannelConfigurationListenerAdapter.OPTION_CHANNEL,
+                                                OPTION_CHANNEL,
                                                 "Kanal für die Support-Nachricht",
                                                 true)
                                         .setChannelTypes(ChannelType.TEXT))

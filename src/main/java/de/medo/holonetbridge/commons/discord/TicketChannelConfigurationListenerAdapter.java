@@ -19,9 +19,6 @@ import org.springframework.stereotype.Component;
 @Component
 class TicketChannelConfigurationListenerAdapter extends ListenerAdapter {
 
-    static final String COMMAND_NAME = "configure-holonet-bridge";
-    static final String OPTION_CHANNEL = "channel";
-
     private final GuildTicketChannelConfigurationRepository repository;
 
     TicketChannelConfigurationListenerAdapter(GuildTicketChannelConfigurationRepository repository) {
@@ -30,13 +27,14 @@ class TicketChannelConfigurationListenerAdapter extends ListenerAdapter {
 
     @Override
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
-        if (!COMMAND_NAME.equals(event.getName())) {
+        if (!DiscordGatewayConfiguration.COMMAND_CONFIGURE_HOLONET_BRIDGE.equals(event.getName())) {
             return;
         }
 
         long guildId = event.getGuild().getIdLong();
-        TextChannel channel =
-                event.getOption(OPTION_CHANNEL).getAsChannel().asTextChannel();
+        TextChannel channel = event.getOption(DiscordGatewayConfiguration.OPTION_CHANNEL)
+                .getAsChannel()
+                .asTextChannel();
 
         event.deferReply(true).queue();
 
