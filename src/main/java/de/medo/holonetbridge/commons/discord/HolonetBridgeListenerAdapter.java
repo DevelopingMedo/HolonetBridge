@@ -11,6 +11,7 @@ import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback;
 import net.dv8tion.jda.api.modals.Modal;
 import org.springframework.stereotype.Component;
 
@@ -21,6 +22,9 @@ import org.springframework.stereotype.Component;
  * <p>Custom ids are used as a step identifier scheme:
  *
  * <ul>
+ *   <li>{@code ticket:open} - the persistent "Support anfragen" button that {@code
+ *       TicketChannelConfigurationListenerAdapter} posts via {@code /configure-holonet-bridge}; triggers the
+ *       same chooser as {@code /ticket} itself
  *   <li>{@code ticket:start:create|change|cancel} - the three choices offered right after {@code /ticket}
  *   <li>{@code ticket:modal:title} - the modal asking for the ticket title
  *   <li>{@code ticket:type:bug|feature} - the choice between a bug report and a feature request
@@ -33,6 +37,7 @@ import org.springframework.stereotype.Component;
 class HolonetBridgeListenerAdapter extends ListenerAdapter {
 
     static final String COMMAND_NAME = "ticket";
+    static final String BUTTON_OPEN = "ticket:open";
 
     private static final String BUTTON_START_CREATE = "ticket:start:create";
     private static final String BUTTON_START_CHANGE = "ticket:start:change";
@@ -77,20 +82,13 @@ class HolonetBridgeListenerAdapter extends ListenerAdapter {
             return;
         }
 
-        sessionStore.startOrReset(event.getUser().getIdLong());
-
-        event.reply("Möchtest du ein Ticket anlegen?")
-                .addComponents(ActionRow.of(
-                        Button.primary(BUTTON_START_CREATE, "Anlegen"),
-                        Button.secondary(BUTTON_START_CHANGE, "Ändern"),
-                        Button.danger(BUTTON_START_CANCEL, "Abbruch")))
-                .setEphemeral(true)
-                .queue();
+        openTicketChooser(event, event.getUser().getIdLong());
     }
 
     @Override
     public void onButtonInteraction(ButtonInteractionEvent event) {
         switch (event.getComponentId()) {
+            case BUTTON_OPEN -> openTicketChooser(event, event.getUser().getIdLong());
             case BUTTON_START_CREATE -> event.replyModal(titleModal()).queue();
             case BUTTON_START_CHANGE ->
                 event.reply("Das Ändern bestehender Tickets ist noch nicht implementiert.")
@@ -160,6 +158,19 @@ class HolonetBridgeListenerAdapter extends ListenerAdapter {
                 () -> event.reply("Die Sitzung ist abgelaufen, bitte starte mit /ticket neu.")
                         .setEphemeral(true)
                         .queue());
+    }
+
+    private void openTicketChooser(IReplyCallback interaction, long userId) {
+        sessionStore.startOrReset(userId);
+
+        interaction
+                .reply("Möchtest du ein Ticket anlegen?")
+                .addComponents(ActionRow.of(
+                        Button.primary(BUTTON_START_CREATE, "Anlegen"),
+                        Button.secondary(BUTTON_START_CHANGE, "Ändern"),
+                        Button.danger(BUTTON_START_CANCEL, "Abbruch")))
+                .setEphemeral(true)
+                .queue();
     }
 
     private static String titleWithKindPrefix(TicketCreationSession session) {
