@@ -26,24 +26,24 @@ import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
 
 /**
- * Drives {@link HolonetStartConfigurationListenerAdapter} using Mockito mocks of the JDA event/entity types,
+ * Drives {@link HolonetSetupListenerAdapter} using Mockito mocks of the JDA event/entity types,
  * the same way {@code HolonetTicketModalDialogListenerAdapterTest} does, without any real gateway connection
  * or database.
  */
-class HolonetStartConfigurationListenerAdapterTest {
+class HolonetSetupListenerAdapterTest {
 
     private static final long GUILD_ID = 999L;
     private static final long CHANNEL_ID = 111L;
     private static final long MESSAGE_ID = 222L;
 
     private final HolonetDiscordServerRepository repository = mock(HolonetDiscordServerRepository.class);
-    private final HolonetStartConfigurationListenerAdapter listener =
-            new HolonetStartConfigurationListenerAdapter(repository);
+    private final HolonetSetupListenerAdapter listener =
+            new HolonetSetupListenerAdapter(repository);
 
     @Test
     void slashCommandIgnoresOtherCommandNames() {
         SlashCommandInteractionEvent event = mock(SlashCommandInteractionEvent.class);
-        when(event.getName()).thenReturn("not-start-holonet-configuration");
+        when(event.getName()).thenReturn("not-setup");
 
         listener.onSlashCommandInteraction(event);
 
@@ -54,7 +54,7 @@ class HolonetStartConfigurationListenerAdapterTest {
     @Test
     void slashCommandPostsTheSupportButtonIntoTheChosenChannelAndPersistsTheConfiguration() {
         SlashCommandInteractionEvent event = mock(SlashCommandInteractionEvent.class);
-        when(event.getName()).thenReturn(DiscordGatewayConfiguration.COMMAND_START_HOLONET_CONFIGURATION);
+        when(event.getName()).thenReturn(DiscordGatewayConfiguration.COMMAND_SETUP);
 
         Guild guild = mock(Guild.class);
         when(guild.getIdLong()).thenReturn(GUILD_ID);

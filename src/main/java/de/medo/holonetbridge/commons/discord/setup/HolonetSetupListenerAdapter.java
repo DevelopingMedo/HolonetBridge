@@ -10,7 +10,7 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.springframework.stereotype.Component;
 
 /**
- * Handles the admin-only {@code /start-holonet-configuration} command, which posts the persistent "Support
+ * Handles the admin-only {@code /setup} command, which posts the persistent "Support
  * anfragen" message that end users click to start a support request. The
  * chosen channel and message id are remembered per guild in {@link HolonetDiscordServerRepository} so the
  * message survives an application restart.
@@ -19,17 +19,17 @@ import org.springframework.stereotype.Component;
  * one; cleaning up a stale message after reconfiguring is left to the admin for now.
  */
 @Component
-public class HolonetStartConfigurationListenerAdapter extends ListenerAdapter {
+public class HolonetSetupListenerAdapter extends ListenerAdapter {
 
     private final HolonetDiscordServerRepository repository;
 
-    HolonetStartConfigurationListenerAdapter(HolonetDiscordServerRepository repository) {
+    HolonetSetupListenerAdapter(HolonetDiscordServerRepository repository) {
         this.repository = repository;
     }
 
     @Override
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
-        if (!DiscordGatewayConfiguration.COMMAND_START_HOLONET_CONFIGURATION.equals(event.getName())) {
+        if (!DiscordGatewayConfiguration.COMMAND_SETUP.equals(event.getName())) {
             return;
         }
 

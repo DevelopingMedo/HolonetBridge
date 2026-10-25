@@ -2,7 +2,7 @@ package de.medo.holonetbridge.commons.discord;
 
 import java.util.Collections;
 
-import de.medo.holonetbridge.commons.discord.setup.HolonetStartConfigurationListenerAdapter;
+import de.medo.holonetbridge.commons.discord.setup.HolonetSetupListenerAdapter;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketModalDialogListenerAdapter;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
@@ -19,7 +19,7 @@ import org.springframework.context.annotation.Configuration;
 /**
  * Builds and starts the JDA gateway connection, wires up the bridge's {@link
  * net.dv8tion.jda.api.hooks.ListenerAdapter}s, and registers the {@code
- * /start-holonet-configuration} slash command.
+ * /setup} slash command.
  *
  * <p>The bot does not need to see or cache guild/member state for either flow - everything happens through
  * slash-command and component interactions - so {@link JDABuilder#createLight(String, java.util.Collection)} is
@@ -29,19 +29,19 @@ import org.springframework.context.annotation.Configuration;
 public class DiscordGatewayConfiguration {
 
     /**
-     * Name of the {@code /start-holonet-configuration} command, handled by {@link
-     * HolonetStartConfigurationListenerAdapter}.
+     * Name of the {@code /setup} command, handled by {@link
+     * HolonetSetupListenerAdapter}.
      */
-    public static final String COMMAND_START_HOLONET_CONFIGURATION = "start-holonet-configuration";
+    public static final String COMMAND_SETUP = "setup";
 
-    /** Name of {@link #COMMAND_START_HOLONET_CONFIGURATION}'s single {@code CHANNEL} option. */
+    /** Name of {@link #COMMAND_SETUP}'s single {@code CHANNEL} option. */
     public static final String OPTION_CHANNEL = "channel";
 
     @Bean(destroyMethod = "shutdown")
     JDA jda(
             DiscordProperties discordProperties,
             HolonetTicketModalDialogListenerAdapter listenerAdapter,
-            HolonetStartConfigurationListenerAdapter configurationListenerAdapter) {
+            HolonetSetupListenerAdapter configurationListenerAdapter) {
         JDA jda = JDABuilder.createLight(discordProperties.token(), Collections.emptyList())
                 .addEventListeners(listenerAdapter, configurationListenerAdapter)
                 .build();
@@ -49,7 +49,7 @@ public class DiscordGatewayConfiguration {
         jda.updateCommands()
                 .addCommands(
                         Commands.slash(
-                                        COMMAND_START_HOLONET_CONFIGURATION,
+                                        COMMAND_SETUP,
                                         "Richtet die Support-Ticket-Nachricht in einem Kanal ein")
                                 .addOptions(new OptionData(
                                                 OptionType.CHANNEL,

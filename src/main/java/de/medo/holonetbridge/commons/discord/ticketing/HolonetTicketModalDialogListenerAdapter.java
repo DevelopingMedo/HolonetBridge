@@ -38,7 +38,7 @@ import org.springframework.stereotype.Component;
  *
  * <ul>
  *   <li>{@code ticket:open} - the persistent "Support anfragen" button that {@code
- *       HolonetStartConfigurationListenerAdapter} posts via {@code /start-holonet-configuration}; creates the
+ *       HolonetSetupListenerAdapter} posts via {@code /setup}; creates the
  *       support channel and posts the kind chooser
  *   <li>{@code ticket:kind:bug|feature} - the bug/idea choice in the support channel
  *   <li>{@code ticket:modal:bug-report} - the bug report modal (title and four report fields)
