@@ -1,4 +1,4 @@
-package de.medo.holonetbridge.commons.discord;
+package de.medo.holonetbridge.commons.discord.setup;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import de.medo.holonetbridge.commons.discord.DiscordGatewayConfiguration;
 import java.util.function.Consumer;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Message;
@@ -25,24 +26,24 @@ import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
 
 /**
- * Drives {@link TicketChannelConfigurationListenerAdapter} using Mockito mocks of the JDA event/entity types,
- * the same way {@link HolonetBridgeListenerAdapterTest} does, without any real gateway connection or database.
+ * Drives {@link HolonetStartConfigurationListenerAdapter} using Mockito mocks of the JDA event/entity types,
+ * the same way {@code HolonetTicketModalDialogListenerAdapterTest} does, without any real gateway connection
+ * or database.
  */
-class TicketChannelConfigurationListenerAdapterTest {
+class HolonetStartConfigurationListenerAdapterTest {
 
     private static final long GUILD_ID = 999L;
     private static final long CHANNEL_ID = 111L;
     private static final long MESSAGE_ID = 222L;
 
-    private final GuildTicketChannelConfigurationRepository repository =
-            mock(GuildTicketChannelConfigurationRepository.class);
-    private final TicketChannelConfigurationListenerAdapter listener =
-            new TicketChannelConfigurationListenerAdapter(repository);
+    private final HolonetDiscordServerRepository repository = mock(HolonetDiscordServerRepository.class);
+    private final HolonetStartConfigurationListenerAdapter listener =
+            new HolonetStartConfigurationListenerAdapter(repository);
 
     @Test
     void slashCommandIgnoresOtherCommandNames() {
         SlashCommandInteractionEvent event = mock(SlashCommandInteractionEvent.class);
-        when(event.getName()).thenReturn("not-configure-holonet-bridge");
+        when(event.getName()).thenReturn("not-start-holonet-configuration");
 
         listener.onSlashCommandInteraction(event);
 
@@ -53,7 +54,7 @@ class TicketChannelConfigurationListenerAdapterTest {
     @Test
     void slashCommandPostsTheSupportButtonIntoTheChosenChannelAndPersistsTheConfiguration() {
         SlashCommandInteractionEvent event = mock(SlashCommandInteractionEvent.class);
-        when(event.getName()).thenReturn(DiscordGatewayConfiguration.COMMAND_CONFIGURE_HOLONET_BRIDGE);
+        when(event.getName()).thenReturn(DiscordGatewayConfiguration.COMMAND_START_HOLONET_CONFIGURATION);
 
         Guild guild = mock(Guild.class);
         when(guild.getIdLong()).thenReturn(GUILD_ID);
@@ -92,8 +93,8 @@ class TicketChannelConfigurationListenerAdapterTest {
         when(message.getIdLong()).thenReturn(MESSAGE_ID);
         successCaptor.getValue().accept(message);
 
-        ArgumentCaptor<GuildTicketChannelConfiguration> configurationCaptor =
-                ArgumentCaptor.forClass(GuildTicketChannelConfiguration.class);
+        ArgumentCaptor<HolonetDiscordServer> configurationCaptor =
+                ArgumentCaptor.forClass(HolonetDiscordServer.class);
         verify(repository).save(configurationCaptor.capture());
         assertThat(configurationCaptor.getValue().guildId()).isEqualTo(GUILD_ID);
         assertThat(configurationCaptor.getValue().channelId()).isEqualTo(CHANNEL_ID);

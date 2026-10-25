@@ -1,4 +1,4 @@
-package de.medo.holonetbridge.commons.discord;
+package de.medo.holonetbridge.commons.discord.setup;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -12,14 +12,14 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
  * primary key, so re-saving a configuration for the same guild overwrites rather than duplicates it.
  */
 @DataJpaTest
-class GuildTicketChannelConfigurationRepositoryTest {
+class HolonetDiscordServerRepositoryTest {
 
     @Autowired
-    private GuildTicketChannelConfigurationRepository repository;
+    private HolonetDiscordServerRepository repository;
 
     @Test
     void savedConfigurationCanBeLoadedBackByGuildId() {
-        repository.save(new GuildTicketChannelConfiguration(1L, 2L, 3L));
+        repository.save(new HolonetDiscordServer(1L, 2L, 3L));
 
         assertThat(repository.findById(1L)).hasValueSatisfying(configuration -> {
             assertThat(configuration.guildId()).isEqualTo(1L);
@@ -30,8 +30,8 @@ class GuildTicketChannelConfigurationRepositoryTest {
 
     @Test
     void reconfiguringTheSameGuildOverwritesThePreviousChannelAndMessageInstead() {
-        repository.save(new GuildTicketChannelConfiguration(1L, 2L, 3L));
-        repository.save(new GuildTicketChannelConfiguration(1L, 20L, 30L));
+        repository.save(new HolonetDiscordServer(1L, 2L, 3L));
+        repository.save(new HolonetDiscordServer(1L, 20L, 30L));
 
         assertThat(repository.findAll()).hasSize(1);
         assertThat(repository.findById(1L)).hasValueSatisfying(configuration -> {
