@@ -1,4 +1,4 @@
-package de.medo.holonetbridge.commons.discord;
+package de.medo.holonetbridge.commons.discord.ticketing;
 
 /**
  * State of one Discord user's in-progress {@code /ticket} conversation, mutated in place as the user moves
@@ -6,10 +6,10 @@ package de.medo.holonetbridge.commons.discord;
  * {@code null} until that step has been completed. Once the ticket is created at the provider, the session is
  * discarded.
  */
-final class TicketCreationSession {
+final class HolonetTicketCreationSession {
 
     private String title;
-    private TicketKind kind;
+    private HolonetTicketKind kind;
 
     String title() {
         return title;
@@ -19,11 +19,11 @@ final class TicketCreationSession {
         this.title = title;
     }
 
-    TicketKind kind() {
+    HolonetTicketKind kind() {
         return kind;
     }
 
-    void kind(TicketKind kind) {
+    void kind(HolonetTicketKind kind) {
         this.kind = kind;
     }
 }

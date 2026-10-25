@@ -1,4 +1,4 @@
-package de.medo.holonetbridge.commons.discord;
+package de.medo.holonetbridge.commons.discord.ticketing;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import de.medo.holonetbridge.commons.discord.DiscordGatewayConfiguration;
 import de.medo.holonetbridge.commons.ticket.TicketDto;
 import de.medo.holonetbridge.commons.ticket.TicketProvider;
 import net.dv8tion.jda.api.entities.Message;
@@ -28,22 +29,22 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Answers;
 
 /**
- * Drives {@link HolonetBridgeListenerAdapter} through its button/modal interactions using Mockito mocks of the JDA
- * event types directly, without any real gateway connection.
+ * Drives {@link HolonetTicketModalDialogListenerAdapter} through its button/modal interactions using Mockito
+ * mocks of the JDA event types directly, without any real gateway connection.
  *
  * <p>Fluent JDA actions ({@link ReplyCallbackAction}, {@link ModalCallbackAction}, {@link
  * WebhookMessageCreateAction}) are interfaces whose chained setter methods are themselves mocked unless stubbed,
  * so they are mocked with {@link Answers#RETURNS_SELF} to make the {@code .setEphemeral(true).queue()} style
  * chains used in production code work without stubbing every single step.
  */
-class HolonetBridgeListenerAdapterTest {
+class HolonetTicketModalDialogListenerAdapterTest {
 
     private static final long USER_ID = 123456789L;
 
-    private final TicketCreationSessionStore sessionStore = new TicketCreationSessionStore();
+    private final HolonetTicketCreationSessionStore sessionStore = new HolonetTicketCreationSessionStore();
     private final TicketProvider ticketProvider = mock(TicketProvider.class);
-    private final HolonetBridgeListenerAdapter listener =
-            new HolonetBridgeListenerAdapter(sessionStore, ticketProvider);
+    private final HolonetTicketModalDialogListenerAdapter listener =
+            new HolonetTicketModalDialogListenerAdapter(sessionStore, ticketProvider);
 
     private final User user = mock(User.class);
 
@@ -71,7 +72,7 @@ class HolonetBridgeListenerAdapterTest {
     @Test
     void persistentSupportButtonOpensTheSameChooserAsTheSlashCommand() {
         ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
-        when(event.getComponentId()).thenReturn(HolonetBridgeListenerAdapter.BUTTON_OPEN);
+        when(event.getComponentId()).thenReturn(HolonetTicketModalDialogListenerAdapter.BUTTON_OPEN);
         when(event.getUser()).thenReturn(user);
         ReplyCallbackAction replyAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
         when(event.reply(anyString())).thenReturn(replyAction);
@@ -189,15 +190,15 @@ class HolonetBridgeListenerAdapterTest {
         listener.onButtonInteraction(event);
 
         assertThat(sessionStore.get(USER_ID)).hasValueSatisfying(
-                session -> assertThat(session.kind()).isEqualTo(TicketKind.BUG));
+                session -> assertThat(session.kind()).isEqualTo(HolonetTicketKind.BUG));
         assertThat(modalCaptor.getValue().getId()).isEqualTo("ticket:modal:description");
     }
 
     @Test
     void descriptionModalSubmissionForABugCreatesATicketWithTheBugPrefixAndConfirms() {
-        TicketCreationSession session = sessionStore.startOrReset(USER_ID);
+        HolonetTicketCreationSession session = sessionStore.startOrReset(USER_ID);
         session.title("Login fails");
-        session.kind(TicketKind.BUG);
+        session.kind(HolonetTicketKind.BUG);
 
         ModalInteractionEvent event = mock(ModalInteractionEvent.class);
         when(event.getModalId()).thenReturn("ticket:modal:description");
@@ -225,9 +226,9 @@ class HolonetBridgeListenerAdapterTest {
 
     @Test
     void descriptionModalSubmissionForAFeatureCreatesATicketWithTheFeaturePrefix() {
-        TicketCreationSession session = sessionStore.startOrReset(USER_ID);
+        HolonetTicketCreationSession session = sessionStore.startOrReset(USER_ID);
         session.title("Dark mode");
-        session.kind(TicketKind.FEATURE);
+        session.kind(HolonetTicketKind.FEATURE);
 
         ModalInteractionEvent event = mock(ModalInteractionEvent.class);
         when(event.getModalId()).thenReturn("ticket:modal:description");

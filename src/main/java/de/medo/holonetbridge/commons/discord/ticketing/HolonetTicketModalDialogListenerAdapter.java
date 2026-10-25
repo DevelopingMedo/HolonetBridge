@@ -1,5 +1,6 @@
-package de.medo.holonetbridge.commons.discord;
+package de.medo.holonetbridge.commons.discord.ticketing;
 
+import de.medo.holonetbridge.commons.discord.DiscordGatewayConfiguration;
 import de.medo.holonetbridge.commons.ticket.TicketDto;
 import de.medo.holonetbridge.commons.ticket.TicketProvider;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
@@ -29,14 +30,14 @@ import org.springframework.stereotype.Component;
  *   <li>{@code ticket:modal:title} - the modal asking for the ticket title
  *   <li>{@code ticket:type:bug|feature} - the choice between a bug report and a feature request
  *   <li>{@code ticket:modal:description} - the modal collecting the bug/feature description, reused for both
- *       kinds; which template/placeholder it shows depends on the {@link TicketCreationSession#kind()} chosen
- *       beforehand
+ *       kinds; which template/placeholder it shows depends on the {@link HolonetTicketCreationSession#kind()}
+ *       chosen beforehand
  * </ul>
  */
 @Component
-class HolonetBridgeListenerAdapter extends ListenerAdapter {
+public class HolonetTicketModalDialogListenerAdapter extends ListenerAdapter {
 
-    static final String BUTTON_OPEN = "ticket:open";
+    public static final String BUTTON_OPEN = "ticket:open";
 
     private static final String BUTTON_START_CREATE = "ticket:start:create";
     private static final String BUTTON_START_CHANGE = "ticket:start:change";
@@ -67,10 +68,11 @@ class HolonetBridgeListenerAdapter extends ListenerAdapter {
     private static final String FEATURE_PLACEHOLDER =
             "Was soll am Ende möglich sein? Bitte so konkret wie möglich beschreiben.";
 
-    private final TicketCreationSessionStore sessionStore;
+    private final HolonetTicketCreationSessionStore sessionStore;
     private final TicketProvider ticketProvider;
 
-    HolonetBridgeListenerAdapter(TicketCreationSessionStore sessionStore, TicketProvider ticketProvider) {
+    HolonetTicketModalDialogListenerAdapter(
+            HolonetTicketCreationSessionStore sessionStore, TicketProvider ticketProvider) {
         this.sessionStore = sessionStore;
         this.ticketProvider = ticketProvider;
     }
@@ -98,12 +100,16 @@ class HolonetBridgeListenerAdapter extends ListenerAdapter {
                 event.reply("Abgebrochen.").setEphemeral(true).queue();
             }
             case BUTTON_TYPE_BUG -> {
-                sessionStore.get(event.getUser().getIdLong()).ifPresent(session -> session.kind(TicketKind.BUG));
-                event.replyModal(descriptionModal(TicketKind.BUG)).queue();
+                sessionStore
+                        .get(event.getUser().getIdLong())
+                        .ifPresent(session -> session.kind(HolonetTicketKind.BUG));
+                event.replyModal(descriptionModal(HolonetTicketKind.BUG)).queue();
             }
             case BUTTON_TYPE_FEATURE -> {
-                sessionStore.get(event.getUser().getIdLong()).ifPresent(session -> session.kind(TicketKind.FEATURE));
-                event.replyModal(descriptionModal(TicketKind.FEATURE)).queue();
+                sessionStore
+                        .get(event.getUser().getIdLong())
+                        .ifPresent(session -> session.kind(HolonetTicketKind.FEATURE));
+                event.replyModal(descriptionModal(HolonetTicketKind.FEATURE)).queue();
             }
             default -> {
                 // Not one of ours; ignore.
@@ -172,8 +178,8 @@ class HolonetBridgeListenerAdapter extends ListenerAdapter {
                 .queue();
     }
 
-    private static String titleWithKindPrefix(TicketCreationSession session) {
-        String prefix = session.kind() == TicketKind.BUG ? "[Bug] " : "[Feature] ";
+    private static String titleWithKindPrefix(HolonetTicketCreationSession session) {
+        String prefix = session.kind() == HolonetTicketKind.BUG ? "[Bug] " : "[Feature] ";
         return prefix + session.title();
     }
 
@@ -186,10 +192,10 @@ class HolonetBridgeListenerAdapter extends ListenerAdapter {
                 .build();
     }
 
-    private static Modal descriptionModal(TicketKind kind) {
+    private static Modal descriptionModal(HolonetTicketKind kind) {
         TextInput.Builder descriptionBuilder = TextInput.create(INPUT_DESCRIPTION, TextInputStyle.PARAGRAPH);
         String label;
-        if (kind == TicketKind.BUG) {
+        if (kind == HolonetTicketKind.BUG) {
             descriptionBuilder.setValue(BUG_REPORT_TEMPLATE);
             label = "Schritte zum Reproduzieren";
         } else {

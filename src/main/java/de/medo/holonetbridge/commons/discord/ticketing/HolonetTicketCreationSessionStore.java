@@ -1,4 +1,4 @@
-package de.medo.holonetbridge.commons.discord;
+package de.medo.holonetbridge.commons.discord.ticketing;
 
 import java.util.Map;
 import java.util.Optional;
@@ -7,24 +7,24 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Component;
 
 /**
- * Holds the in-progress {@link TicketCreationSession} for each Discord user currently going through the
+ * Holds the in-progress {@link HolonetTicketCreationSession} for each Discord user currently going through the
  * ticket-creation flow, keyed by Discord user id.
  *
  * <p>In-memory only: sessions are short-lived (a single guided conversation) and are not meant to survive an
  * application restart.
  */
 @Component
-class TicketCreationSessionStore {
+class HolonetTicketCreationSessionStore {
 
-    private final Map<Long, TicketCreationSession> sessions = new ConcurrentHashMap<>();
+    private final Map<Long, HolonetTicketCreationSession> sessions = new ConcurrentHashMap<>();
 
-    TicketCreationSession startOrReset(long userId) {
-        TicketCreationSession session = new TicketCreationSession();
+    HolonetTicketCreationSession startOrReset(long userId) {
+        HolonetTicketCreationSession session = new HolonetTicketCreationSession();
         sessions.put(userId, session);
         return session;
     }
 
-    Optional<TicketCreationSession> get(long userId) {
+    Optional<HolonetTicketCreationSession> get(long userId) {
         return Optional.ofNullable(sessions.get(userId));
     }
 

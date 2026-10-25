@@ -2,6 +2,7 @@ package de.medo.holonetbridge.commons.discord;
 
 import java.util.Collections;
 
+import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketModalDialogListenerAdapter;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.Permission;
@@ -24,9 +25,9 @@ import org.springframework.context.annotation.Configuration;
  * used with zero gateway intents.
  */
 @Configuration
-class DiscordGatewayConfiguration {
+public class DiscordGatewayConfiguration {
 
-    /** Name of the {@code /ticket} command, handled by {@link HolonetBridgeListenerAdapter}. */
+    /** Name of the {@code /ticket} command, handled by {@link HolonetTicketModalDialogListenerAdapter}. */
     public static final String COMMAND_TICKET = "ticket";
 
     /**
@@ -41,7 +42,7 @@ class DiscordGatewayConfiguration {
     @Bean(destroyMethod = "shutdown")
     JDA jda(
             DiscordProperties discordProperties,
-            HolonetBridgeListenerAdapter listenerAdapter,
+            HolonetTicketModalDialogListenerAdapter listenerAdapter,
             TicketChannelConfigurationListenerAdapter configurationListenerAdapter) {
         JDA jda = JDABuilder.createLight(discordProperties.token(), Collections.emptyList())
                 .addEventListeners(listenerAdapter, configurationListenerAdapter)
