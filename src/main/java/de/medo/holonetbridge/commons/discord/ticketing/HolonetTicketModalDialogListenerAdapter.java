@@ -1,6 +1,5 @@
 package de.medo.holonetbridge.commons.discord.ticketing;
 
-import de.medo.holonetbridge.commons.discord.DiscordGatewayConfiguration;
 import de.medo.holonetbridge.commons.ticket.TicketDto;
 import de.medo.holonetbridge.commons.ticket.TicketProvider;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
@@ -10,7 +9,6 @@ import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.components.textinput.TextInput;
 import net.dv8tion.jda.api.components.textinput.TextInputStyle;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
-import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback;
@@ -19,7 +17,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * The bridge's single JDA {@link ListenerAdapter}, registered once with the gateway, handling every Discord
- * interaction (slash command, button, modal) for the {@code /ticket} flow.
+ * interaction (button, modal) for the ticket flow.
  *
  * <p>The flow first asks whether the user found a bug or has an idea, then collects the ticket in one modal.
  * An idea collects a free-form title and description; a bug collects a title plus a four-field report (steps,
@@ -34,8 +32,8 @@ import org.springframework.stereotype.Component;
  * <ul>
  *   <li>{@code ticket:open} - the persistent "Support anfragen" button that {@code
  *       HolonetStartConfigurationListenerAdapter} posts via {@code /start-holonet-configuration}; triggers the
- *       same kind chooser as {@code /ticket} itself
- *   <li>{@code ticket:kind:bug|feature} - the bug/idea choice right after {@code /ticket}
+ *       kind chooser
+ *   <li>{@code ticket:kind:bug|feature} - the bug/idea choice right after the "Support anfragen" button
  *   <li>{@code ticket:modal:bug-report} - the bug report modal (title and four report fields)
  *   <li>{@code ticket:modal:feature} - the idea modal collecting title and description
  * </ul>
@@ -75,15 +73,6 @@ public class HolonetTicketModalDialogListenerAdapter extends ListenerAdapter {
             HolonetTicketCreationSessionStore sessionStore, TicketProvider ticketProvider) {
         this.sessionStore = sessionStore;
         this.ticketProvider = ticketProvider;
-    }
-
-    @Override
-    public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
-        if (!DiscordGatewayConfiguration.COMMAND_TICKET.equals(event.getName())) {
-            return;
-        }
-
-        openKindChooser(event, event.getUser().getIdLong());
     }
 
     @Override
@@ -167,7 +156,7 @@ public class HolonetTicketModalDialogListenerAdapter extends ListenerAdapter {
     }
 
     private static void replySessionExpired(ModalInteractionEvent event) {
-        event.reply("Die Sitzung ist abgelaufen, bitte starte mit /ticket neu.")
+        event.reply("Die Sitzung ist abgelaufen, bitte klick erneut auf „Support anfragen“.")
                 .setEphemeral(true)
                 .queue();
     }

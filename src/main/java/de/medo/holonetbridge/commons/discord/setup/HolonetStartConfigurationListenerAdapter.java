@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Handles the admin-only {@code /start-holonet-configuration} command, which posts the persistent "Support
- * anfragen" message that end users click to start the {@code /ticket} flow without typing a slash command. The
+ * anfragen" message that end users click to start a support request. The
  * chosen channel and message id are remembered per guild in {@link HolonetDiscordServerRepository} so the
  * message survives an application restart.
  *

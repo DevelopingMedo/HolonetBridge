@@ -18,8 +18,8 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * Builds and starts the JDA gateway connection, wires up the bridge's {@link
- * net.dv8tion.jda.api.hooks.ListenerAdapter}s, and registers the {@code /ticket} and {@code
- * /start-holonet-configuration} slash commands.
+ * net.dv8tion.jda.api.hooks.ListenerAdapter}s, and registers the {@code
+ * /start-holonet-configuration} slash command.
  *
  * <p>The bot does not need to see or cache guild/member state for either flow - everything happens through
  * slash-command and component interactions - so {@link JDABuilder#createLight(String, java.util.Collection)} is
@@ -27,9 +27,6 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 public class DiscordGatewayConfiguration {
-
-    /** Name of the {@code /ticket} command, handled by {@link HolonetTicketModalDialogListenerAdapter}. */
-    public static final String COMMAND_TICKET = "ticket";
 
     /**
      * Name of the {@code /start-holonet-configuration} command, handled by {@link
@@ -51,7 +48,6 @@ public class DiscordGatewayConfiguration {
 
         jda.updateCommands()
                 .addCommands(
-                        Commands.slash(COMMAND_TICKET, "Ein Ticket anlegen"),
                         Commands.slash(
                                         COMMAND_START_HOLONET_CONFIGURATION,
                                         "Richtet die Support-Ticket-Nachricht in einem Kanal ein")

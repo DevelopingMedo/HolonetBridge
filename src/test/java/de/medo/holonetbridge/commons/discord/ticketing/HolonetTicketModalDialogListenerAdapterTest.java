@@ -9,14 +9,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import de.medo.holonetbridge.commons.discord.DiscordGatewayConfiguration;
 import de.medo.holonetbridge.commons.ticket.TicketDto;
 import de.medo.holonetbridge.commons.ticket.TicketProvider;
 import java.util.List;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
-import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.modals.ModalMapping;
@@ -55,23 +53,7 @@ class HolonetTicketModalDialogListenerAdapterTest {
     }
 
     @Test
-    void slashCommandStartsASessionAndAsksForTheKind() {
-        SlashCommandInteractionEvent event = mock(SlashCommandInteractionEvent.class);
-        when(event.getName()).thenReturn(DiscordGatewayConfiguration.COMMAND_TICKET);
-        when(event.getUser()).thenReturn(user);
-        ReplyCallbackAction replyAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
-        when(event.reply(anyString())).thenReturn(replyAction);
-
-        listener.onSlashCommandInteraction(event);
-
-        assertThat(sessionStore.get(USER_ID)).isPresent();
-        verify(event).reply("Hast du ein Bug gefunden oder hast du eine neue Idee?");
-        verify(replyAction).setEphemeral(true);
-        verify(replyAction).queue();
-    }
-
-    @Test
-    void persistentSupportButtonOpensTheSameKindChooserAsTheSlashCommand() {
+    void persistentSupportButtonStartsASessionAndAsksForTheKind() {
         ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
         when(event.getComponentId()).thenReturn(HolonetTicketModalDialogListenerAdapter.BUTTON_OPEN);
         when(event.getUser()).thenReturn(user);
@@ -84,17 +66,6 @@ class HolonetTicketModalDialogListenerAdapterTest {
         verify(event).reply("Hast du ein Bug gefunden oder hast du eine neue Idee?");
         verify(replyAction).setEphemeral(true);
         verify(replyAction).queue();
-    }
-
-    @Test
-    void slashCommandIgnoresOtherCommandNames() {
-        SlashCommandInteractionEvent event = mock(SlashCommandInteractionEvent.class);
-        when(event.getName()).thenReturn("not-ticket");
-
-        listener.onSlashCommandInteraction(event);
-
-        assertThat(sessionStore.get(USER_ID)).isEmpty();
-        verify(event, never()).reply(anyString());
     }
 
     @Test
@@ -215,7 +186,7 @@ class HolonetTicketModalDialogListenerAdapterTest {
 
         listener.onModalInteraction(event);
 
-        verify(event).reply("Die Sitzung ist abgelaufen, bitte starte mit /ticket neu.");
+        verify(event).reply("Die Sitzung ist abgelaufen, bitte klick erneut auf „Support anfragen“.");
         verify(ticketProvider, never()).create(anyString(), anyString());
     }
 
@@ -233,7 +204,7 @@ class HolonetTicketModalDialogListenerAdapterTest {
 
         listener.onModalInteraction(event);
 
-        verify(event).reply("Die Sitzung ist abgelaufen, bitte starte mit /ticket neu.");
+        verify(event).reply("Die Sitzung ist abgelaufen, bitte klick erneut auf „Support anfragen“.");
         verify(ticketProvider, never()).create(anyString(), anyString());
     }
 
