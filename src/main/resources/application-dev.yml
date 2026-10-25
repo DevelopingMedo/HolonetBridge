@@ -8,3 +8,12 @@ holonet:
       repository: ${PROVIDER_GITEA_REPOSITORY:support}
   discord:
     token: ${DISCORD_TOKEN:dev-placeholder-token}
+
+spring:
+  datasource:
+    url: jdbc:h2:file:${DB_FILE_PATH:./data/holonet-bridge}
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: update
