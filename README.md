@@ -4,18 +4,27 @@ Holonet Bridge is a self-hosted Java application that connects Discord to one co
 
 ## Current foundation
 
-- A provider-neutral ticket port with create, read, edit, and comment operations. There is deliberately no delete operation. No concrete provider adapter exists yet.
-- JDA (Java Discord API) as the Discord integration SDK, wired up and running the interactive `/ticket` creation flow (see "The `/ticket` flow" below) through the `TicketProvider` port. Since no concrete provider adapter exists yet, the final create step has nothing to call. Editing an existing ticket from Discord is not implemented yet.
+- A provider-neutral ticket port with create, read, edit, and comment operations. There is deliberately no delete operation.
+- A Gitea adapter (`GiteaTicketProvider`) that implements `create` against a Gitea instance's issue API. `read`, `edit`, and `comment` are not implemented yet and throw `UnsupportedOperationException`.
+- JDA (Java Discord API) as the Discord integration SDK, wired up and running an interactive `/ticket` creation flow end to end (see "The `/ticket` flow" below). Editing an existing ticket from Discord is not implemented yet.
 
-The provider identifier is a string rather than a fixed enum so that future adapters are not constrained to a compile-time list.
+The provider identifier is a string rather than a fixed enum so that future adapters are not constrained to a compile-time list. Only the Gitea adapter exists so far; other providers (Jira, ...) would plug into the same `TicketProvider` port.
+
+Internally, created/edited tickets are still called "tickets" everywhere in this codebase and towards Discord users, even for the Gitea adapter, where they map onto Gitea's "issues". This keeps the user-facing and cross-provider vocabulary provider-agnostic.
 
 ## Package layout
 
-The base package is `de.medo.holonetbridge`, with `HolonetBridgeApplication` kept directly in it.
+The base package is `de.medo.holonetbridge`, with `HolonetBridgeApplication` kept directly in it. Spring Boot's default component scan covers every subpackage below, but configuration-properties binding is scanned only under `commons` (see "Provider-conditional wiring" below for why):
 
 | Package | Contains |
 | --- | --- |
 | `commons` | Everything that is valid across providers: application-level configuration binding (`ProviderConnectionProperties`) directly in the package, `commons.ticket` for the boundary to external ticket systems (the `TicketProvider` port, taking plain `String` ids/fields, and its `TicketDto` return type), and `commons.discord` for the Discord-facing side, which is the one fixed consumer rather than a provider: `DiscordProperties` (bot token), `DiscordGatewayConfiguration` (builds and starts the JDA gateway, registers the `/ticket` command), `HolonetBridgeListenerAdapter` (the interactive multi-step flow), and the small `TicketCreationSession`/`TicketCreationSessionStore`/`TicketKind` types that hold a user's in-progress session between steps. |
+| `gitea` | The Gitea provider adapter, as its own top-level package next to `commons`: `GiteaTicketProvider`, its request/response DTOs, `GiteaProperties` (the Gitea-specific owner/repository configuration, composed alongside `ProviderConnectionProperties` rather than extending it — see the Javadoc on `GiteaProperties` for why), and `GiteaConfiguration` (the conditional wiring that creates the two beans above only when Gitea is actually selected). Other providers (Jira, ...) would get their own top-level package the same way. |
+| `bootstrap` (tests) | Startup/smoke tests wiring the whole application context. |
+
+### Provider-conditional wiring
+
+`GiteaProperties` and `GiteaTicketProvider` are not created unconditionally at every startup. `GiteaConfiguration` is a plain `@Configuration` class gated with `@ConditionalOnProperty(prefix = "holonet.provider", name = "id", havingValue = "gitea")`; it registers `GiteaProperties` via `@EnableConfigurationProperties` and builds `GiteaTicketProvider` explicitly with `new` in a `@Bean` method, rather than relying on `GiteaTicketProvider` being an auto-registered `@Component` or `GiteaProperties` being picked up by a blanket configuration-properties scan. `HolonetBridgeApplication`'s `@ConfigurationPropertiesScan` is narrowed to `commons` accordingly, since it is only meant to cover configuration that is relevant regardless of which provider is selected. Adding a second provider adapter means following the same pattern: its own `@Configuration` class, gated on its own `holonet.provider.id` value.
 
 `TicketProvider` deliberately uses plain `String` parameters (id, title, description, comment body) instead of dedicated wrapper/DTO types for single or paired values; `TicketDto` remains a small record only because it is a genuine multi-field result (id, title, description) returned from create/read/edit.
 
@@ -28,11 +37,26 @@ Set these environment variables when starting the application:
 | `HOLONET_PROVIDER_ID` | Adapter key, such as `gitea` or `jira` | `gitea` |
 | `HOLONET_PROVIDER_BASE_URL` | Base URL of the operator's provider instance | `https://tickets.example.invalid` |
 | `HOLONET_PROVIDER_TOKEN` | Provider access token | supplied by the operator's secret manager |
+| `HOLONET_PROVIDER_GITEA_OWNER` | Owner (user or organization) of the Gitea repository tickets are filed into | `acme` |
+| `HOLONET_PROVIDER_GITEA_REPOSITORY` | Name of that Gitea repository | `support` |
 | `HOLONET_DISCORD_TOKEN` | Discord bot/application token | supplied by the operator's secret manager |
 
-The application fails at startup if a required value is missing or the provider URL is not an absolute HTTP(S) URL. The Discord gateway connects on every startup; there is currently no way to start the application with the gateway switched off. Spring binds these values once into an immutable singleton; there is no runtime configuration reload. Do not put real credentials in source control, image layers, command history, logs, or diagnostics. Use the deployment platform's secret mechanism (for example, Docker secrets or a protected environment injection). The provider token and Discord token are both intentionally redacted from their configuration objects' `toString()` output.
+The application fails at startup if a required value is missing or the provider URL is not an absolute HTTP(S) URL. The Discord gateway connects on every startup; there is currently no way to start the application with the gateway switched off (see "Known gaps" below). Spring binds these values once into an immutable singleton; there is no runtime configuration reload. Do not put real credentials in source control, image layers, command history, logs, or diagnostics. Use the deployment platform's secret mechanism (for example, Docker secrets or a protected environment injection). The provider token and Discord token are both intentionally redacted from their configuration objects' `toString()` output.
 
-Note: no concrete provider adapter exists yet, so `HOLONET_PROVIDER_ID` has no effect so far; the ticket-creation flow cannot actually file a ticket anywhere until one is added.
+For example, a Compose service can pass values injected into its environment by the operator's deployment system:
+
+```yaml
+services:
+  holonet-bridge:
+    image: holonet-bridge:latest
+    environment:
+      HOLONET_PROVIDER_ID: gitea
+      HOLONET_PROVIDER_BASE_URL: https://tickets.example.invalid
+      HOLONET_PROVIDER_TOKEN: ${HOLONET_PROVIDER_TOKEN:?set this through your secret manager}
+      HOLONET_PROVIDER_GITEA_OWNER: acme
+      HOLONET_PROVIDER_GITEA_REPOSITORY: support
+      HOLONET_DISCORD_TOKEN: ${HOLONET_DISCORD_TOKEN:?set this through your secret manager}
+```
 
 ### The `/ticket` flow
 
@@ -50,18 +74,20 @@ Once the gateway is connected, the bot registers a single global `/ticket` slash
 
 ### Local development against a local Gitea
 
-`src/main/resources/application-dev.yml` activates with the `dev` Spring profile and defaults `holonet.provider.id` to `gitea` and the rest of `holonet.provider.*`/`holonet.discord.*` from a few narrower, dev-only environment variables, so the application starts without having to set the `HOLONET_PROVIDER_*`/`HOLONET_DISCORD_*` variables by hand on every run:
+`src/main/resources/application-dev.yml` activates with the `dev` Spring profile and fills `holonet.provider.*` and `holonet.discord.*` from a few narrower, dev-only environment variables with defaults, so the application starts without having to set the `HOLONET_PROVIDER_*`/`HOLONET_DISCORD_*` variables by hand on every run:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `PROVIDER_BASE_URL` | `localhost` | Host (no scheme/port) of the local Gitea instance |
 | `PROVIDER_PORT` | `3000` | Port of the local Gitea instance |
 | `PROVIDER_TOKEN` | `a1b2c3d4` | Fixed, non-secret local placeholder token shared between the JAR and a locally started Gitea (for example, both started together through Docker Compose) |
+| `PROVIDER_GITEA_OWNER` | `holonet` | Owner of the local Gitea repository tickets are filed into |
+| `PROVIDER_GITEA_REPOSITORY` | `support` | Name of that local Gitea repository |
 | `DISCORD_TOKEN` | `dev-placeholder-token` | Non-secret placeholder; replace with a real bot token to exercise the `/ticket` flow locally |
 
-The resulting `holonet.provider.base-url` is `http://${PROVIDER_BASE_URL}:${PROVIDER_PORT}`. The default provider token is a throwaway local value, not a real credential, and is fine to keep in version control for this purpose only — it must never be reused for a real Gitea instance that holds actual data. No Gitea adapter exists yet (see "Known gaps"), so `holonet.provider.*` has no effect so far; these defaults are prepared ahead of it.
+The resulting `holonet.provider.base-url` is `http://${PROVIDER_BASE_URL}:${PROVIDER_PORT}`; `holonet.provider.id` is fixed to `gitea`. The default provider token is a throwaway local value, not a real credential, and is fine to keep in version control for this purpose only — it must never be reused for a real Gitea instance that holds actual data.
 
-The `.ci/deployment` Docker Compose setup (see its own [README](.ci/deployment/README.md)) brings up a local Gitea server plus the application's own built JAR, wired to these same variables, as a ready-to-use local environment for the Gitea adapter once it exists.
+The `.ci/deployment` Docker Compose setup (see its own [README](.ci/deployment/README.md)) wires these same variables end to end, including automatically creating the `PROVIDER_GITEA_REPOSITORY` repository in the local Gitea instance so ticket creation works without any manual setup.
 
 Activate the profile with `SPRING_PROFILES_ACTIVE=dev`, for example:
 
@@ -78,9 +104,8 @@ mvn test
 mvn package
 ```
 
-Discord event handling is tested without any real gateway connection: `HolonetBridgeListenerAdapterTest` mocks the JDA event/action interfaces directly with Mockito (no extra JDA-mock test library) to drive `HolonetBridgeListenerAdapter` through the whole button/modal flow.
+The provider port is the seam for isolated adapter tests: `GiteaTicketProviderTest` drives the Gitea adapter's HTTP calls (including a server-error response) through a `MockRestServiceServer`, without any real Gitea instance. Discord event handling is tested the same way on the other side of the boundary: `HolonetBridgeListenerAdapterTest` mocks the JDA event/action interfaces directly with Mockito (no gateway connection, no extra JDA-mock test library) to drive `HolonetBridgeListenerAdapter` through the whole button/modal flow.
 
 ## Known gaps
 
-- No concrete `TicketProvider` adapter exists yet; the `/ticket` flow cannot actually file a ticket anywhere until one is added (a Gitea adapter is next).
-- Discord gateway enablement: there is currently no way to start the application with the gateway switched off. The dev profile (`application-dev.yml`) and `.ci/deployment` (`docker-compose.yml`, `env.example`) set a `DISCORD_ENABLED` variable that currently has no effect; this needs a proper rework — likely tied to how a Discord bot is actually registered and obtains its token, which happens after the server is already running, not before.
+- Discord gateway enablement: there is currently no way to start the application with the gateway switched off. A previous `holonet.discord.enabled`/`HOLONET_DISCORD_ENABLED` toggle was removed because it only existed for test convenience; tests now mock the `JDA` bean directly instead (`@MockitoBean` in `BootstrapSmokeTest`). The dev profile (`application-dev.yml`) and `.ci/deployment` (`docker-compose.yml`, `env.example`) still set a `DISCORD_ENABLED` variable that currently has no effect; this needs a proper rework — likely tied to how a Discord bot is actually registered and obtains its token, which happens after the server is already running, not before.
