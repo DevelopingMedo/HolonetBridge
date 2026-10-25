@@ -6,6 +6,7 @@ import de.medo.holonetbridge.commons.ticket.TicketProvider;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.label.Label;
+import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.components.textinput.TextInput;
 import net.dv8tion.jda.api.components.textinput.TextInputStyle;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
@@ -20,18 +21,23 @@ import org.springframework.stereotype.Component;
  * The bridge's single JDA {@link ListenerAdapter}, registered once with the gateway, handling every Discord
  * interaction (slash command, button, modal) for the {@code /ticket} flow.
  *
+ * <p>The flow first asks whether the user found a bug or has an idea, then collects the ticket in one modal.
+ * An idea collects a free-form title and description; a bug collects a title plus a four-field report (steps,
+ * expected result, actual result, recurrence).
+ *
+ * <p>The Discord-visible wording uses "Idee", while the backend keeps "Feature" (see {@link HolonetTicketKind}
+ * and the {@code [Feature]} title prefix). Internal ids and constant names therefore use {@code feature} even
+ * though the user sees "Idee".
+ *
  * <p>Custom ids are used as a step identifier scheme:
  *
  * <ul>
  *   <li>{@code ticket:open} - the persistent "Support anfragen" button that {@code
- *       TicketChannelConfigurationListenerAdapter} posts via {@code /configure-holonet-bridge}; triggers the
- *       same chooser as {@code /ticket} itself
- *   <li>{@code ticket:start:create|cancel} - the two choices offered right after {@code /ticket}
- *   <li>{@code ticket:modal:title} - the modal asking for the ticket title
- *   <li>{@code ticket:type:bug|feature} - the choice between a bug report and a feature request
- *   <li>{@code ticket:modal:description} - the modal collecting the bug/feature description, reused for both
- *       kinds; which template/placeholder it shows depends on the {@link HolonetTicketCreationSession#kind()}
- *       chosen beforehand
+ *       HolonetStartConfigurationListenerAdapter} posts via {@code /start-holonet-configuration}; triggers the
+ *       same kind chooser as {@code /ticket} itself
+ *   <li>{@code ticket:kind:bug|feature} - the bug/idea choice right after {@code /ticket}
+ *   <li>{@code ticket:modal:bug-report} - the bug report modal (title and four report fields)
+ *   <li>{@code ticket:modal:feature} - the idea modal collecting title and description
  * </ul>
  */
 @Component
@@ -39,33 +45,28 @@ public class HolonetTicketModalDialogListenerAdapter extends ListenerAdapter {
 
     public static final String BUTTON_OPEN = "ticket:open";
 
-    private static final String BUTTON_START_CREATE = "ticket:start:create";
-    private static final String BUTTON_START_CANCEL = "ticket:start:cancel";
+    private static final String BUTTON_KIND_BUG = "ticket:kind:bug";
+    private static final String BUTTON_KIND_FEATURE = "ticket:kind:feature";
 
-    private static final String MODAL_TITLE = "ticket:modal:title";
+    private static final String MODAL_FEATURE = "ticket:modal:feature";
+    private static final String MODAL_BUG_REPORT = "ticket:modal:bug-report";
+
     private static final String INPUT_TITLE = "title";
-
-    private static final String BUTTON_TYPE_BUG = "ticket:type:bug";
-    private static final String BUTTON_TYPE_FEATURE = "ticket:type:feature";
-
-    private static final String MODAL_DESCRIPTION = "ticket:modal:description";
     private static final String INPUT_DESCRIPTION = "description";
+    private static final String INPUT_STEPS = "steps";
+    private static final String INPUT_EXPECTED = "expected";
+    private static final String INPUT_ACTUAL = "actual";
+    private static final String INPUT_RECURRENCE = "recurrence";
 
-    private static final String BUG_REPORT_TEMPLATE =
-            """
-            Schritte zum Reproduzieren:
-            1.
-            2.
-            3.
-
-            Erwartetes Verhalten:
-
-
-            Tatsächliches Verhalten:
-            """;
-
-    private static final String FEATURE_PLACEHOLDER =
+    private static final String BUG_TITLE_HINT = "Beschreibe das Problem in einem kurzen Satz.";
+    private static final String FEATURE_TITLE_HINT = "Beschreibe deine Idee in einem kurzen Satz.";
+    private static final String FEATURE_DESCRIPTION_HINT =
             "Was soll am Ende möglich sein? Bitte so konkret wie möglich beschreiben.";
+    private static final String BUG_STEPS_HINT =
+            "Schritte der Reihe nach, damit jemand sie nachmachen kann. Inkl. Voraussetzungen (Einstellungen).";
+    private static final String BUG_EXPECTED_HINT = "Was sollte nach diesen Schritten normalerweise passieren?";
+    private static final String BUG_ACTUAL_HINT =
+            "Beschreibe das Ergebnis. Füge wenn möglich die exakte und vollständige Fehlermeldung hier ein.";
 
     private final HolonetTicketCreationSessionStore sessionStore;
     private final TicketProvider ticketProvider;
@@ -82,29 +83,24 @@ public class HolonetTicketModalDialogListenerAdapter extends ListenerAdapter {
             return;
         }
 
-        openTicketChooser(event, event.getUser().getIdLong());
+        openKindChooser(event, event.getUser().getIdLong());
     }
 
     @Override
     public void onButtonInteraction(ButtonInteractionEvent event) {
         switch (event.getComponentId()) {
-            case BUTTON_OPEN -> openTicketChooser(event, event.getUser().getIdLong());
-            case BUTTON_START_CREATE -> event.replyModal(titleModal()).queue();
-            case BUTTON_START_CANCEL -> {
-                sessionStore.clear(event.getUser().getIdLong());
-                event.reply("Abgebrochen.").setEphemeral(true).queue();
-            }
-            case BUTTON_TYPE_BUG -> {
+            case BUTTON_OPEN -> openKindChooser(event, event.getUser().getIdLong());
+            case BUTTON_KIND_BUG -> {
                 sessionStore
                         .get(event.getUser().getIdLong())
                         .ifPresent(session -> session.kind(HolonetTicketKind.BUG));
-                event.replyModal(descriptionModal(HolonetTicketKind.BUG)).queue();
+                event.replyModal(bugReportModal()).queue();
             }
-            case BUTTON_TYPE_FEATURE -> {
+            case BUTTON_KIND_FEATURE -> {
                 sessionStore
                         .get(event.getUser().getIdLong())
                         .ifPresent(session -> session.kind(HolonetTicketKind.FEATURE));
-                event.replyModal(descriptionModal(HolonetTicketKind.FEATURE)).queue();
+                event.replyModal(featureModal()).queue();
             }
             default -> {
                 // Not one of ours; ignore.
@@ -115,90 +111,122 @@ public class HolonetTicketModalDialogListenerAdapter extends ListenerAdapter {
     @Override
     public void onModalInteraction(ModalInteractionEvent event) {
         switch (event.getModalId()) {
-            case MODAL_TITLE -> onTitleSubmitted(event);
-            case MODAL_DESCRIPTION -> onDescriptionSubmitted(event);
+            case MODAL_FEATURE -> onFeatureSubmitted(event);
+            case MODAL_BUG_REPORT -> onBugReportSubmitted(event);
             default -> {
                 // Not one of ours; ignore.
             }
         }
     }
 
-    private void onTitleSubmitted(ModalInteractionEvent event) {
-        long userId = event.getUser().getIdLong();
-        String title = event.getValue(INPUT_TITLE).getAsString();
-        sessionStore.get(userId).ifPresentOrElse(
-                session -> {
-                    session.title(title);
-                    event.reply("Ist es ein Bug oder ein Feature?")
-                            .addComponents(ActionRow.of(
-                                    Button.primary(BUTTON_TYPE_BUG, "Bug"),
-                                    Button.success(BUTTON_TYPE_FEATURE, "Feature")))
-                            .setEphemeral(true)
-                            .queue();
-                },
-                () -> event.reply("Die Sitzung ist abgelaufen, bitte starte mit /ticket neu.")
-                        .setEphemeral(true)
-                        .queue());
-    }
-
-    private void onDescriptionSubmitted(ModalInteractionEvent event) {
-        long userId = event.getUser().getIdLong();
-        String description = event.getValue(INPUT_DESCRIPTION).getAsString();
-
-        sessionStore.get(userId).ifPresentOrElse(
-                session -> {
-                    String prefixedTitle = titleWithKindPrefix(session);
-                    event.deferReply(true).queue();
-                    TicketDto ticket = ticketProvider.create(prefixedTitle, description);
-                    sessionStore.clear(userId);
-                    event.getHook()
-                            .sendMessage("Ticket #%s wurde angelegt: %s".formatted(ticket.id(), ticket.title()))
-                            .queue();
-                },
-                () -> event.reply("Die Sitzung ist abgelaufen, bitte starte mit /ticket neu.")
-                        .setEphemeral(true)
-                        .queue());
-    }
-
-    private void openTicketChooser(IReplyCallback interaction, long userId) {
+    private void openKindChooser(IReplyCallback interaction, long userId) {
         sessionStore.startOrReset(userId);
 
         interaction
-                .reply("Möchtest du ein Ticket anlegen?")
+                .reply("Hast du ein Bug gefunden oder hast du eine neue Idee?")
                 .addComponents(ActionRow.of(
-                        Button.primary(BUTTON_START_CREATE, "Anlegen"),
-                        Button.danger(BUTTON_START_CANCEL, "Abbruch")))
+                        Button.primary(BUTTON_KIND_BUG, "Bug"),
+                        Button.success(BUTTON_KIND_FEATURE, "Idee")))
                 .setEphemeral(true)
                 .queue();
     }
 
-    private static String titleWithKindPrefix(HolonetTicketCreationSession session) {
-        String prefix = session.kind() == HolonetTicketKind.BUG ? "[Bug] " : "[Feature] ";
-        return prefix + session.title();
+    private void onFeatureSubmitted(ModalInteractionEvent event) {
+        long userId = event.getUser().getIdLong();
+        String title = event.getValue(INPUT_TITLE).getAsString();
+        String description = event.getValue(INPUT_DESCRIPTION).getAsString();
+
+        sessionStore.get(userId).ifPresentOrElse(
+                session -> createTicket(
+                        event, userId, titleWithKindPrefix(session.kind(), title), description),
+                () -> replySessionExpired(event));
     }
 
-    private static Modal titleModal() {
+    private void onBugReportSubmitted(ModalInteractionEvent event) {
+        long userId = event.getUser().getIdLong();
+        String title = event.getValue(INPUT_TITLE).getAsString();
+        String description = assembleBugDescription(
+                event.getValue(INPUT_STEPS).getAsString(),
+                event.getValue(INPUT_EXPECTED).getAsString(),
+                event.getValue(INPUT_ACTUAL).getAsString(),
+                event.getValue(INPUT_RECURRENCE).getAsStringList().get(0));
+
+        sessionStore.get(userId).ifPresentOrElse(
+                session -> createTicket(
+                        event, userId, titleWithKindPrefix(session.kind(), title), description),
+                () -> replySessionExpired(event));
+    }
+
+    private void createTicket(ModalInteractionEvent event, long userId, String title, String description) {
+        event.deferReply(true).queue();
+        TicketDto ticket = ticketProvider.create(title, description);
+        sessionStore.clear(userId);
+        event.getHook()
+                .sendMessage("Ticket #%s wurde angelegt: %s".formatted(ticket.id(), ticket.title()))
+                .queue();
+    }
+
+    private static void replySessionExpired(ModalInteractionEvent event) {
+        event.reply("Die Sitzung ist abgelaufen, bitte starte mit /ticket neu.")
+                .setEphemeral(true)
+                .queue();
+    }
+
+    private static String titleWithKindPrefix(HolonetTicketKind kind, String title) {
+        String prefix = kind == HolonetTicketKind.BUG ? "[Bug] " : "[Feature] ";
+        return prefix + title;
+    }
+
+    private static String assembleBugDescription(String steps, String expected, String actual, String recurrence) {
+        return new StringBuilder()
+                .append("**Was hast du vor dem Fehler gemacht?**").append('\n')
+                .append(steps).append('\n')
+                .append('\n')
+                .append("**Was hättest du erwartet?**").append('\n')
+                .append(expected).append('\n')
+                .append('\n')
+                .append("**Was ist stattdessen passiert?**").append('\n')
+                .append(actual).append('\n')
+                .append('\n')
+                .append("**Tritt der Fehler erneut auf?**").append('\n')
+                .append(recurrence).append('\n')
+                .toString();
+    }
+
+    private static Modal featureModal() {
         TextInput title = TextInput.create(INPUT_TITLE, TextInputStyle.SHORT)
                 .setRequiredRange(1, 100)
                 .build();
-        return Modal.create(MODAL_TITLE, "Ticket anlegen")
-                .addComponents(Label.of("Titel", title))
+        TextInput description = TextInput.create(INPUT_DESCRIPTION, TextInputStyle.PARAGRAPH)
+                .build();
+        return Modal.create(MODAL_FEATURE, "Neue Idee")
+                .addComponents(
+                        Label.of("Titel", FEATURE_TITLE_HINT, title),
+                        Label.of("Beschreibung", FEATURE_DESCRIPTION_HINT, description))
                 .build();
     }
 
-    private static Modal descriptionModal(HolonetTicketKind kind) {
-        TextInput.Builder descriptionBuilder = TextInput.create(INPUT_DESCRIPTION, TextInputStyle.PARAGRAPH);
-        String label;
-        if (kind == HolonetTicketKind.BUG) {
-            descriptionBuilder.setValue(BUG_REPORT_TEMPLATE);
-            label = "Schritte zum Reproduzieren";
-        } else {
-            descriptionBuilder.setPlaceholder(FEATURE_PLACEHOLDER);
-            label = "Was wünschst du dir?";
-        }
-
-        return Modal.create(MODAL_DESCRIPTION, "Beschreibung")
-                .addComponents(Label.of(label, descriptionBuilder.build()))
+    private static Modal bugReportModal() {
+        TextInput title = TextInput.create(INPUT_TITLE, TextInputStyle.SHORT)
+                .setRequiredRange(1, 100)
+                .build();
+        TextInput steps = TextInput.create(INPUT_STEPS, TextInputStyle.PARAGRAPH).build();
+        TextInput expected = TextInput.create(INPUT_EXPECTED, TextInputStyle.PARAGRAPH).build();
+        TextInput actual = TextInput.create(INPUT_ACTUAL, TextInputStyle.PARAGRAPH).build();
+        StringSelectMenu recurrence = StringSelectMenu.create(INPUT_RECURRENCE)
+                .addOption("Jedes Mal", "Jedes Mal")
+                .addOption("Manchmal", "Manchmal")
+                .addOption("Bisher nur einmal", "Bisher nur einmal")
+                .addOption("Noch nicht erneut ausprobiert", "Noch nicht erneut ausprobiert")
+                .setRequired(true)
+                .build();
+        return Modal.create(MODAL_BUG_REPORT, "Bug melden")
+                .addComponents(
+                        Label.of("Titel", BUG_TITLE_HINT, title),
+                        Label.of("Was hast du vor dem Fehler gemacht?", BUG_STEPS_HINT, steps),
+                        Label.of("Was hättest du erwartet?", BUG_EXPECTED_HINT, expected),
+                        Label.of("Was ist stattdessen passiert?", BUG_ACTUAL_HINT, actual),
+                        Label.of("Tritt der Fehler erneut auf?", recurrence))
                 .build();
     }
 }

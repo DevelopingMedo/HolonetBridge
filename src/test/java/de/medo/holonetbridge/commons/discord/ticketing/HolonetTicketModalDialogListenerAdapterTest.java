@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import de.medo.holonetbridge.commons.discord.DiscordGatewayConfiguration;
 import de.medo.holonetbridge.commons.ticket.TicketDto;
 import de.medo.holonetbridge.commons.ticket.TicketProvider;
+import java.util.List;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
@@ -54,7 +55,7 @@ class HolonetTicketModalDialogListenerAdapterTest {
     }
 
     @Test
-    void slashCommandStartsASessionAndOffersTheCreateAndCancelChoices() {
+    void slashCommandStartsASessionAndAsksForTheKind() {
         SlashCommandInteractionEvent event = mock(SlashCommandInteractionEvent.class);
         when(event.getName()).thenReturn(DiscordGatewayConfiguration.COMMAND_TICKET);
         when(event.getUser()).thenReturn(user);
@@ -64,13 +65,13 @@ class HolonetTicketModalDialogListenerAdapterTest {
         listener.onSlashCommandInteraction(event);
 
         assertThat(sessionStore.get(USER_ID)).isPresent();
-        verify(event).reply("Möchtest du ein Ticket anlegen?");
+        verify(event).reply("Hast du ein Bug gefunden oder hast du eine neue Idee?");
         verify(replyAction).setEphemeral(true);
         verify(replyAction).queue();
     }
 
     @Test
-    void persistentSupportButtonOpensTheSameChooserAsTheSlashCommand() {
+    void persistentSupportButtonOpensTheSameKindChooserAsTheSlashCommand() {
         ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
         when(event.getComponentId()).thenReturn(HolonetTicketModalDialogListenerAdapter.BUTTON_OPEN);
         when(event.getUser()).thenReturn(user);
@@ -80,7 +81,7 @@ class HolonetTicketModalDialogListenerAdapterTest {
         listener.onButtonInteraction(event);
 
         assertThat(sessionStore.get(USER_ID)).isPresent();
-        verify(event).reply("Möchtest du ein Ticket anlegen?");
+        verify(event).reply("Hast du ein Bug gefunden oder hast du eine neue Idee?");
         verify(replyAction).setEphemeral(true);
         verify(replyAction).queue();
     }
@@ -97,78 +98,10 @@ class HolonetTicketModalDialogListenerAdapterTest {
     }
 
     @Test
-    void startCreateButtonOpensTheTitleModal() {
+    void bugButtonStoresKindAndOpensTheBugReportModal() {
         sessionStore.startOrReset(USER_ID);
         ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
-        when(event.getComponentId()).thenReturn("ticket:start:create");
-        when(event.getUser()).thenReturn(user);
-        ModalCallbackAction modalCallbackAction = mock(ModalCallbackAction.class, Answers.RETURNS_SELF);
-        ArgumentCaptor<Modal> modalCaptor = ArgumentCaptor.forClass(Modal.class);
-        when(event.replyModal(modalCaptor.capture())).thenReturn(modalCallbackAction);
-
-        listener.onButtonInteraction(event);
-
-        assertThat(modalCaptor.getValue().getId()).isEqualTo("ticket:modal:title");
-        verify(modalCallbackAction).queue();
-    }
-
-    @Test
-    void startCancelButtonClearsTheSessionAndConfirms() {
-        sessionStore.startOrReset(USER_ID);
-        ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
-        when(event.getComponentId()).thenReturn("ticket:start:cancel");
-        when(event.getUser()).thenReturn(user);
-        ReplyCallbackAction replyAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
-        when(event.reply(anyString())).thenReturn(replyAction);
-
-        listener.onButtonInteraction(event);
-
-        assertThat(sessionStore.get(USER_ID)).isEmpty();
-        verify(event).reply("Abgebrochen.");
-        verify(replyAction).setEphemeral(true);
-    }
-
-    @Test
-    void titleModalSubmissionStoresTitleAndAsksForTheKind() {
-        sessionStore.startOrReset(USER_ID);
-        ModalInteractionEvent event = mock(ModalInteractionEvent.class);
-        when(event.getModalId()).thenReturn("ticket:modal:title");
-        when(event.getUser()).thenReturn(user);
-        ModalMapping titleMapping = mock(ModalMapping.class);
-        when(titleMapping.getAsString()).thenReturn("Login fails after update");
-        when(event.getValue("title")).thenReturn(titleMapping);
-        ReplyCallbackAction replyAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
-        when(event.reply(anyString())).thenReturn(replyAction);
-
-        listener.onModalInteraction(event);
-
-        assertThat(sessionStore.get(USER_ID)).hasValueSatisfying(
-                session -> assertThat(session.title()).isEqualTo("Login fails after update"));
-        verify(event).reply("Ist es ein Bug oder ein Feature?");
-        verify(replyAction).setEphemeral(true);
-    }
-
-    @Test
-    void titleModalSubmissionWithoutASessionAsksToRestart() {
-        ModalInteractionEvent event = mock(ModalInteractionEvent.class);
-        when(event.getModalId()).thenReturn("ticket:modal:title");
-        when(event.getUser()).thenReturn(user);
-        ModalMapping titleMapping = mock(ModalMapping.class);
-        when(titleMapping.getAsString()).thenReturn("Some title");
-        when(event.getValue("title")).thenReturn(titleMapping);
-        ReplyCallbackAction replyAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
-        when(event.reply(anyString())).thenReturn(replyAction);
-
-        listener.onModalInteraction(event);
-
-        verify(event).reply("Die Sitzung ist abgelaufen, bitte starte mit /ticket neu.");
-    }
-
-    @Test
-    void bugButtonStoresKindAndOpensDescriptionModalPrefilledWithTheTemplate() {
-        sessionStore.startOrReset(USER_ID).title("Login fails");
-        ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
-        when(event.getComponentId()).thenReturn("ticket:type:bug");
+        when(event.getComponentId()).thenReturn("ticket:kind:bug");
         when(event.getUser()).thenReturn(user);
         ModalCallbackAction modalCallbackAction = mock(ModalCallbackAction.class, Answers.RETURNS_SELF);
         ArgumentCaptor<Modal> modalCaptor = ArgumentCaptor.forClass(Modal.class);
@@ -178,82 +111,123 @@ class HolonetTicketModalDialogListenerAdapterTest {
 
         assertThat(sessionStore.get(USER_ID)).hasValueSatisfying(
                 session -> assertThat(session.kind()).isEqualTo(HolonetTicketKind.BUG));
-        assertThat(modalCaptor.getValue().getId()).isEqualTo("ticket:modal:description");
+        assertThat(modalCaptor.getValue().getId()).isEqualTo("ticket:modal:bug-report");
+        verify(modalCallbackAction).queue();
     }
 
     @Test
-    void descriptionModalSubmissionForABugCreatesATicketWithTheBugPrefixAndConfirms() {
-        HolonetTicketCreationSession session = sessionStore.startOrReset(USER_ID);
-        session.title("Login fails");
-        session.kind(HolonetTicketKind.BUG);
-
-        ModalInteractionEvent event = mock(ModalInteractionEvent.class);
-        when(event.getModalId()).thenReturn("ticket:modal:description");
+    void featureButtonStoresKindAndOpensTheFeatureModal() {
+        sessionStore.startOrReset(USER_ID);
+        ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
+        when(event.getComponentId()).thenReturn("ticket:kind:feature");
         when(event.getUser()).thenReturn(user);
-        ModalMapping descriptionMapping = mock(ModalMapping.class);
-        when(descriptionMapping.getAsString()).thenReturn("Steps to reproduce...");
-        when(event.getValue("description")).thenReturn(descriptionMapping);
-        ReplyCallbackAction deferAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
-        when(event.deferReply(true)).thenReturn(deferAction);
-        InteractionHook hook = mock(InteractionHook.class);
-        when(event.getHook()).thenReturn(hook);
-        WebhookMessageCreateAction<Message> sendAction = newSendMessageAction();
-        when(hook.sendMessage(anyString())).thenReturn(sendAction);
+        ModalCallbackAction modalCallbackAction = mock(ModalCallbackAction.class, Answers.RETURNS_SELF);
+        ArgumentCaptor<Modal> modalCaptor = ArgumentCaptor.forClass(Modal.class);
+        when(event.replyModal(modalCaptor.capture())).thenReturn(modalCallbackAction);
 
-        when(ticketProvider.create("[Bug] Login fails", "Steps to reproduce..."))
-                .thenReturn(new TicketDto("42", "[Bug] Login fails", "Steps to reproduce..."));
+        listener.onButtonInteraction(event);
 
-        listener.onModalInteraction(event);
-
-        verify(ticketProvider).create("[Bug] Login fails", "Steps to reproduce...");
-        verify(hook).sendMessage("Ticket #42 wurde angelegt: [Bug] Login fails");
-        verify(sendAction).queue();
-        assertThat(sessionStore.get(USER_ID)).isEmpty();
+        assertThat(sessionStore.get(USER_ID)).hasValueSatisfying(
+                session -> assertThat(session.kind()).isEqualTo(HolonetTicketKind.FEATURE));
+        assertThat(modalCaptor.getValue().getId()).isEqualTo("ticket:modal:feature");
+        verify(modalCallbackAction).queue();
     }
 
     @Test
-    void descriptionModalSubmissionForAFeatureCreatesATicketWithTheFeaturePrefix() {
-        HolonetTicketCreationSession session = sessionStore.startOrReset(USER_ID);
-        session.title("Dark mode");
-        session.kind(HolonetTicketKind.FEATURE);
+    void bugReportModalSubmissionCreatesABugTicketWithTheAssembledDescription() {
+        sessionStore.startOrReset(USER_ID).kind(HolonetTicketKind.BUG);
 
         ModalInteractionEvent event = mock(ModalInteractionEvent.class);
-        when(event.getModalId()).thenReturn("ticket:modal:description");
+        when(event.getModalId()).thenReturn("ticket:modal:bug-report");
         when(event.getUser()).thenReturn(user);
-        ModalMapping descriptionMapping = mock(ModalMapping.class);
-        when(descriptionMapping.getAsString()).thenReturn("I want a dark theme toggle in settings.");
-        when(event.getValue("description")).thenReturn(descriptionMapping);
+        ModalMapping title = textMapping("Login fails");
+        ModalMapping steps = textMapping("Did X then Y");
+        ModalMapping expected = textMapping("It should work");
+        ModalMapping actual = textMapping("It crashed");
+        ModalMapping recurrence = selectionMapping("Jedes Mal");
+        when(event.getValue("title")).thenReturn(title);
+        when(event.getValue("steps")).thenReturn(steps);
+        when(event.getValue("expected")).thenReturn(expected);
+        when(event.getValue("actual")).thenReturn(actual);
+        when(event.getValue("recurrence")).thenReturn(recurrence);
         when(event.deferReply(true)).thenReturn(mock(ReplyCallbackAction.class, Answers.RETURNS_SELF));
         InteractionHook hook = mock(InteractionHook.class);
         when(event.getHook()).thenReturn(hook);
         when(hook.sendMessage(anyString())).thenReturn(newSendMessageAction());
+        when(ticketProvider.create(eq("[Bug] Login fails"), anyString()))
+                .thenReturn(new TicketDto("42", "[Bug] Login fails", "ignored"));
 
+        listener.onModalInteraction(event);
+
+        ArgumentCaptor<String> descriptionCaptor = ArgumentCaptor.forClass(String.class);
+        verify(ticketProvider).create(eq("[Bug] Login fails"), descriptionCaptor.capture());
+        assertThat(descriptionCaptor.getValue())
+                .contains("**Was hast du vor dem Fehler gemacht?**", "Did X then Y")
+                .contains("**Was hättest du erwartet?**", "It should work")
+                .contains("**Was ist stattdessen passiert?**", "It crashed")
+                .contains("**Tritt der Fehler erneut auf?**", "Jedes Mal");
+        verify(hook).sendMessage("Ticket #42 wurde angelegt: [Bug] Login fails");
+        assertThat(sessionStore.get(USER_ID)).isEmpty();
+    }
+
+    @Test
+    void featureModalSubmissionCreatesAFeatureTicket() {
+        sessionStore.startOrReset(USER_ID).kind(HolonetTicketKind.FEATURE);
+
+        ModalInteractionEvent event = mock(ModalInteractionEvent.class);
+        when(event.getModalId()).thenReturn("ticket:modal:feature");
+        when(event.getUser()).thenReturn(user);
+        ModalMapping title = textMapping("Dark mode");
+        ModalMapping description = textMapping("I want a dark theme toggle in settings.");
+        when(event.getValue("title")).thenReturn(title);
+        when(event.getValue("description")).thenReturn(description);
+        when(event.deferReply(true)).thenReturn(mock(ReplyCallbackAction.class, Answers.RETURNS_SELF));
+        InteractionHook hook = mock(InteractionHook.class);
+        when(event.getHook()).thenReturn(hook);
+        when(hook.sendMessage(anyString())).thenReturn(newSendMessageAction());
         when(ticketProvider.create(eq("[Feature] Dark mode"), anyString()))
                 .thenReturn(new TicketDto("7", "[Feature] Dark mode", "I want a dark theme toggle in settings."));
 
         listener.onModalInteraction(event);
 
         verify(ticketProvider).create("[Feature] Dark mode", "I want a dark theme toggle in settings.");
-        verify(hook).sendMessage(anyString());
-    }
-
-    /**
-     * {@code WebhookMessageCreateAction<T>} erases to a raw type via {@code .class}, so a single, documented
-     * unchecked cast lives here instead of being repeated (and unsuppressed) at every call site.
-     */
-    @SuppressWarnings("unchecked")
-    private static WebhookMessageCreateAction<Message> newSendMessageAction() {
-        return mock(WebhookMessageCreateAction.class, Answers.RETURNS_SELF);
+        verify(hook).sendMessage("Ticket #7 wurde angelegt: [Feature] Dark mode");
+        assertThat(sessionStore.get(USER_ID)).isEmpty();
     }
 
     @Test
-    void descriptionModalSubmissionWithoutASessionAsksToRestart() {
+    void bugReportModalSubmissionWithoutASessionAsksToRestart() {
         ModalInteractionEvent event = mock(ModalInteractionEvent.class);
-        when(event.getModalId()).thenReturn("ticket:modal:description");
+        when(event.getModalId()).thenReturn("ticket:modal:bug-report");
         when(event.getUser()).thenReturn(user);
-        ModalMapping descriptionMapping = mock(ModalMapping.class);
-        when(descriptionMapping.getAsString()).thenReturn("Some description");
-        when(event.getValue("description")).thenReturn(descriptionMapping);
+        ModalMapping title = textMapping("Login fails");
+        ModalMapping steps = textMapping("x");
+        ModalMapping expected = textMapping("x");
+        ModalMapping actual = textMapping("x");
+        ModalMapping recurrence = selectionMapping("Jedes Mal");
+        when(event.getValue("title")).thenReturn(title);
+        when(event.getValue("steps")).thenReturn(steps);
+        when(event.getValue("expected")).thenReturn(expected);
+        when(event.getValue("actual")).thenReturn(actual);
+        when(event.getValue("recurrence")).thenReturn(recurrence);
+        ReplyCallbackAction replyAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
+        when(event.reply(anyString())).thenReturn(replyAction);
+
+        listener.onModalInteraction(event);
+
+        verify(event).reply("Die Sitzung ist abgelaufen, bitte starte mit /ticket neu.");
+        verify(ticketProvider, never()).create(anyString(), anyString());
+    }
+
+    @Test
+    void featureModalSubmissionWithoutASessionAsksToRestart() {
+        ModalInteractionEvent event = mock(ModalInteractionEvent.class);
+        when(event.getModalId()).thenReturn("ticket:modal:feature");
+        when(event.getUser()).thenReturn(user);
+        ModalMapping title = textMapping("Dark mode");
+        ModalMapping description = textMapping("description");
+        when(event.getValue("title")).thenReturn(title);
+        when(event.getValue("description")).thenReturn(description);
         ReplyCallbackAction replyAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
         when(event.reply(anyString())).thenReturn(replyAction);
 
@@ -283,5 +257,28 @@ class HolonetTicketModalDialogListenerAdapterTest {
 
         verify(event, never()).reply(anyString());
         verify(event, never()).deferReply(anyBoolean());
+    }
+
+    /** A {@link ModalMapping} whose {@code getAsString()} returns the given text. */
+    private static ModalMapping textMapping(String value) {
+        ModalMapping mapping = mock(ModalMapping.class);
+        when(mapping.getAsString()).thenReturn(value);
+        return mapping;
+    }
+
+    /** A {@link ModalMapping} whose {@code getAsStringList()} returns the single chosen select value. */
+    private static ModalMapping selectionMapping(String value) {
+        ModalMapping mapping = mock(ModalMapping.class);
+        when(mapping.getAsStringList()).thenReturn(List.of(value));
+        return mapping;
+    }
+
+    /**
+     * {@code WebhookMessageCreateAction<T>} erases to a raw type via {@code .class}, so a single, documented
+     * unchecked cast lives here instead of being repeated (and unsuppressed) at every call site.
+     */
+    @SuppressWarnings("unchecked")
+    private static WebhookMessageCreateAction<Message> newSendMessageAction() {
+        return mock(WebhookMessageCreateAction.class, Answers.RETURNS_SELF);
     }
 }
