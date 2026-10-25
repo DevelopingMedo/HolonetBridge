@@ -69,6 +69,22 @@ class HolonetBridgeListenerAdapterTest {
     }
 
     @Test
+    void persistentSupportButtonOpensTheSameChooserAsTheSlashCommand() {
+        ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
+        when(event.getComponentId()).thenReturn(HolonetBridgeListenerAdapter.BUTTON_OPEN);
+        when(event.getUser()).thenReturn(user);
+        ReplyCallbackAction replyAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
+        when(event.reply(anyString())).thenReturn(replyAction);
+
+        listener.onButtonInteraction(event);
+
+        assertThat(sessionStore.get(USER_ID)).isPresent();
+        verify(event).reply("Möchtest du ein Ticket anlegen?");
+        verify(replyAction).setEphemeral(true);
+        verify(replyAction).queue();
+    }
+
+    @Test
     void slashCommandIgnoresOtherCommandNames() {
         SlashCommandInteractionEvent event = mock(SlashCommandInteractionEvent.class);
         when(event.getName()).thenReturn("not-ticket");
