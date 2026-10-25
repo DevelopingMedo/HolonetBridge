@@ -64,7 +64,6 @@ services:
       PROVIDER_GITEA_OWNER: ${GITEA_ADMIN_USERNAME:-holonet}
       PROVIDER_GITEA_REPOSITORY: ${GITEA_REPO_NAME:-support}
       DISCORD_TOKEN: ${DISCORD_TOKEN:-dev-placeholder-token}
-      DISCORD_ENABLED: ${DISCORD_ENABLED:-false}
     command:
       - sh
       - -c

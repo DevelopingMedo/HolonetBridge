@@ -19,8 +19,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
             "holonet.provider.token=test-token",
             "holonet.provider.gitea.owner=acme",
             "holonet.provider.gitea.repository=support",
-            "holonet.discord.token=test-discord-token",
-            "holonet.discord.enabled=false"
+            "holonet.discord.token=test-discord-token"
         })
 class BootstrapSmokeTest {
 

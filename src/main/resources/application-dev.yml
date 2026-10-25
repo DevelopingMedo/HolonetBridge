@@ -8,4 +8,3 @@ holonet:
       repository: ${PROVIDER_GITEA_REPOSITORY:support}
   discord:
     token: ${DISCORD_TOKEN:dev-placeholder-token}
-    enabled: ${DISCORD_ENABLED:false}
