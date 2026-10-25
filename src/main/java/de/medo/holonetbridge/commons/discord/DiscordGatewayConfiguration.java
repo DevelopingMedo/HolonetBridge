@@ -51,7 +51,7 @@ public class DiscordGatewayConfiguration {
 
         jda.updateCommands()
                 .addCommands(
-                        Commands.slash(COMMAND_TICKET, "Ein Ticket anlegen oder ändern"),
+                        Commands.slash(COMMAND_TICKET, "Ein Ticket anlegen"),
                         Commands.slash(
                                         COMMAND_START_HOLONET_CONFIGURATION,
                                         "Richtet die Support-Ticket-Nachricht in einem Kanal ein")

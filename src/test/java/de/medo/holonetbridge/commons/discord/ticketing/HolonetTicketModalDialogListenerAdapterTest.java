@@ -54,7 +54,7 @@ class HolonetTicketModalDialogListenerAdapterTest {
     }
 
     @Test
-    void slashCommandStartsASessionAndOffersTheThreeChoices() {
+    void slashCommandStartsASessionAndOffersTheCreateAndCancelChoices() {
         SlashCommandInteractionEvent event = mock(SlashCommandInteractionEvent.class);
         when(event.getName()).thenReturn(DiscordGatewayConfiguration.COMMAND_TICKET);
         when(event.getUser()).thenReturn(user);
@@ -125,19 +125,6 @@ class HolonetTicketModalDialogListenerAdapterTest {
 
         assertThat(sessionStore.get(USER_ID)).isEmpty();
         verify(event).reply("Abgebrochen.");
-        verify(replyAction).setEphemeral(true);
-    }
-
-    @Test
-    void startChangeButtonRepliesNotYetImplemented() {
-        ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
-        when(event.getComponentId()).thenReturn("ticket:start:change");
-        ReplyCallbackAction replyAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
-        when(event.reply(anyString())).thenReturn(replyAction);
-
-        listener.onButtonInteraction(event);
-
-        verify(event).reply("Das Ändern bestehender Tickets ist noch nicht implementiert.");
         verify(replyAction).setEphemeral(true);
     }
 

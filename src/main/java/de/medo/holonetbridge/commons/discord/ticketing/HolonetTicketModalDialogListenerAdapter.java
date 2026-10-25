@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component;
  *   <li>{@code ticket:open} - the persistent "Support anfragen" button that {@code
  *       TicketChannelConfigurationListenerAdapter} posts via {@code /configure-holonet-bridge}; triggers the
  *       same chooser as {@code /ticket} itself
- *   <li>{@code ticket:start:create|change|cancel} - the three choices offered right after {@code /ticket}
+ *   <li>{@code ticket:start:create|cancel} - the two choices offered right after {@code /ticket}
  *   <li>{@code ticket:modal:title} - the modal asking for the ticket title
  *   <li>{@code ticket:type:bug|feature} - the choice between a bug report and a feature request
  *   <li>{@code ticket:modal:description} - the modal collecting the bug/feature description, reused for both
@@ -40,7 +40,6 @@ public class HolonetTicketModalDialogListenerAdapter extends ListenerAdapter {
     public static final String BUTTON_OPEN = "ticket:open";
 
     private static final String BUTTON_START_CREATE = "ticket:start:create";
-    private static final String BUTTON_START_CHANGE = "ticket:start:change";
     private static final String BUTTON_START_CANCEL = "ticket:start:cancel";
 
     private static final String MODAL_TITLE = "ticket:modal:title";
@@ -91,10 +90,6 @@ public class HolonetTicketModalDialogListenerAdapter extends ListenerAdapter {
         switch (event.getComponentId()) {
             case BUTTON_OPEN -> openTicketChooser(event, event.getUser().getIdLong());
             case BUTTON_START_CREATE -> event.replyModal(titleModal()).queue();
-            case BUTTON_START_CHANGE ->
-                event.reply("Das Ändern bestehender Tickets ist noch nicht implementiert.")
-                        .setEphemeral(true)
-                        .queue();
             case BUTTON_START_CANCEL -> {
                 sessionStore.clear(event.getUser().getIdLong());
                 event.reply("Abgebrochen.").setEphemeral(true).queue();
@@ -172,7 +167,6 @@ public class HolonetTicketModalDialogListenerAdapter extends ListenerAdapter {
                 .reply("Möchtest du ein Ticket anlegen?")
                 .addComponents(ActionRow.of(
                         Button.primary(BUTTON_START_CREATE, "Anlegen"),
-                        Button.secondary(BUTTON_START_CHANGE, "Ändern"),
                         Button.danger(BUTTON_START_CANCEL, "Abbruch")))
                 .setEphemeral(true)
                 .queue();
