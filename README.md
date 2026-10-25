@@ -48,6 +48,27 @@ Once the gateway is connected, the bot registers a single global `/ticket` slash
 
 **Ändern** currently replies that editing is not implemented yet; **Abbruch** clears the in-progress session and confirms the cancellation. All bot replies in this flow are ephemeral (visible only to the user who ran `/ticket`). The bot connects with zero Discord gateway intents (`JDABuilder.createLight`) since the whole flow only needs slash-command/component/modal interactions, not any cached guild/member/message state.
 
+### Local development against a local Gitea
+
+`src/main/resources/application-dev.yml` activates with the `dev` Spring profile and defaults `holonet.provider.id` to `gitea` and the rest of `holonet.provider.*`/`holonet.discord.*` from a few narrower, dev-only environment variables, so the application starts without having to set the `HOLONET_PROVIDER_*`/`HOLONET_DISCORD_*` variables by hand on every run:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `PROVIDER_BASE_URL` | `localhost` | Host (no scheme/port) of the local Gitea instance |
+| `PROVIDER_PORT` | `3000` | Port of the local Gitea instance |
+| `PROVIDER_TOKEN` | `a1b2c3d4` | Fixed, non-secret local placeholder token shared between the JAR and a locally started Gitea (for example, both started together through Docker Compose) |
+| `DISCORD_TOKEN` | `dev-placeholder-token` | Non-secret placeholder; replace with a real bot token to exercise the `/ticket` flow locally |
+
+The resulting `holonet.provider.base-url` is `http://${PROVIDER_BASE_URL}:${PROVIDER_PORT}`. The default provider token is a throwaway local value, not a real credential, and is fine to keep in version control for this purpose only — it must never be reused for a real Gitea instance that holds actual data. No Gitea adapter exists yet (see "Known gaps"), so `holonet.provider.*` has no effect so far; these defaults are prepared ahead of it.
+
+The `.ci/deployment` Docker Compose setup (see its own [README](.ci/deployment/README.md)) brings up a local Gitea server plus the application's own built JAR, wired to these same variables, as a ready-to-use local environment for the Gitea adapter once it exists.
+
+Activate the profile with `SPRING_PROFILES_ACTIVE=dev`, for example:
+
+```sh
+SPRING_PROFILES_ACTIVE=dev java -jar target/holonet-bridge-*.jar
+```
+
 ## Build and test
 
 Requires Java 25 for the currently selected Spring Boot baseline.
@@ -58,3 +79,8 @@ mvn package
 ```
 
 Discord event handling is tested without any real gateway connection: `HolonetBridgeListenerAdapterTest` mocks the JDA event/action interfaces directly with Mockito (no extra JDA-mock test library) to drive `HolonetBridgeListenerAdapter` through the whole button/modal flow.
+
+## Known gaps
+
+- No concrete `TicketProvider` adapter exists yet; the `/ticket` flow cannot actually file a ticket anywhere until one is added (a Gitea adapter is next).
+- Discord gateway enablement: there is currently no way to start the application with the gateway switched off. The dev profile (`application-dev.yml`) and `.ci/deployment` (`docker-compose.yml`, `env.example`) set a `DISCORD_ENABLED` variable that currently has no effect; this needs a proper rework — likely tied to how a Discord bot is actually registered and obtains its token, which happens after the server is already running, not before.

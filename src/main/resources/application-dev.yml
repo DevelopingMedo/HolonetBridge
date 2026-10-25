@@ -1,0 +1,11 @@
+holonet:
+  provider:
+    id: gitea
+    base-url: http://${PROVIDER_BASE_URL:localhost}:${PROVIDER_PORT:3000}
+    token: ${PROVIDER_TOKEN:a1b2c3d4}
+    gitea:
+      owner: ${PROVIDER_GITEA_OWNER:holonet}
+      repository: ${PROVIDER_GITEA_REPOSITORY:support}
+  discord:
+    token: ${DISCORD_TOKEN:dev-placeholder-token}
+    enabled: ${DISCORD_ENABLED:false}

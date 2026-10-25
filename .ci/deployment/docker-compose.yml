@@ -1,0 +1,83 @@
+services:
+  gitea:
+    image: gitea/gitea:1.22
+    container_name: holonet-bridge-gitea
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - GITEA__database__DB_TYPE=sqlite3
+      - GITEA__security__INSTALL_LOCK=true
+      - GITEA__security__SECRET_KEY=${GITEA_SECRET_KEY:-dev-only-not-a-real-secret}
+    volumes:
+      - gitea-data:/data
+    ports:
+      - "${GITEA_HTTP_PORT:-3000}:3000"
+      - "${GITEA_SSH_PORT:-2222}:22"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/api/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  gitea-init:
+    image: gitea/gitea:1.22
+    container_name: holonet-bridge-gitea-init
+    depends_on:
+      gitea:
+        condition: service_healthy
+    volumes:
+      - gitea-data:/data
+      - gitea-token:/shared
+    environment:
+      GITEA_ADMIN_USERNAME: ${GITEA_ADMIN_USERNAME:-holonet}
+      GITEA_ADMIN_PASSWORD: ${GITEA_ADMIN_PASSWORD:-dev-only-not-a-real-secret}
+      GITEA_REPO_NAME: ${GITEA_REPO_NAME:-support}
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        test -f /shared/.ready && exit 0
+        chown 1000:1000 /shared
+        su-exec 1000:1000 gitea admin user create --username "$$GITEA_ADMIN_USERNAME" --password "$$GITEA_ADMIN_PASSWORD" --email "$$GITEA_ADMIN_USERNAME@holonet.invalid" --admin --must-change-password=false
+        su-exec 1000:1000 gitea admin user generate-access-token --username "$$GITEA_ADMIN_USERNAME" --token-name holonet-bridge --scopes all --raw > /shared/provider-token
+        chown 1000:1000 /shared/provider-token
+        wget -q -O - \
+          --header="Authorization: token $$(cat /shared/provider-token)" \
+          --header="Content-Type: application/json" \
+          --post-data="{\"name\":\"$$GITEA_REPO_NAME\",\"private\":true,\"auto_init\":true}" \
+          "http://gitea:3000/api/v1/user/repos" || true
+        touch /shared/.ready
+
+  app:
+    image: eclipse-temurin:25-jre
+    container_name: holonet-bridge-app
+    working_dir: /app
+    volumes:
+      - ./holonet-bridge.jar:/app/app.jar:ro
+      - gitea-token:/shared:ro
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      PROVIDER_BASE_URL: ${PROVIDER_BASE_URL:-gitea}
+      PROVIDER_PORT: ${PROVIDER_PORT:-3000}
+      PROVIDER_GITEA_OWNER: ${GITEA_ADMIN_USERNAME:-holonet}
+      PROVIDER_GITEA_REPOSITORY: ${GITEA_REPO_NAME:-support}
+      DISCORD_TOKEN: ${DISCORD_TOKEN:-dev-placeholder-token}
+      DISCORD_ENABLED: ${DISCORD_ENABLED:-false}
+    command:
+      - sh
+      - -c
+      - |
+        [ -f /shared/provider-token ] && export PROVIDER_TOKEN=$$(cat /shared/provider-token)
+        exec java -jar /app/app.jar
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    depends_on:
+      gitea-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  gitea-data:
+  gitea-token:
