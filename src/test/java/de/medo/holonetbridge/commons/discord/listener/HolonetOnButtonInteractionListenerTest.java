@@ -17,7 +17,7 @@ import de.medo.holonetbridge.commons.discord.button.HolonetOpenSupportButton;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannel;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannelRepository;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
-import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketKind;
+import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import java.util.Collection;
 import java.util.function.Consumer;
 import net.dv8tion.jda.api.entities.Guild;

@@ -1,5 +1,7 @@
 package de.medo.holonetbridge.commons.discord.ticketing;
 
+import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
+
 /**
  * State of one Discord user's in-progress support request, mutated in place as the user moves
  * through the steps (bug/idea choice, then a single modal); {@code kind} is {@code null} until the choice has

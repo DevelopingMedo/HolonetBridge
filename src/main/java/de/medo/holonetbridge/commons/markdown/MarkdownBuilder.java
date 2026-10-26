@@ -9,6 +9,12 @@ public final class MarkdownBuilder {
     private final TextBuilder builder = new TextBuilder();
     private boolean hasBlock;
 
+    private MarkdownBuilder() {}
+
+    public static MarkdownBuilder builder() {
+        return new MarkdownBuilder();
+    }
+
     public MarkdownBuilder heading2(String text) {
         beginBlock();
         Heading heading = new Heading(text, 2);

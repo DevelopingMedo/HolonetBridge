@@ -2,8 +2,8 @@ package de.medo.holonetbridge.commons.discord.modal;
 
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannelRepository;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
-import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicket;
-import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketKind;
+import de.medo.holonetbridge.commons.domain.ticket.HolonetTicket;
+import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import de.medo.holonetbridge.commons.extapi.TicketDto;
 import de.medo.holonetbridge.commons.extapi.TicketProvider;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
@@ -35,7 +35,7 @@ public class HolonetTicketSubmitter {
                 session -> createTicket(
                         event,
                         userId,
-                        titleWithKindPrefix(session.kind(), ticket.title()),
+                        titleWithKindPrefix(session.kind(), ticket.getTitle()),
                         ticket.getDescription()),
                 () -> replySessionExpired(event));
     }

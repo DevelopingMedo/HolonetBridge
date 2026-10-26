@@ -1,13 +1,13 @@
 package de.medo.holonetbridge.commons.discord.modal;
 
 import de.medo.holonetbridge.commons.discord.button.HolonetBugReportModalButton;
-import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketBug;
+import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketBug;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import org.springframework.stereotype.Component;
 
 /**
  * Handles the submitted bug-report modal ({@link HolonetBugReportModalButton#MODAL_ID}): reads the title and the
- * four report fields into a {@link HolonetTicket} and submits it as a bug ticket.
+ * four report fields into a {@link HolonetTicketBug} and submits it as a bug ticket.
  */
 @Component
 public class HolonetBugReportSubmitModalAction {
@@ -20,12 +20,13 @@ public class HolonetBugReportSubmitModalAction {
 
     public void handle(ModalInteractionEvent event) {
         long userId = event.getUser().getIdLong();
-        HolonetTicketBug ticket = new HolonetTicketBug(
-                event.getValue(HolonetBugReportModalButton.INPUT_TITLE).getAsString(),
-                event.getValue(HolonetBugReportModalButton.INPUT_STEPS).getAsString(),
-                event.getValue(HolonetBugReportModalButton.INPUT_EXPECTED).getAsString(),
-                event.getValue(HolonetBugReportModalButton.INPUT_ACTUAL).getAsString(),
-                event.getValue(HolonetBugReportModalButton.INPUT_RECURRENCE).getAsStringList().get(0));
+        HolonetTicketBug ticket = HolonetTicketBug.builder()
+                .title(event.getValue(HolonetBugReportModalButton.INPUT_TITLE).getAsString())
+                .steps(event.getValue(HolonetBugReportModalButton.INPUT_STEPS).getAsString())
+                .expected(event.getValue(HolonetBugReportModalButton.INPUT_EXPECTED).getAsString())
+                .actual(event.getValue(HolonetBugReportModalButton.INPUT_ACTUAL).getAsString())
+                .recurrence(event.getValue(HolonetBugReportModalButton.INPUT_RECURRENCE).getAsStringList().get(0))
+                .build();
         ticketSubmitter.submit(event, userId, ticket);
     }
 }

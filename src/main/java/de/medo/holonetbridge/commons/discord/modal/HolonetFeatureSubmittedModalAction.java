@@ -1,7 +1,7 @@
 package de.medo.holonetbridge.commons.discord.modal;
 
 import de.medo.holonetbridge.commons.discord.button.HolonetFeatureModalButton;
-import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicket;
+import de.medo.holonetbridge.commons.domain.ticket.HolonetTicket;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import org.springframework.stereotype.Component;
 

@@ -1,7 +1,7 @@
 package de.medo.holonetbridge.commons.discord.button;
 
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
-import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketKind;
+import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import net.dv8tion.jda.api.components.label.Label;
 import net.dv8tion.jda.api.components.textinput.TextInput;
 import net.dv8tion.jda.api.components.textinput.TextInputStyle;

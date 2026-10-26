@@ -1,8 +1,10 @@
-package de.medo.holonetbridge.commons.discord.ticketing;
+package de.medo.holonetbridge.commons.domain.ticket;
 
 import de.medo.holonetbridge.commons.markdown.MarkdownBuilder;
-import java.util.Objects;
+import lombok.NonNull;
+import lombok.experimental.SuperBuilder;
 
+@SuperBuilder
 public final class HolonetTicketBug extends HolonetTicket {
 
     private static final String STEPS_HEADING = "Was hast du vor dem Fehler gemacht?";
@@ -10,22 +12,14 @@ public final class HolonetTicketBug extends HolonetTicket {
     private static final String ACTUAL_HEADING = "Was ist stattdessen passiert?";
     private static final String RECURRENCE_HEADING = "Tritt der Fehler erneut auf?";
 
-    private final String steps;
-    private final String expected;
-    private final String actual;
-    private final String recurrence;
-
-    public HolonetTicketBug(String title, String steps, String expected, String actual, String recurrence) {
-        super(title, "");
-        this.steps = Objects.requireNonNull(steps, "steps must not be null");
-        this.expected = Objects.requireNonNull(expected, "expected must not be null");
-        this.actual = Objects.requireNonNull(actual, "actual must not be null");
-        this.recurrence = Objects.requireNonNull(recurrence, "recurrence must not be null");
-    }
+    @NonNull private final String steps;
+    @NonNull private final String expected;
+    @NonNull private final String actual;
+    @NonNull private final String recurrence;
 
     @Override
     public String getDescription() {
-        return new MarkdownBuilder()
+        return MarkdownBuilder.builder()
                 .heading2(STEPS_HEADING)
                 .text(steps)
                 .heading2(EXPECTED_HEADING)

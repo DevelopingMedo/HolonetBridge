@@ -14,7 +14,7 @@ import de.medo.holonetbridge.commons.discord.modal.HolonetFeatureSubmittedModalA
 import de.medo.holonetbridge.commons.discord.modal.HolonetTicketSubmitter;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannelRepository;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
-import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketKind;
+import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import de.medo.holonetbridge.commons.extapi.TicketDto;
 import de.medo.holonetbridge.commons.extapi.TicketProvider;
 import java.util.List;

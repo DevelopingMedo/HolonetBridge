@@ -1,4 +1,4 @@
-package de.medo.holonetbridge.commons.discord.ticketing;
+package de.medo.holonetbridge.commons.domain.ticket;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -8,14 +8,15 @@ class HolonetTicketTest {
 
     @Test
     void bugDescriptionHasFourSectionsAndPreservesRawInput() {
-        HolonetTicket ticket = new HolonetTicketBug(
-                "Login schlägt fehl",
-                "  1. starte\n* **zweiter Schritt**  ",
-                "* soll funktionieren\n  ",
-                "`Fehler`\nweiter",
-                "Jedes Mal");
+        HolonetTicket ticket = HolonetTicketBug.builder()
+                .title("Login schlägt fehl")
+                .steps("  1. starte\n* **zweiter Schritt**  ")
+                .expected("* soll funktionieren\n  ")
+                .actual("`Fehler`\nweiter")
+                .recurrence("Jedes Mal")
+                .build();
 
-        assertThat(ticket.title()).isEqualTo("Login schlägt fehl");
+        assertThat(ticket.getTitle()).isEqualTo("Login schlägt fehl");
         assertThat(ticket.getDescription())
                 .isEqualTo("## Was hast du vor dem Fehler gemacht?\n\n"
                         + "  1. starte\n* **zweiter Schritt**  \n\n"
@@ -35,7 +36,7 @@ class HolonetTicketTest {
                 .description(description)
                 .build();
 
-        assertThat(ticket.title()).isEqualTo("Dark mode");
+        assertThat(ticket.getTitle()).isEqualTo("Dark mode");
         assertThat(ticket.getDescription()).isSameAs(description);
     }
 }
