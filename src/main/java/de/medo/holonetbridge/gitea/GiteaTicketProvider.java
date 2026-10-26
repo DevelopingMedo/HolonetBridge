@@ -1,8 +1,8 @@
 package de.medo.holonetbridge.gitea;
 
+import java.net.URI;
 import java.util.Optional;
 
-import de.medo.holonetbridge.commons.ProviderConnectionProperties;
 import de.medo.holonetbridge.commons.extapi.TicketDto;
 import de.medo.holonetbridge.commons.extapi.TicketProvider;
 import org.springframework.http.HttpHeaders;
@@ -10,7 +10,8 @@ import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
 
 /**
- * {@link TicketProvider} adapter backed by a Gitea instance's issue API, wired up by {@link GiteaConfiguration}.
+ * {@link TicketProvider} adapter backed by a Gitea instance's issue API, built per provider-connection by
+ * {@link GiteaProviderFactory} (never as a single global/singleton instance - see that class's Javadoc).
  *
  * <p>Only {@link #create(String, String)} is implemented so far; {@link #read(String)}, {@link
  * #edit(String, String, String)}, and {@link #comment(String, String)} throw {@link
@@ -23,15 +24,13 @@ public class GiteaTicketProvider implements TicketProvider {
     private final String repository;
 
     public GiteaTicketProvider(
-            RestClient.Builder restClientBuilder,
-            ProviderConnectionProperties providerConnectionProperties,
-            GiteaProperties giteaProperties) {
+            RestClient.Builder restClientBuilder, URI baseUrl, String token, String owner, String repository) {
         this.restClient = restClientBuilder
-                .baseUrl(providerConnectionProperties.baseUrl().toString())
-                .defaultHeader(HttpHeaders.AUTHORIZATION, "token " + providerConnectionProperties.token())
+                .baseUrl(baseUrl.toString())
+                .defaultHeader(HttpHeaders.AUTHORIZATION, "token " + token)
                 .build();
-        this.owner = giteaProperties.owner();
-        this.repository = giteaProperties.repository();
+        this.owner = owner;
+        this.repository = repository;
     }
 
     @Override

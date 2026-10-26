@@ -11,7 +11,6 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 import java.net.URI;
 
-import de.medo.holonetbridge.commons.ProviderConnectionProperties;
 import de.medo.holonetbridge.commons.extapi.TicketDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,10 +22,7 @@ import org.springframework.web.client.RestClient;
 
 class GiteaTicketProviderTest {
 
-    private final ProviderConnectionProperties providerConnectionProperties = new ProviderConnectionProperties(
-            "gitea", URI.create("https://tickets.example.invalid"), "secret-test-token");
-
-    private final GiteaProperties giteaProperties = new GiteaProperties("acme", "support");
+    private static final URI BASE_URL = URI.create("https://tickets.example.invalid");
 
     private RestClient.Builder restClientBuilder;
     private MockRestServiceServer server;
@@ -36,7 +32,7 @@ class GiteaTicketProviderTest {
     void setUp() {
         restClientBuilder = RestClient.builder();
         server = MockRestServiceServer.bindTo(restClientBuilder).build();
-        provider = new GiteaTicketProvider(restClientBuilder, providerConnectionProperties, giteaProperties);
+        provider = new GiteaTicketProvider(restClientBuilder, BASE_URL, "secret-test-token", "acme", "support");
     }
 
     @Test

@@ -2,7 +2,6 @@ package de.medo.holonetbridge.gitea;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import de.medo.holonetbridge.commons.ProviderConnectionProperties;
 import de.medo.holonetbridge.commons.extapi.TicketDto;
 import java.net.URI;
 import java.util.Map;
@@ -46,10 +45,7 @@ class GiteaTicketProviderIntegrationTest {
         String token = generateAccessToken();
         createRepository(token);
         URI baseUrl = URI.create("http://" + GITEA.getHost() + ":" + GITEA.getMappedPort(3000));
-        provider = new GiteaTicketProvider(
-                RestClient.builder(),
-                new ProviderConnectionProperties("gitea", baseUrl, token),
-                new GiteaProperties(ADMIN_USERNAME, REPOSITORY));
+        provider = new GiteaTicketProvider(RestClient.builder(), baseUrl, token, ADMIN_USERNAME, REPOSITORY);
     }
 
     @Test

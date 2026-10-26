@@ -14,10 +14,13 @@ import de.medo.holonetbridge.commons.discord.button.HolonetAddWatcherButton;
 import de.medo.holonetbridge.commons.discord.button.HolonetBugReportModalButton;
 import de.medo.holonetbridge.commons.discord.button.HolonetFeatureModalButton;
 import de.medo.holonetbridge.commons.discord.button.HolonetOpenSupportButton;
+import de.medo.holonetbridge.commons.discord.button.HolonetSetupRetryButton;
+import de.medo.holonetbridge.commons.discord.setup.HolonetSetupDraftStore;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannel;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannelRepository;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
+import de.medo.holonetbridge.commons.provider.HolonetProviderConnectionService;
 import java.util.Collection;
 import java.util.function.Consumer;
 import net.dv8tion.jda.api.entities.Guild;
@@ -59,11 +62,15 @@ class HolonetOnButtonInteractionListenerTest {
     private final HolonetTicketCreationSessionStore sessionStore = new HolonetTicketCreationSessionStore();
     private final HolonetSupportChannelRepository supportChannelRepository =
             mock(HolonetSupportChannelRepository.class);
+    private final HolonetSetupDraftStore setupDraftStore = new HolonetSetupDraftStore();
+    private final HolonetProviderConnectionService providerConnectionService =
+            mock(HolonetProviderConnectionService.class);
     private final HolonetOnButtonInteractionListener listener = new HolonetOnButtonInteractionListener(
             new HolonetOpenSupportButton(sessionStore, supportChannelRepository),
             new HolonetBugReportModalButton(sessionStore),
             new HolonetFeatureModalButton(sessionStore),
-            new HolonetAddWatcherButton());
+            new HolonetAddWatcherButton(),
+            new HolonetSetupRetryButton(setupDraftStore, providerConnectionService));
 
     private final User user = mock(User.class);
 
@@ -187,6 +194,24 @@ class HolonetOnButtonInteractionListenerTest {
         verify(event).reply("Wähle eine Person aus, die den Kanal sehen und kommentieren darf.");
         verify(replyAction).setEphemeral(true);
         verify(replyAction).queue();
+    }
+
+    @Test
+    void setupRetryButtonReopensTheProviderConnectionModalWhenADraftExists() {
+        setupDraftStore.start(USER_ID, GUILD_ID, CHANNEL_ID);
+        when(providerConnectionService.activeConnection(GUILD_ID)).thenReturn(java.util.Optional.empty());
+        ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
+        when(event.getComponentId()).thenReturn(HolonetSetupRetryButton.BUTTON_ID);
+        when(event.getUser()).thenReturn(user);
+        ModalCallbackAction modalCallbackAction = mock(ModalCallbackAction.class, Answers.RETURNS_SELF);
+        ArgumentCaptor<Modal> modalCaptor = ArgumentCaptor.forClass(Modal.class);
+        when(event.replyModal(modalCaptor.capture())).thenReturn(modalCallbackAction);
+
+        listener.onButtonInteraction(event);
+
+        assertThat(modalCaptor.getValue().getId())
+                .isEqualTo(de.medo.holonetbridge.commons.discord.modal.HolonetProviderConnectionModal.MODAL_ID);
+        verify(modalCallbackAction).queue();
     }
 
     /**

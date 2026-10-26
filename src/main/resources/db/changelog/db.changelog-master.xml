@@ -9,5 +9,6 @@
          reorder an included file once released; add new ones instead, so that both a fresh database and
          an existing one replay the exact same changeset history. -->
     <include file="db/changelog/db.changelog-1.0-baseline.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/db.changelog-2.0-provider-connection.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>
