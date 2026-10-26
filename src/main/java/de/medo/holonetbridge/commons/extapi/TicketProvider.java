@@ -1,4 +1,4 @@
-package de.medo.holonetbridge.commons.ticket;
+package de.medo.holonetbridge.commons.extapi;
 
 import java.util.Optional;
 

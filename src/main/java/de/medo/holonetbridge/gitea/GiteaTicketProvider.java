@@ -3,8 +3,8 @@ package de.medo.holonetbridge.gitea;
 import java.util.Optional;
 
 import de.medo.holonetbridge.commons.ProviderConnectionProperties;
-import de.medo.holonetbridge.commons.ticket.TicketDto;
-import de.medo.holonetbridge.commons.ticket.TicketProvider;
+import de.medo.holonetbridge.commons.extapi.TicketDto;
+import de.medo.holonetbridge.commons.extapi.TicketProvider;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;

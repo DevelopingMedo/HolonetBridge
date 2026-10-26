@@ -12,7 +12,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import java.net.URI;
 
 import de.medo.holonetbridge.commons.ProviderConnectionProperties;
-import de.medo.holonetbridge.commons.ticket.TicketDto;
+import de.medo.holonetbridge.commons.extapi.TicketDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;

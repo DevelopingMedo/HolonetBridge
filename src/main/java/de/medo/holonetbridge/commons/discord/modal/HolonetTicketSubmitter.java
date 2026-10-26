@@ -3,8 +3,8 @@ package de.medo.holonetbridge.commons.discord.modal;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannelRepository;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketKind;
-import de.medo.holonetbridge.commons.ticket.TicketDto;
-import de.medo.holonetbridge.commons.ticket.TicketProvider;
+import de.medo.holonetbridge.commons.extapi.TicketDto;
+import de.medo.holonetbridge.commons.extapi.TicketProvider;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import org.springframework.stereotype.Component;
 
