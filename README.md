@@ -151,48 +151,12 @@ mvn test
 - Discord gateway enablement: there is currently no way to start the application with the gateway switched off. A previous `holonet.discord.enabled`/`HOLONET_DISCORD_ENABLED` toggle was removed because it only existed for test convenience; tests now mock the `JDA` bean directly instead (`@MockitoBean` in `BootstrapSmokeTest`). A proper toggle still needs a rework — likely tied to how a Discord bot is actually registered and obtains its token, which happens after the server is already running, not before.
 - Provider-connection persistence: `TokenCryptoService` (see "Provider-token encryption at rest" above) exists and is tested standalone, but nothing yet persists an `EncryptedSecret` for an actual per-guild provider connection — there is still only the single, globally configured `holonet.provider.*` connection. The entity that will own that and call `TokenCryptoService` is a later work package.
 
-## Languages and editable bot texts
+## Supported languages
 
-All Discord-facing texts are maintained separately from application configuration:
+- German
+- English
+- Croatian
+- Russian (Latin script)
 
-- `src/main/resources/i18n/en.yml` — English (fallback)
-- `src/main/resources/i18n/de.yml` — German
-- `src/main/resources/i18n/hr.yml` — Croatian
-- `src/main/resources/i18n/ru.yml` — Russian, deliberately transliterated into Latin script
-
-Personal replies, modals and error messages use the invoking user's Discord language.
-Public support panels, channel messages and generated ticket descriptions use the Discord
-server's preferred language. Unsupported languages fall back to English. Submitted titles
-and free text are kept unchanged. Internal component IDs and ticket prefixes (`[Bug]`,
-`[Feature]`) remain stable across languages. Slash-command descriptions are registered
-with Discord's native localizations; `/setup` and its `channel` option keep their names.
-
-To customize wording without rebuilding the JAR, create a directory containing any of
-`en.yml`, `de.yml`, `hr.yml`, `ru.yml`, and configure:
-
-```yaml
-holonet:
-  i18n:
-    directory: ./config/i18n
-```
-
-Or set `HOLONET_I18N_DIRECTORY`. Files use the same nested keys as the bundled catalogs.
-Only provide keys you want to override, for example `config/i18n/de.yml`:
-
-```yaml
-setup:
-  panel:
-    message: "Willkommen! Wie können wir dir helfen?"
-    button: "Support öffnen"
-```
-
-Restart the bot after editing. Existing Discord messages retain their old wording:
-run `/setup` again to update the support panel; other changes apply to newly opened
-dialogs and newly sent messages. The configured directory must also be mounted into
-the container when running with Docker.
-
-Keep placeholders such as `{0}` and `{1}` unchanged. Texts are formatted using
-`MessageFormat`; ordinary apostrophes can be written normally. Discord limits still
-apply (for example, modal titles max. 45 characters and button labels max. 80).
-Translations are resolved through the injected `Texts` component. `TicketDescriptionFormatter`
-handles translated Markdown headings, keeping locale lookup out of the ticket domain.
+Personal replies and dialogs follow the user's Discord language. Public messages and
+ticket descriptions use the server's language. Unsupported languages use English.

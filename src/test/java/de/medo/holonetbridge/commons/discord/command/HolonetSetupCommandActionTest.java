@@ -23,7 +23,7 @@ import de.medo.holonetbridge.commons.crypto.EncryptedSecret;
 import de.medo.holonetbridge.commons.crypto.TokenCryptoService;
 import de.medo.holonetbridge.commons.crypto.TokenEncryptionContext;
 import de.medo.holonetbridge.commons.discord.i18n.I18nProperties;
-import de.medo.holonetbridge.commons.discord.i18n.Texts;
+import de.medo.holonetbridge.commons.discord.i18n.MessageSourceConfiguration;
 import de.medo.holonetbridge.commons.discord.modal.HolonetProviderConnectionModal;
 import de.medo.holonetbridge.commons.discord.modal.HolonetSetupConnectionSubmitModalAction;
 import de.medo.holonetbridge.commons.discord.setup.HolonetDiscordServer;
@@ -56,6 +56,7 @@ import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 import org.junit.jupiter.api.Test;
 import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.MessageSource;
 
 /**
  * Drives {@link HolonetSetupCommandAction} and {@link HolonetSetupConnectionSubmitModalAction} together
@@ -65,7 +66,7 @@ import org.mockito.ArgumentCaptor;
  */
 class HolonetSetupCommandActionTest {
 
-    private final Texts texts = new Texts(new I18nProperties(null));
+    private final MessageSource messageSource = new MessageSourceConfiguration().messageSource(new I18nProperties(null));
 
     private static final long USER_ID = 42L;
     private static final long GUILD_ID = 100L;
@@ -85,8 +86,8 @@ class HolonetSetupCommandActionTest {
     private final GiteaConnectionValidator connectionValidator = mock(GiteaConnectionValidator.class);
 
     private final HolonetSetupCommandAction commandAction =
-            new HolonetSetupCommandAction(texts, draftStore, providerConnectionService);
-    private final HolonetSetupConnectionSubmitModalAction submitAction = new HolonetSetupConnectionSubmitModalAction(texts, draftStore, providerConnectionService, discordServerRepository, tokenCryptoService, connectionValidator);
+            new HolonetSetupCommandAction(messageSource, draftStore, providerConnectionService);
+    private final HolonetSetupConnectionSubmitModalAction submitAction = new HolonetSetupConnectionSubmitModalAction(messageSource, draftStore, providerConnectionService, discordServerRepository, tokenCryptoService, connectionValidator);
 
     // ---------------------------------------------------------------------
     // /setup command: permission/channel gates and modal opening

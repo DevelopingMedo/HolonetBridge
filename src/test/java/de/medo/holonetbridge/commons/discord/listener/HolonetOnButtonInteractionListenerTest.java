@@ -19,7 +19,7 @@ import de.medo.holonetbridge.commons.discord.button.HolonetFeatureModalButton;
 import de.medo.holonetbridge.commons.discord.button.HolonetOpenSupportButton;
 import de.medo.holonetbridge.commons.discord.button.HolonetSetupRetryButton;
 import de.medo.holonetbridge.commons.discord.i18n.I18nProperties;
-import de.medo.holonetbridge.commons.discord.i18n.Texts;
+import de.medo.holonetbridge.commons.discord.i18n.MessageSourceConfiguration;
 import de.medo.holonetbridge.commons.discord.setup.HolonetSetupDraftStore;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetGuildSequenceService;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannel;
@@ -48,6 +48,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.MessageSource;
 
 /**
  * Drives {@link HolonetOnButtonInteractionListener} through its four buttons using Mockito mocks of the JDA event
@@ -60,7 +61,7 @@ import org.mockito.ArgumentCaptor;
  */
 class HolonetOnButtonInteractionListenerTest {
 
-    private final Texts texts = new Texts(new I18nProperties(null));
+    private final MessageSource messageSource = new MessageSourceConfiguration().messageSource(new I18nProperties(null));
 
     private static final long USER_ID = 123456789L;
     private static final long GUILD_ID = 999L;
@@ -74,11 +75,11 @@ class HolonetOnButtonInteractionListenerTest {
             mock(HolonetProviderConnectionService.class);
     private final HolonetGuildSequenceService guildSequenceService = mock(HolonetGuildSequenceService.class);
     private final HolonetOnButtonInteractionListener listener = new HolonetOnButtonInteractionListener(
-            new HolonetOpenSupportButton(texts, sessionStore, supportChannelRepository, guildSequenceService),
-            new HolonetBugReportModalButton(texts, sessionStore),
-            new HolonetFeatureModalButton(texts, sessionStore),
-            new HolonetAddWatcherButton(texts),
-            new HolonetSetupRetryButton(texts, setupDraftStore, providerConnectionService));
+            new HolonetOpenSupportButton(messageSource, sessionStore, supportChannelRepository, guildSequenceService),
+            new HolonetBugReportModalButton(messageSource, sessionStore),
+            new HolonetFeatureModalButton(messageSource, sessionStore),
+            new HolonetAddWatcherButton(messageSource),
+            new HolonetSetupRetryButton(messageSource, setupDraftStore, providerConnectionService));
 
     private final User user = mock(User.class);
 

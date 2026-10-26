@@ -1,6 +1,7 @@
 package de.medo.holonetbridge.commons.discord.button;
 
-import de.medo.holonetbridge.commons.discord.i18n.Texts;
+import java.util.Locale;
+
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import net.dv8tion.jda.api.components.label.Label;
@@ -8,6 +9,7 @@ import net.dv8tion.jda.api.components.textinput.TextInput;
 import net.dv8tion.jda.api.components.textinput.TextInputStyle;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.modals.Modal;
+import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
 
 /**
@@ -21,7 +23,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class HolonetFeatureModalButton {
 
-    private final Texts texts;
+    private final MessageSource messageSource;
 
     /** Custom id of the "Idee" choice button. */
     public static final String BUTTON_ID = "ticket:kind:feature";
@@ -34,8 +36,8 @@ public class HolonetFeatureModalButton {
 
     private final HolonetTicketCreationSessionStore sessionStore;
 
-    public HolonetFeatureModalButton(Texts texts, HolonetTicketCreationSessionStore sessionStore) {
-        this.texts = texts;
+    public HolonetFeatureModalButton(MessageSource messageSource, HolonetTicketCreationSessionStore sessionStore) {
+        this.messageSource = messageSource;
         this.sessionStore = sessionStore;
     }
 
@@ -47,15 +49,16 @@ public class HolonetFeatureModalButton {
     }
 
     private Modal featureModal(ButtonInteractionEvent event) {
+        Locale userLocale = event.getUserLocale().toLocale();
         TextInput title = TextInput.create(INPUT_TITLE, TextInputStyle.SHORT)
                 .setRequiredRange(1, 100)
                 .build();
         TextInput description = TextInput.create(INPUT_DESCRIPTION, TextInputStyle.PARAGRAPH)
                 .build();
-        return Modal.create(MODAL_ID, texts.user(event, "feature.modal.title"))
+        return Modal.create(MODAL_ID, messageSource.getMessage("feature.modal.title", null, userLocale))
                 .addComponents(
-                        Label.of(texts.user(event, "ticket.title"), texts.user(event, "feature.title-hint"), title),
-                        Label.of(texts.user(event, "ticket.description"), texts.user(event, "feature.description-hint"), description))
+                        Label.of(messageSource.getMessage("ticket.title", null, userLocale), messageSource.getMessage("feature.title-hint", null, userLocale), title),
+                        Label.of(messageSource.getMessage("ticket.description", null, userLocale), messageSource.getMessage("feature.description-hint", null, userLocale), description))
                 .build();
     }
 }

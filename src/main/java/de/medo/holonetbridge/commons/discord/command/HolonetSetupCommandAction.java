@@ -1,6 +1,7 @@
 package de.medo.holonetbridge.commons.discord.command;
 
-import de.medo.holonetbridge.commons.discord.i18n.Texts;
+import java.util.Locale;
+
 import de.medo.holonetbridge.commons.discord.modal.HolonetProviderConnectionModal;
 import de.medo.holonetbridge.commons.discord.setup.HolonetSetupDraftStore;
 import de.medo.holonetbridge.commons.provider.HolonetProviderConnectionService;
@@ -9,6 +10,7 @@ import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
 
 /**
@@ -27,7 +29,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class HolonetSetupCommandAction {
 
-    private final Texts texts;
+    private final MessageSource messageSource;
 
     /** Name of the {@code /setup} slash command. */
     public static final String COMMAND_SETUP = "setup";
@@ -39,22 +41,23 @@ public class HolonetSetupCommandAction {
     private final HolonetProviderConnectionService providerConnectionService;
 
     public HolonetSetupCommandAction(
-            Texts texts,
+            MessageSource messageSource,
             HolonetSetupDraftStore draftStore, HolonetProviderConnectionService providerConnectionService) {
-        this.texts = texts;
+        this.messageSource = messageSource;
         this.draftStore = draftStore;
         this.providerConnectionService = providerConnectionService;
     }
 
     public void handle(SlashCommandInteractionEvent event) {
+        Locale userLocale = event.getUserLocale().toLocale();
         Guild guild = event.getGuild();
         Member member = event.getMember();
         if (guild == null || member == null) {
-            replyError(event, texts.user(event, "setup.guild-only"));
+            replyError(event, messageSource.getMessage("setup.guild-only", null, userLocale));
             return;
         }
         if (!member.hasPermission(Permission.MANAGE_SERVER)) {
-            replyError(event, texts.user(event, "setup.manage-server"));
+            replyError(event, messageSource.getMessage("setup.manage-server", null, userLocale));
             return;
         }
 
@@ -62,13 +65,13 @@ public class HolonetSetupCommandAction {
         if (!guild.getSelfMember().hasPermission(channel, Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND)) {
             replyError(
                     event,
-                    texts.user(event, "setup.cannot-post", channel.getAsMention()));
+                    messageSource.getMessage("setup.cannot-post", new Object[] {channel.getAsMention()}, userLocale));
             return;
         }
 
         draftStore.start(member.getIdLong(), guild.getIdLong(), channel.getIdLong());
         boolean tokenRequired = providerConnectionService.activeConnection(guild.getIdLong()).isEmpty();
-        event.replyModal(HolonetProviderConnectionModal.build(tokenRequired, null, texts, event.getUserLocale())).queue();
+        event.replyModal(HolonetProviderConnectionModal.build(tokenRequired, null, messageSource, userLocale)).queue();
     }
 
     private static void replyError(SlashCommandInteractionEvent event, String message) {

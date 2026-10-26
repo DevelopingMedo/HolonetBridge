@@ -1,12 +1,13 @@
 package de.medo.holonetbridge.commons.discord.modal;
 
-import de.medo.holonetbridge.commons.discord.i18n.Texts;
+import java.util.Locale;
+
 import de.medo.holonetbridge.commons.discord.setup.HolonetSetupDraft;
 import net.dv8tion.jda.api.components.label.Label;
 import net.dv8tion.jda.api.components.textinput.TextInput;
 import net.dv8tion.jda.api.components.textinput.TextInputStyle;
-import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.modals.Modal;
+import org.springframework.context.MessageSource;
 
 /**
  * Builds the single Gitea provider-connection modal ({@value #MODAL_ID}): base URL, owner, repository, and
@@ -33,7 +34,7 @@ public final class HolonetProviderConnectionModal {
      * @param prefill non-secret field values to restore after a failed validation, or {@code null} for a
      *     fresh {@code /setup} invocation; the token field is never prefilled, regardless.
      */
-    public static Modal build(boolean tokenRequired, HolonetSetupDraft prefill, Texts texts, DiscordLocale locale) {
+    public static Modal build(boolean tokenRequired, HolonetSetupDraft prefill, MessageSource messageSource, Locale locale) {
         TextInput baseUrl = TextInput.create(INPUT_BASE_URL, TextInputStyle.SHORT)
                 .setRequiredRange(1, 200)
                 .setPlaceholder("https://gitea.example.com")
@@ -51,16 +52,16 @@ public final class HolonetProviderConnectionModal {
                 .setRequired(tokenRequired)
                 .setRequiredRange(tokenRequired ? 1 : 0, 200)
                 .setPlaceholder(tokenRequired
-                        ? texts.get(locale, "setup.modal.token-required")
-                        : texts.get(locale, "setup.modal.token-keep"))
+                        ? messageSource.getMessage("setup.modal.token-required", null, locale)
+                        : messageSource.getMessage("setup.modal.token-keep", null, locale))
                 .build();
 
-        return Modal.create(MODAL_ID, texts.get(locale, "setup.modal.title"))
+        return Modal.create(MODAL_ID, messageSource.getMessage("setup.modal.title", null, locale))
                 .addComponents(
-                        Label.of(texts.get(locale, "setup.modal.base-url"), texts.get(locale, "setup.modal.base-url-hint"), baseUrl),
-                        Label.of(texts.get(locale, "setup.modal.owner"), texts.get(locale, "setup.modal.owner-hint"), owner),
-                        Label.of(texts.get(locale, "setup.modal.repository"), texts.get(locale, "setup.modal.repository-hint"), repository),
-                        Label.of(texts.get(locale, "setup.modal.token"), token))
+                        Label.of(messageSource.getMessage("setup.modal.base-url", null, locale), messageSource.getMessage("setup.modal.base-url-hint", null, locale), baseUrl),
+                        Label.of(messageSource.getMessage("setup.modal.owner", null, locale), messageSource.getMessage("setup.modal.owner-hint", null, locale), owner),
+                        Label.of(messageSource.getMessage("setup.modal.repository", null, locale), messageSource.getMessage("setup.modal.repository-hint", null, locale), repository),
+                        Label.of(messageSource.getMessage("setup.modal.token", null, locale), token))
                 .build();
     }
 }

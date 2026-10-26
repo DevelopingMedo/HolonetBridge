@@ -1,6 +1,7 @@
 package de.medo.holonetbridge.commons.discord.button;
 
-import de.medo.holonetbridge.commons.discord.i18n.Texts;
+import java.util.Locale;
+
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import net.dv8tion.jda.api.components.label.Label;
@@ -9,6 +10,7 @@ import net.dv8tion.jda.api.components.textinput.TextInput;
 import net.dv8tion.jda.api.components.textinput.TextInputStyle;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.modals.Modal;
+import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
 
 /**
@@ -19,7 +21,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class HolonetBugReportModalButton {
 
-    private final Texts texts;
+    private final MessageSource messageSource;
 
     /** Custom id of the "Bug" choice button. */
     public static final String BUTTON_ID = "ticket:kind:bug";
@@ -35,8 +37,8 @@ public class HolonetBugReportModalButton {
 
     private final HolonetTicketCreationSessionStore sessionStore;
 
-    public HolonetBugReportModalButton(Texts texts, HolonetTicketCreationSessionStore sessionStore) {
-        this.texts = texts;
+    public HolonetBugReportModalButton(MessageSource messageSource, HolonetTicketCreationSessionStore sessionStore) {
+        this.messageSource = messageSource;
         this.sessionStore = sessionStore;
     }
 
@@ -48,6 +50,7 @@ public class HolonetBugReportModalButton {
     }
 
     private Modal bugReportModal(ButtonInteractionEvent event) {
+        Locale userLocale = event.getUserLocale().toLocale();
         TextInput title = TextInput.create(INPUT_TITLE, TextInputStyle.SHORT)
                 .setRequiredRange(1, 100)
                 .build();
@@ -55,19 +58,19 @@ public class HolonetBugReportModalButton {
         TextInput expected = TextInput.create(INPUT_EXPECTED, TextInputStyle.PARAGRAPH).build();
         TextInput actual = TextInput.create(INPUT_ACTUAL, TextInputStyle.PARAGRAPH).build();
         StringSelectMenu recurrence = StringSelectMenu.create(INPUT_RECURRENCE)
-                .addOption(texts.user(event, "bug.recurrence-always"), "always")
-                .addOption(texts.user(event, "bug.recurrence-sometimes"), "sometimes")
-                .addOption(texts.user(event, "bug.recurrence-once"), "once")
-                .addOption(texts.user(event, "bug.recurrence-not-retried"), "not-retried")
+                .addOption(messageSource.getMessage("bug.recurrence-always", null, userLocale), "always")
+                .addOption(messageSource.getMessage("bug.recurrence-sometimes", null, userLocale), "sometimes")
+                .addOption(messageSource.getMessage("bug.recurrence-once", null, userLocale), "once")
+                .addOption(messageSource.getMessage("bug.recurrence-not-retried", null, userLocale), "not-retried")
                 .setRequired(true)
                 .build();
-        return Modal.create(MODAL_ID, texts.user(event, "bug.modal.title"))
+        return Modal.create(MODAL_ID, messageSource.getMessage("bug.modal.title", null, userLocale))
                 .addComponents(
-                        Label.of(texts.user(event, "ticket.title"), texts.user(event, "bug.title-hint"), title),
-                        Label.of(texts.user(event, "bug.steps"), texts.user(event, "bug.steps-hint"), steps),
-                        Label.of(texts.user(event, "bug.expected"), texts.user(event, "bug.expected-hint"), expected),
-                        Label.of(texts.user(event, "bug.actual"), texts.user(event, "bug.actual-hint"), actual),
-                        Label.of(texts.user(event, "bug.recurrence"), recurrence))
+                        Label.of(messageSource.getMessage("ticket.title", null, userLocale), messageSource.getMessage("bug.title-hint", null, userLocale), title),
+                        Label.of(messageSource.getMessage("bug.steps", null, userLocale), messageSource.getMessage("bug.steps-hint", null, userLocale), steps),
+                        Label.of(messageSource.getMessage("bug.expected", null, userLocale), messageSource.getMessage("bug.expected-hint", null, userLocale), expected),
+                        Label.of(messageSource.getMessage("bug.actual", null, userLocale), messageSource.getMessage("bug.actual-hint", null, userLocale), actual),
+                        Label.of(messageSource.getMessage("bug.recurrence", null, userLocale), recurrence))
                 .build();
     }
 }

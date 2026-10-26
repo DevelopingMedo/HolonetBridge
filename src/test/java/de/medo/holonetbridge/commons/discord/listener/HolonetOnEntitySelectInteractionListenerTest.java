@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 import de.medo.holonetbridge.commons.discord.i18n.I18nProperties;
-import de.medo.holonetbridge.commons.discord.i18n.Texts;
+import de.medo.holonetbridge.commons.discord.i18n.MessageSourceConfiguration;
 import de.medo.holonetbridge.commons.discord.select.HolonetGrantWatcherAction;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
@@ -28,6 +28,7 @@ import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 import org.junit.jupiter.api.Test;
 import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.MessageSource;
 
 /**
  * Drives {@link HolonetOnEntitySelectInteractionListener} through its watcher selection using Mockito mocks of the
@@ -35,10 +36,10 @@ import org.mockito.ArgumentCaptor;
  */
 class HolonetOnEntitySelectInteractionListenerTest {
 
-    private final Texts texts = new Texts(new I18nProperties(null));
+    private final MessageSource messageSource = new MessageSourceConfiguration().messageSource(new I18nProperties(null));
 
     private final HolonetOnEntitySelectInteractionListener listener =
-            new HolonetOnEntitySelectInteractionListener(new HolonetGrantWatcherAction(texts));
+            new HolonetOnEntitySelectInteractionListener(new HolonetGrantWatcherAction(messageSource));
 
     @Test
     void watcherSelectionGrantsViewAndCommentPermissions() {

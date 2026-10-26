@@ -6,7 +6,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import de.medo.holonetbridge.commons.discord.i18n.Texts;
 import de.medo.holonetbridge.commons.discord.i18n.TicketDescriptionFormatter;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannel;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannelRepository;
@@ -24,6 +23,7 @@ import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.requests.ErrorResponse;
+import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
 
 /**
@@ -42,7 +42,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class HolonetTicketSubmitter {
 
-    private final Texts texts;
+    private final MessageSource messageSource;
     private final TicketDescriptionFormatter descriptionFormatter;
 
     private final HolonetTicketCreationSessionStore sessionStore;
@@ -50,12 +50,12 @@ public class HolonetTicketSubmitter {
     private final HolonetSupportChannelRepository supportChannelRepository;
 
     public HolonetTicketSubmitter(
-            Texts texts,
+            MessageSource messageSource,
             TicketDescriptionFormatter descriptionFormatter,
             HolonetTicketCreationSessionStore sessionStore,
             ProviderConnectionResolver connectionResolver,
             HolonetSupportChannelRepository supportChannelRepository) {
-        this.texts = texts;
+        this.messageSource = messageSource;
         this.descriptionFormatter = descriptionFormatter;
         this.sessionStore = sessionStore;
         this.connectionResolver = connectionResolver;
@@ -75,7 +75,7 @@ public class HolonetTicketSubmitter {
         }
         createTicket(
                 event, userId, titleWithKindPrefix(kind, ticket.getTitle()),
-                descriptionFormatter.format(ticket, event.getGuildLocale()));
+                descriptionFormatter.format(ticket, event.getGuildLocale().toLocale()));
     }
 
     /**
@@ -95,7 +95,7 @@ public class HolonetTicketSubmitter {
         Optional<ResolvedProvider> resolved = connectionResolver.forGuild(guildId);
         if (resolved.isEmpty()) {
             markBroken(channelId);
-            hook.sendMessage(texts.user(event, "ticket.no-provider"))
+            hook.sendMessage(messageSource.getMessage("ticket.no-provider", null, event.getUserLocale().toLocale()))
                     .queue(success -> {}, hookFailure -> log.warn(
                             "Hinweis auf fehlenden Ticket-Provider konnte nicht an Discord zugestellt werden.",
                             hookFailure));
@@ -140,10 +140,10 @@ public class HolonetTicketSubmitter {
     }
 
     private String confirmationMessage(TicketDto ticket, HolonetProviderConnection connection, DiscordLocale locale) {
-        String identity = texts.get(locale, "ticket.created", ticket.id(), ticket.title());
+        String identity = messageSource.getMessage("ticket.created", new Object[] {ticket.id(), ticket.title()}, locale.toLocale());
         return validatedTicketUrl(ticket.url(), connection)
-                .map(url -> identity + "\n" + texts.get(locale, "ticket.open", url))
-                .orElse(identity + "\n" + texts.get(locale, "ticket.no-link"));
+                .map(url -> identity + "\n" + messageSource.getMessage("ticket.open", new Object[] {url}, locale.toLocale()))
+                .orElse(identity + "\n" + messageSource.getMessage("ticket.no-link", null, locale.toLocale()));
     }
 
     /**
@@ -205,7 +205,7 @@ public class HolonetTicketSubmitter {
     private void reportCreationFailure(InteractionHook hook, Throwable failure) {
         String correlationId = UUID.randomUUID().toString();
         log.error("Ticket konnte nicht angelegt werden [correlationId={}]", correlationId, failure);
-        hook.sendMessage(texts.user(hook.getInteraction(), "ticket.failed", correlationId))
+        hook.sendMessage(messageSource.getMessage("ticket.failed", new Object[] {correlationId}, hook.getInteraction().getUserLocale().toLocale()))
                 .queue(success -> {}, hookFailure -> log.error(
                         "Fehlermeldung zur fehlgeschlagenen Ticket-Erstellung konnte nicht an Discord zugestellt "
                                 + "werden [correlationId={}]",
@@ -214,13 +214,13 @@ public class HolonetTicketSubmitter {
     }
 
     private void replyNotATrackedSupportChannel(ModalInteractionEvent event) {
-        event.reply(texts.user(event, "ticket.untracked"))
+        event.reply(messageSource.getMessage("ticket.untracked", null, event.getUserLocale().toLocale()))
                 .setEphemeral(true)
                 .queue();
     }
 
     private void replyTicketAlreadyExists(ModalInteractionEvent event) {
-        event.reply(texts.user(event, "ticket.exists"))
+        event.reply(messageSource.getMessage("ticket.exists", null, event.getUserLocale().toLocale()))
                 .setEphemeral(true)
                 .queue();
     }
