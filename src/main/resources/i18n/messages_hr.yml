@@ -1,7 +1,4 @@
 setup:
-  command:
-    description: "Postavi poruku za podršku u kanalu"
-    channel: "Kanal za poruku podrške"
   guild-only: "/setup se može koristiti samo na poslužitelju."
   manage-server: "Potrebna ti je dozvola \"Upravljanje poslužiteljem\"."
   cannot-post: "Nemam dozvolu za objavu poruke podrške u {0}."
@@ -77,3 +74,9 @@ validation:
   access: "Token nije valjan ili nema pristup čitanju ovog repozitorija."
   not-found: "Repozitorij nije pronađen. Provjeri vlasnika i naziv repozitorija."
   rejected: "Sustav je odbio zahtjev (HTTP {0})."
+commands:
+  setup:
+    description: "Postavi poruku za podršku u kanalu"
+    options:
+      channel:
+        description: "Kanal za poruku podrške"
