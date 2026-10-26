@@ -62,6 +62,10 @@ class GiteaTicketProviderIntegrationTest {
         assertThat(ticket.title()).isEqualTo("[Bug] Login fails");
         assertThat(ticket.description())
                 .isEqualTo("**Was hast du vor dem Fehler gemacht?**\nEingeloggt und gewartet");
+        assertThat(ticket.url())
+                .as("Gitea's html_url must come through as the ticket's browser-facing url")
+                .isNotBlank()
+                .contains("/" + ADMIN_USERNAME + "/" + REPOSITORY + "/issues/" + ticket.id());
     }
 
     private static void createAdminUser() throws Exception {

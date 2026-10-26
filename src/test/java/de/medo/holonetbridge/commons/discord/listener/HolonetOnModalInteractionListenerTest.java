@@ -8,9 +8,11 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import de.medo.holonetbridge.commons.ProviderConnectionProperties;
 import de.medo.holonetbridge.commons.discord.modal.HolonetBugReportSubmitModalAction;
 import de.medo.holonetbridge.commons.discord.modal.HolonetFeatureSubmittedModalAction;
 import de.medo.holonetbridge.commons.discord.modal.HolonetTicketSubmitter;
@@ -20,6 +22,7 @@ import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSess
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import de.medo.holonetbridge.commons.extapi.TicketDto;
 import de.medo.holonetbridge.commons.extapi.TicketProvider;
+import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
@@ -47,16 +50,19 @@ class HolonetOnModalInteractionListenerTest {
 
     private static final long USER_ID = 123456789L;
     private static final long CHANNEL_ID = 111L;
+    private static final String PROVIDER_BASE_URL = "https://tickets.example.invalid";
 
     private final HolonetTicketCreationSessionStore sessionStore = new HolonetTicketCreationSessionStore();
     private final TicketProvider ticketProvider = mock(TicketProvider.class);
     private final HolonetSupportChannelRepository supportChannelRepository =
             mock(HolonetSupportChannelRepository.class);
+    private final ProviderConnectionProperties providerConnectionProperties =
+            new ProviderConnectionProperties("gitea", URI.create(PROVIDER_BASE_URL), "test-token");
     private final HolonetOnModalInteractionListener listener = new HolonetOnModalInteractionListener(
-            new HolonetFeatureSubmittedModalAction(
-                    new HolonetTicketSubmitter(sessionStore, ticketProvider, supportChannelRepository)),
-            new HolonetBugReportSubmitModalAction(
-                    new HolonetTicketSubmitter(sessionStore, ticketProvider, supportChannelRepository)));
+            new HolonetFeatureSubmittedModalAction(new HolonetTicketSubmitter(
+                    sessionStore, ticketProvider, supportChannelRepository, providerConnectionProperties)),
+            new HolonetBugReportSubmitModalAction(new HolonetTicketSubmitter(
+                    sessionStore, ticketProvider, supportChannelRepository, providerConnectionProperties)));
 
     private final User user = mock(User.class);
 
@@ -75,7 +81,8 @@ class HolonetOnModalInteractionListenerTest {
         TextChannel channel = stubModalChannel(event);
         when(channel.sendMessage(anyString())).thenReturn(mock(MessageCreateAction.class, Answers.RETURNS_SELF));
         when(ticketProvider.create(eq("[Bug] Login fails"), anyString()))
-                .thenReturn(new TicketDto("42", "[Bug] Login fails", "ignored"));
+                .thenReturn(new TicketDto(
+                        "42", "[Bug] Login fails", "ignored", PROVIDER_BASE_URL + "/acme/support/issues/42"));
 
         listener.onModalInteraction(event);
         awaitHookReply(hookReplied);
@@ -87,8 +94,10 @@ class HolonetOnModalInteractionListenerTest {
                         + "## Was hättest du erwartet?\n\nIt should work\n\n"
                         + "## Was ist stattdessen passiert?\n\nIt crashed\n\n"
                         + "## Tritt der Fehler erneut auf?\n\nJedes Mal");
-        verify(channel).sendMessage("Ticket #42 wurde angelegt: [Bug] Login fails");
-        verify(hook).sendMessage("Ticket #42 wurde angelegt: [Bug] Login fails");
+        String expectedConfirmation = "Ticket #42 wurde angelegt: [Bug] Login fails\n"
+                + "Ticket öffnen: " + PROVIDER_BASE_URL + "/acme/support/issues/42";
+        verify(channel).sendMessage(expectedConfirmation);
+        verify(hook).sendMessage(expectedConfirmation);
         verify(event, never()).reply(anyString());
         assertThat(sessionStore.get(USER_ID)).isEmpty();
     }
@@ -109,14 +118,20 @@ class HolonetOnModalInteractionListenerTest {
         TextChannel channel = stubModalChannel(event);
         when(channel.sendMessage(anyString())).thenReturn(mock(MessageCreateAction.class, Answers.RETURNS_SELF));
         when(ticketProvider.create(eq("[Feature] Dark mode"), anyString()))
-                .thenReturn(new TicketDto("7", "[Feature] Dark mode", "I want a dark theme toggle in settings."));
+                .thenReturn(new TicketDto(
+                        "7",
+                        "[Feature] Dark mode",
+                        "I want a dark theme toggle in settings.",
+                        PROVIDER_BASE_URL + "/acme/support/issues/7"));
 
         listener.onModalInteraction(event);
         awaitHookReply(hookReplied);
 
         verify(ticketProvider).create("[Feature] Dark mode", "I want a dark theme toggle in settings.");
-        verify(channel).sendMessage("Ticket #7 wurde angelegt: [Feature] Dark mode");
-        verify(hook).sendMessage("Ticket #7 wurde angelegt: [Feature] Dark mode");
+        String expectedConfirmation = "Ticket #7 wurde angelegt: [Feature] Dark mode\n"
+                + "Ticket öffnen: " + PROVIDER_BASE_URL + "/acme/support/issues/7";
+        verify(channel).sendMessage(expectedConfirmation);
+        verify(hook).sendMessage(expectedConfirmation);
         assertThat(sessionStore.get(USER_ID)).isEmpty();
     }
 
@@ -131,12 +146,15 @@ class HolonetOnModalInteractionListenerTest {
         TextChannel firstChannel = stubModalChannel(firstEvent);
         when(firstChannel.sendMessage(anyString())).thenReturn(mock(MessageCreateAction.class, Answers.RETURNS_SELF));
         when(ticketProvider.create(eq("[Bug] First bug"), anyString()))
-                .thenReturn(new TicketDto("1", "[Bug] First bug", "ignored"));
+                .thenReturn(new TicketDto(
+                        "1", "[Bug] First bug", "ignored", PROVIDER_BASE_URL + "/acme/support/issues/1"));
 
         listener.onModalInteraction(firstEvent);
         awaitHookReply(firstHookReplied);
 
-        verify(firstHook).sendMessage("Ticket #1 wurde angelegt: [Bug] First bug");
+        verify(firstHook)
+                .sendMessage("Ticket #1 wurde angelegt: [Bug] First bug\n"
+                        + "Ticket öffnen: " + PROVIDER_BASE_URL + "/acme/support/issues/1");
         assertThat(sessionStore.get(USER_ID)).isEmpty();
 
         // Same user reports a second, independent bug right after the first one finished.
@@ -149,18 +167,93 @@ class HolonetOnModalInteractionListenerTest {
         when(secondChannel.sendMessage(anyString()))
                 .thenReturn(mock(MessageCreateAction.class, Answers.RETURNS_SELF));
         when(ticketProvider.create(eq("[Bug] Second bug"), anyString()))
-                .thenReturn(new TicketDto("2", "[Bug] Second bug", "ignored"));
+                .thenReturn(new TicketDto(
+                        "2", "[Bug] Second bug", "ignored", PROVIDER_BASE_URL + "/acme/support/issues/2"));
 
         listener.onModalInteraction(secondEvent);
         awaitHookReply(secondHookReplied);
 
-        verify(secondHook).sendMessage("Ticket #2 wurde angelegt: [Bug] Second bug");
+        verify(secondHook)
+                .sendMessage("Ticket #2 wurde angelegt: [Bug] Second bug\n"
+                        + "Ticket öffnen: " + PROVIDER_BASE_URL + "/acme/support/issues/2");
         assertThat(sessionStore.get(USER_ID)).isEmpty();
         // Each interaction is acknowledged exactly once - no second deferReply/reply on either event.
         verify(firstEvent).deferReply(true);
         verify(secondEvent).deferReply(true);
         verify(firstEvent, never()).reply(anyString());
         verify(secondEvent, never()).reply(anyString());
+    }
+
+    @Test
+    void ticketWithAMissingUrlStillConfirmsOnceWithoutRecreatingTheTicket() throws InterruptedException {
+        sessionStore.startOrReset(USER_ID).kind(HolonetTicketKind.BUG);
+        ModalInteractionEvent event = bugReportEvent("Login fails", "did A", "expected A", "got B");
+        InteractionHook hook = stubDeferReplyWithHook(event);
+        CountDownLatch hookReplied = stubHookSendMessage(hook);
+        TextChannel channel = stubModalChannel(event);
+        when(channel.sendMessage(anyString())).thenReturn(mock(MessageCreateAction.class, Answers.RETURNS_SELF));
+        when(ticketProvider.create(eq("[Bug] Login fails"), anyString()))
+                .thenReturn(new TicketDto("42", "[Bug] Login fails", "ignored", null));
+
+        listener.onModalInteraction(event);
+        awaitHookReply(hookReplied);
+
+        String expectedConfirmation = "Ticket #42 wurde angelegt: [Bug] Login fails\n"
+                + "(Link derzeit nicht verfügbar.)";
+        verify(hook).sendMessage(expectedConfirmation);
+        verify(channel).sendMessage(expectedConfirmation);
+        verify(ticketProvider, times(1)).create(anyString(), anyString());
+    }
+
+    @Test
+    void ticketWithAUrlOnAForeignHostIsTreatedAsMissingInsteadOfBeingShown() throws InterruptedException {
+        sessionStore.startOrReset(USER_ID).kind(HolonetTicketKind.BUG);
+        ModalInteractionEvent event = bugReportEvent("Login fails", "did A", "expected A", "got B");
+        InteractionHook hook = stubDeferReplyWithHook(event);
+        CountDownLatch hookReplied = stubHookSendMessage(hook);
+        TextChannel channel = stubModalChannel(event);
+        when(channel.sendMessage(anyString())).thenReturn(mock(MessageCreateAction.class, Answers.RETURNS_SELF));
+        when(ticketProvider.create(eq("[Bug] Login fails"), anyString()))
+                .thenReturn(new TicketDto(
+                        "42", "[Bug] Login fails", "ignored", "https://attacker.invalid/phish/42"));
+
+        listener.onModalInteraction(event);
+        awaitHookReply(hookReplied);
+
+        String expectedConfirmation = "Ticket #42 wurde angelegt: [Bug] Login fails\n"
+                + "(Link derzeit nicht verfügbar.)";
+        verify(hook).sendMessage(expectedConfirmation);
+        verify(channel).sendMessage(expectedConfirmation);
+        verify(ticketProvider, times(1)).create(anyString(), anyString());
+    }
+
+    /**
+     * Regression guard for a provider adapter whose ticket identities are not Gitea-style numbers: the
+     * submitter must treat {@link TicketDto#id()} as an opaque string throughout.
+     */
+    @Test
+    void ticketWithAnAlphanumericIdFromAnotherProviderIsConfirmedWithoutAnyGiteaSpecificFormatAssumption()
+            throws InterruptedException {
+        sessionStore.startOrReset(USER_ID).kind(HolonetTicketKind.BUG);
+        ModalInteractionEvent event = bugReportEvent("Login fails", "did A", "expected A", "got B");
+        InteractionHook hook = stubDeferReplyWithHook(event);
+        CountDownLatch hookReplied = stubHookSendMessage(hook);
+        TextChannel channel = stubModalChannel(event);
+        when(channel.sendMessage(anyString())).thenReturn(mock(MessageCreateAction.class, Answers.RETURNS_SELF));
+        when(ticketProvider.create(eq("[Bug] Login fails"), anyString()))
+                .thenReturn(new TicketDto(
+                        "PROJ-42x",
+                        "[Bug] Login fails",
+                        "ignored",
+                        PROVIDER_BASE_URL + "/browse/PROJ-42x"));
+
+        listener.onModalInteraction(event);
+        awaitHookReply(hookReplied);
+
+        String expectedConfirmation = "Ticket #PROJ-42x wurde angelegt: [Bug] Login fails\n"
+                + "Ticket öffnen: " + PROVIDER_BASE_URL + "/browse/PROJ-42x";
+        verify(hook).sendMessage(expectedConfirmation);
+        verify(channel).sendMessage(expectedConfirmation);
     }
 
     @Test
@@ -200,7 +293,8 @@ class HolonetOnModalInteractionListenerTest {
         CountDownLatch hookReplied = stubHookSendMessage(hook);
         TextChannel channel = stubModalChannel(event);
         when(ticketProvider.create(eq("[Bug] Login fails"), anyString()))
-                .thenReturn(new TicketDto("42", "[Bug] Login fails", "ignored"));
+                .thenReturn(new TicketDto(
+                        "42", "[Bug] Login fails", "ignored", PROVIDER_BASE_URL + "/acme/support/issues/42"));
         when(supportChannelRepository.findById(CHANNEL_ID))
                 .thenReturn(Optional.of(new HolonetSupportChannel(CHANNEL_ID, 1L, USER_ID, 1L)));
         when(supportChannelRepository.save(any())).thenThrow(new RuntimeException("database unavailable"));
