@@ -1,6 +1,5 @@
 package de.medo.holonetbridge.commons.discord.command;
 
-import de.medo.holonetbridge.commons.discord.DiscordGatewayConfiguration;
 import de.medo.holonetbridge.commons.discord.button.HolonetOpenSupportButton;
 import de.medo.holonetbridge.commons.discord.setup.HolonetDiscordServer;
 import de.medo.holonetbridge.commons.discord.setup.HolonetDiscordServerRepository;
@@ -21,6 +20,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class HolonetSetupCommandAction {
 
+    /** Name of the {@code /setup} slash command. */
+    public static final String COMMAND_SETUP = "setup";
+
+    /** Name of the {@code /setup} command's single {@code CHANNEL} option. */
+    public static final String OPTION_CHANNEL = "channel";
+
     private final HolonetDiscordServerRepository repository;
 
     public HolonetSetupCommandAction(HolonetDiscordServerRepository repository) {
@@ -29,7 +34,7 @@ public class HolonetSetupCommandAction {
 
     public void handle(SlashCommandInteractionEvent event) {
         long guildId = event.getGuild().getIdLong();
-        TextChannel channel = event.getOption(DiscordGatewayConfiguration.OPTION_CHANNEL)
+        TextChannel channel = event.getOption(OPTION_CHANNEL)
                 .getAsChannel()
                 .asTextChannel();
 

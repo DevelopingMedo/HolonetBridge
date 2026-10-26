@@ -1,5 +1,8 @@
 package de.medo.holonetbridge.commons.discord;
 
+import static de.medo.holonetbridge.commons.discord.command.HolonetSetupCommandAction.COMMAND_SETUP;
+import static de.medo.holonetbridge.commons.discord.command.HolonetSetupCommandAction.OPTION_CHANNEL;
+
 import java.util.Collections;
 
 import de.medo.holonetbridge.commons.discord.listener.HolonetOnButtonInteractionListener;
@@ -29,15 +32,6 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 public class DiscordGatewayConfiguration {
-
-    /**
-     * Name of the {@code /setup} command, handled by {@link
-     * HolonetOnSlashCommandInteractionListener}.
-     */
-    public static final String COMMAND_SETUP = "setup";
-
-    /** Name of {@link #COMMAND_SETUP}'s single {@code CHANNEL} option. */
-    public static final String OPTION_CHANNEL = "channel";
 
     @Bean(destroyMethod = "shutdown")
     JDA jda(

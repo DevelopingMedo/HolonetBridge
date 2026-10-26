@@ -9,7 +9,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import de.medo.holonetbridge.commons.discord.DiscordGatewayConfiguration;
 import de.medo.holonetbridge.commons.discord.command.HolonetSetupCommandAction;
 import de.medo.holonetbridge.commons.discord.setup.HolonetDiscordServer;
 import de.medo.holonetbridge.commons.discord.setup.HolonetDiscordServerRepository;
@@ -56,7 +55,7 @@ class HolonetOnSlashCommandInteractionListenerTest {
     @Test
     void slashCommandPostsTheSupportButtonIntoTheChosenChannelAndPersistsTheConfiguration() {
         SlashCommandInteractionEvent event = mock(SlashCommandInteractionEvent.class);
-        when(event.getName()).thenReturn(DiscordGatewayConfiguration.COMMAND_SETUP);
+        when(event.getName()).thenReturn(HolonetSetupCommandAction.COMMAND_SETUP);
 
         Guild guild = mock(Guild.class);
         when(guild.getIdLong()).thenReturn(GUILD_ID);
@@ -69,7 +68,7 @@ class HolonetOnSlashCommandInteractionListenerTest {
         when(channelUnion.asTextChannel()).thenReturn(channel);
         OptionMapping channelOption = mock(OptionMapping.class);
         when(channelOption.getAsChannel()).thenReturn(channelUnion);
-        when(event.getOption(DiscordGatewayConfiguration.OPTION_CHANNEL)).thenReturn(channelOption);
+        when(event.getOption(HolonetSetupCommandAction.OPTION_CHANNEL)).thenReturn(channelOption);
 
         ReplyCallbackAction deferAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
         when(event.deferReply(true)).thenReturn(deferAction);
