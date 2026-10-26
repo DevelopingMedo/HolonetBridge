@@ -14,21 +14,21 @@ import org.springframework.stereotype.Component;
  * application restart.
  */
 @Component
-class HolonetTicketCreationSessionStore {
+public class HolonetTicketCreationSessionStore {
 
     private final Map<Long, HolonetTicketCreationSession> sessions = new ConcurrentHashMap<>();
 
-    HolonetTicketCreationSession startOrReset(long userId) {
+    public HolonetTicketCreationSession startOrReset(long userId) {
         HolonetTicketCreationSession session = new HolonetTicketCreationSession();
         sessions.put(userId, session);
         return session;
     }
 
-    Optional<HolonetTicketCreationSession> get(long userId) {
+    public Optional<HolonetTicketCreationSession> get(long userId) {
         return Optional.ofNullable(sessions.get(userId));
     }
 
-    void clear(long userId) {
+    public void clear(long userId) {
         sessions.remove(userId);
     }
 }

@@ -11,7 +11,7 @@ import jakarta.persistence.Table;
  */
 @Entity
 @Table(name = "holonet_support_channel")
-class HolonetSupportChannel {
+public class HolonetSupportChannel {
 
     @Id
     private Long channelId;
@@ -23,34 +23,34 @@ class HolonetSupportChannel {
 
     protected HolonetSupportChannel() {}
 
-    HolonetSupportChannel(long channelId, long guildId, long requesterUserId, long number) {
+    public HolonetSupportChannel(long channelId, long guildId, long requesterUserId, long number) {
         this.channelId = channelId;
         this.guildId = guildId;
         this.requesterUserId = requesterUserId;
         this.number = number;
     }
 
-    long channelId() {
+    public long channelId() {
         return channelId;
     }
 
-    long guildId() {
+    public long guildId() {
         return guildId;
     }
 
-    long requesterUserId() {
+    public long requesterUserId() {
         return requesterUserId;
     }
 
-    String ticketId() {
+    public String ticketId() {
         return ticketId;
     }
 
-    long number() {
+    public long number() {
         return number;
     }
 
-    void ticketId(String ticketId) {
+    public void ticketId(String ticketId) {
         this.ticketId = ticketId;
     }
 }

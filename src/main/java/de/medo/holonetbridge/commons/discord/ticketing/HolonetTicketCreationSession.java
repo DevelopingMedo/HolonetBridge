@@ -5,15 +5,15 @@ package de.medo.holonetbridge.commons.discord.ticketing;
  * through the steps (bug/idea choice, then a single modal); {@code kind} is {@code null} until the choice has
  * been made. Once the ticket is created at the provider, the session is discarded.
  */
-final class HolonetTicketCreationSession {
+public final class HolonetTicketCreationSession {
 
     private HolonetTicketKind kind;
 
-    HolonetTicketKind kind() {
+    public HolonetTicketKind kind() {
         return kind;
     }
 
-    void kind(HolonetTicketKind kind) {
+    public void kind(HolonetTicketKind kind) {
         this.kind = kind;
     }
 }

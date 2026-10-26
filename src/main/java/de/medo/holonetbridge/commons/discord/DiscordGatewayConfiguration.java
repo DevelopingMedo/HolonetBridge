@@ -2,6 +2,7 @@ package de.medo.holonetbridge.commons.discord;
 
 import java.util.Collections;
 
+import de.medo.holonetbridge.commons.discord.listener.HolonetOnButtonInteractionListener;
 import de.medo.holonetbridge.commons.discord.setup.HolonetSetupListenerAdapter;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketModalDialogListenerAdapter;
 import net.dv8tion.jda.api.JDA;
@@ -40,10 +41,11 @@ public class DiscordGatewayConfiguration {
     @Bean(destroyMethod = "shutdown")
     JDA jda(
             DiscordProperties discordProperties,
-            HolonetTicketModalDialogListenerAdapter listenerAdapter,
+            HolonetOnButtonInteractionListener buttonListener,
+            HolonetTicketModalDialogListenerAdapter modalDialogListenerAdapter,
             HolonetSetupListenerAdapter configurationListenerAdapter) {
         JDA jda = JDABuilder.createLight(discordProperties.token(), Collections.emptyList())
-                .addEventListeners(listenerAdapter, configurationListenerAdapter)
+                .addEventListeners(buttonListener, modalDialogListenerAdapter, configurationListenerAdapter)
                 .build();
 
         jda.updateCommands()

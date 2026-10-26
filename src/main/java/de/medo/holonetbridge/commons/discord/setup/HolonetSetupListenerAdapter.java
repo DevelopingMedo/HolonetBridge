@@ -1,7 +1,7 @@
 package de.medo.holonetbridge.commons.discord.setup;
 
 import de.medo.holonetbridge.commons.discord.DiscordGatewayConfiguration;
-import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketModalDialogListenerAdapter;
+import de.medo.holonetbridge.commons.discord.button.HolonetOpenSupportButton;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
@@ -43,7 +43,7 @@ public class HolonetSetupListenerAdapter extends ListenerAdapter {
         channel
                 .sendMessage("Brauchst du Unterstützung? Klick unten, um ein Support-Ticket zu erstellen.")
                 .addComponents(ActionRow.of(
-                        Button.success(HolonetTicketModalDialogListenerAdapter.BUTTON_OPEN, "Support anfragen")))
+                        Button.success(HolonetOpenSupportButton.BUTTON_ID, "Support anfragen")))
                 .queue(message -> {
                     repository.save(
                             new HolonetDiscordServer(guildId, channel.getIdLong(), message.getIdLong()));
