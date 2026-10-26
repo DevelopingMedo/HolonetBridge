@@ -31,7 +31,15 @@ public class HolonetSetupRetryButton {
     public void handle(ButtonInteractionEvent event) {
         long userId = event.getUser().getIdLong();
         draftStore.get(userId).ifPresentOrElse(
-                draft -> event.replyModal(HolonetProviderConnectionModal.build(tokenRequired(draft), draft)).queue(),
+                draft -> {
+                    if (event.getGuild() == null || event.getGuild().getIdLong() != draft.guildId()) {
+                        event.reply("Dieses Setup gehört zu einem anderen Server. Bitte führe /setup erneut aus.")
+                                .setEphemeral(true)
+                                .queue();
+                        return;
+                    }
+                    event.replyModal(HolonetProviderConnectionModal.build(tokenRequired(draft), draft)).queue();
+                },
                 () -> event.reply("Die Sitzung ist abgelaufen, bitte führe /setup erneut aus.")
                         .setEphemeral(true)
                         .queue());

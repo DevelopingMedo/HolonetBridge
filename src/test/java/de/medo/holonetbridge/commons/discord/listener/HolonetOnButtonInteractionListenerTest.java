@@ -218,6 +218,9 @@ class HolonetOnButtonInteractionListenerTest {
         ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
         when(event.getComponentId()).thenReturn(HolonetSetupRetryButton.BUTTON_ID);
         when(event.getUser()).thenReturn(user);
+        Guild guild = mock(Guild.class);
+        when(guild.getIdLong()).thenReturn(GUILD_ID);
+        when(event.getGuild()).thenReturn(guild);
         ModalCallbackAction modalCallbackAction = mock(ModalCallbackAction.class, Answers.RETURNS_SELF);
         ArgumentCaptor<Modal> modalCaptor = ArgumentCaptor.forClass(Modal.class);
         when(event.replyModal(modalCaptor.capture())).thenReturn(modalCallbackAction);
@@ -227,6 +230,24 @@ class HolonetOnButtonInteractionListenerTest {
         assertThat(modalCaptor.getValue().getId())
                 .isEqualTo(de.medo.holonetbridge.commons.discord.modal.HolonetProviderConnectionModal.MODAL_ID);
         verify(modalCallbackAction).queue();
+    }
+
+    @Test
+    void setupRetryButtonDoesNotOpenAnotherGuildsDraft() {
+        setupDraftStore.start(USER_ID, GUILD_ID, CHANNEL_ID);
+        ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
+        when(event.getComponentId()).thenReturn(HolonetSetupRetryButton.BUTTON_ID);
+        when(event.getUser()).thenReturn(user);
+        Guild otherGuild = mock(Guild.class);
+        when(otherGuild.getIdLong()).thenReturn(GUILD_ID + 1);
+        when(event.getGuild()).thenReturn(otherGuild);
+        ReplyCallbackAction replyAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
+        when(event.reply(anyString())).thenReturn(replyAction);
+
+        listener.onButtonInteraction(event);
+
+        verify(event).reply("Dieses Setup gehört zu einem anderen Server. Bitte führe /setup erneut aus.");
+        verify(event, never()).replyModal(any());
     }
 
     /**

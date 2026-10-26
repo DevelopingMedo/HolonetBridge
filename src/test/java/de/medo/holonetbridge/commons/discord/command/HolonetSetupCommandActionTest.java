@@ -436,6 +436,25 @@ class HolonetSetupCommandActionTest {
         verify(providerConnectionService, never()).activate(anyLong(), any(), any(), any(), any(), any());
     }
 
+    @Test
+    void modalSubmissionCannotUseADraftFromAnotherGuild() {
+        draftStore.start(USER_ID, GUILD_ID, PANEL_CHANNEL_ID);
+        ModalInteractionEvent event = mock(ModalInteractionEvent.class);
+        when(event.getUser()).thenReturn(userWithId(USER_ID));
+        Guild otherGuild = mock(Guild.class);
+        when(otherGuild.getIdLong()).thenReturn(GUILD_ID + 1);
+        when(event.getGuild()).thenReturn(otherGuild);
+        when(event.getMember()).thenReturn(mock(Member.class));
+        ReplyCallbackAction replyAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
+        when(event.reply(anyString())).thenReturn(replyAction);
+
+        submitAction.handle(event);
+
+        verify(event).reply("Dieses Setup gehört zu einem anderen Server. Bitte führe /setup erneut aus.");
+        verify(event, never()).deferReply(true);
+        verify(providerConnectionService, never()).activate(anyLong(), any(), any(), any(), any(), any());
+    }
+
     // ---------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------
@@ -529,6 +548,7 @@ class HolonetSetupCommandActionTest {
 
     private TextChannel stubAccessiblePanelChannel(ModalInteractionEvent event, long guildId, long panelChannelId) {
         Guild guild = mock(Guild.class);
+        when(guild.getIdLong()).thenReturn(guildId);
         Member member = mock(Member.class);
         when(member.hasPermission(Permission.MANAGE_SERVER)).thenReturn(true);
         when(event.getGuild()).thenReturn(guild);

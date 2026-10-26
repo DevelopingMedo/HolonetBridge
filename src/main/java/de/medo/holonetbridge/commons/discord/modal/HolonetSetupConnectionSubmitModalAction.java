@@ -92,6 +92,11 @@ public class HolonetSetupConnectionSubmitModalAction {
             replyFailureWithoutRetry(event, "/setup kann nur innerhalb eines Servers abgeschlossen werden.");
             return;
         }
+        if (guild.getIdLong() != draft.guildId()) {
+            replyFailureWithoutRetry(
+                    event, "Dieses Setup gehört zu einem anderen Server. Bitte führe /setup erneut aus.");
+            return;
+        }
         if (!member.hasPermission(Permission.MANAGE_SERVER)) {
             replyFailureWithoutRetry(event, "Dazu fehlt dir die Berechtigung \"Server verwalten\".");
             return;
