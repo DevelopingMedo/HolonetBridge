@@ -4,7 +4,10 @@ import static de.medo.holonetbridge.commons.discord.command.HolonetSetupCommandA
 import static de.medo.holonetbridge.commons.discord.command.HolonetSetupCommandAction.OPTION_CHANNEL;
 
 import java.util.Collections;
+import java.util.Map;
+import java.util.stream.Collectors;
 
+import de.medo.holonetbridge.commons.discord.i18n.Texts;
 import de.medo.holonetbridge.commons.discord.listener.HolonetOnButtonInteractionListener;
 import de.medo.holonetbridge.commons.discord.listener.HolonetOnEntitySelectInteractionListener;
 import de.medo.holonetbridge.commons.discord.listener.HolonetOnModalInteractionListener;
@@ -13,6 +16,7 @@ import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
+import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.interactions.InteractionContextType;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
@@ -36,6 +40,7 @@ public class DiscordGatewayConfiguration {
     @Bean(destroyMethod = "shutdown")
     JDA jda(
             DiscordProperties discordProperties,
+            Texts texts,
             HolonetOnButtonInteractionListener buttonListener,
             HolonetOnModalInteractionListener modalListener,
             HolonetOnEntitySelectInteractionListener entitySelectListener,
@@ -48,12 +53,14 @@ public class DiscordGatewayConfiguration {
                 .addCommands(
                         Commands.slash(
                                         COMMAND_SETUP,
-                                        "Richtet die Support-Ticket-Nachricht in einem Kanal ein")
+                                        texts.get("en", "setup.command.description"))
+                                .setDescriptionLocalizations(localizations(texts, "setup.command.description"))
                                 .addOptions(new OptionData(
                                                 OptionType.CHANNEL,
                                                 OPTION_CHANNEL,
-                                                "Kanal für die Support-Nachricht",
+                                                texts.get("en", "setup.command.channel"),
                                                 true)
+                                        .setDescriptionLocalizations(localizations(texts, "setup.command.channel"))
                                         .setChannelTypes(ChannelType.TEXT))
                                 .setDefaultPermissions(
                                         DefaultMemberPermissions.enabledFor(Permission.MANAGE_SERVER))
@@ -61,5 +68,11 @@ public class DiscordGatewayConfiguration {
                 .queue();
 
         return jda;
+    }
+
+    static Map<DiscordLocale, String> localizations(Texts texts, String key) {
+        return java.util.Arrays.stream(DiscordLocale.values())
+                .filter(locale -> Texts.LANGUAGES.contains(locale.toLocale().getLanguage()))
+                .collect(Collectors.toMap(locale -> locale, locale -> texts.get(locale, key)));
     }
 }

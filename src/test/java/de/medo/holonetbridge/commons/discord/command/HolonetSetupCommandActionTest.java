@@ -22,6 +22,8 @@ import java.util.function.Consumer;
 import de.medo.holonetbridge.commons.crypto.EncryptedSecret;
 import de.medo.holonetbridge.commons.crypto.TokenCryptoService;
 import de.medo.holonetbridge.commons.crypto.TokenEncryptionContext;
+import de.medo.holonetbridge.commons.discord.i18n.I18nProperties;
+import de.medo.holonetbridge.commons.discord.i18n.Texts;
 import de.medo.holonetbridge.commons.discord.modal.HolonetProviderConnectionModal;
 import de.medo.holonetbridge.commons.discord.modal.HolonetSetupConnectionSubmitModalAction;
 import de.medo.holonetbridge.commons.discord.setup.HolonetDiscordServer;
@@ -41,6 +43,7 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.unions.GuildChannelUnion;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.modals.ModalMapping;
@@ -62,6 +65,8 @@ import org.mockito.ArgumentCaptor;
  */
 class HolonetSetupCommandActionTest {
 
+    private final Texts texts = new Texts(new I18nProperties(null));
+
     private static final long USER_ID = 42L;
     private static final long GUILD_ID = 100L;
     private static final long PANEL_CHANNEL_ID = 200L;
@@ -80,9 +85,8 @@ class HolonetSetupCommandActionTest {
     private final GiteaConnectionValidator connectionValidator = mock(GiteaConnectionValidator.class);
 
     private final HolonetSetupCommandAction commandAction =
-            new HolonetSetupCommandAction(draftStore, providerConnectionService);
-    private final HolonetSetupConnectionSubmitModalAction submitAction = new HolonetSetupConnectionSubmitModalAction(
-            draftStore, providerConnectionService, discordServerRepository, tokenCryptoService, connectionValidator);
+            new HolonetSetupCommandAction(texts, draftStore, providerConnectionService);
+    private final HolonetSetupConnectionSubmitModalAction submitAction = new HolonetSetupConnectionSubmitModalAction(texts, draftStore, providerConnectionService, discordServerRepository, tokenCryptoService, connectionValidator);
 
     // ---------------------------------------------------------------------
     // /setup command: permission/channel gates and modal opening
@@ -264,38 +268,38 @@ class HolonetSetupCommandActionTest {
     void invalidTokenValidationFailureReportsAFriendlyErrorWithoutActivatingAndKeepsTheDraft()
             throws InterruptedException {
         assertValidationFailureIsReportedWithoutActivation(
-                "Das Token hat keinen Lesezugriff auf dieses Repository (oder ist ungültig).");
+                GiteaConnectionValidationException.Reason.ACCESS, "Das Token hat keinen Lesezugriff auf dieses Repository (oder ist ungültig).");
     }
 
     @Test
     void wrongRepositoryValidationFailureReportsAFriendlyErrorWithoutActivatingAndKeepsTheDraft()
             throws InterruptedException {
         assertValidationFailureIsReportedWithoutActivation(
-                "Repository nicht gefunden. Bitte Owner und Repository-Namen prüfen.");
+                GiteaConnectionValidationException.Reason.NOT_FOUND, "Repository nicht gefunden. Bitte Owner und Repository-Namen prüfen.");
     }
 
     @Test
     void unreachableHostValidationFailureReportsAFriendlyErrorWithoutActivatingAndKeepsTheDraft()
             throws InterruptedException {
         assertValidationFailureIsReportedWithoutActivation(
-                "Die Basis-URL ist nicht erreichbar oder wird aus Sicherheitsgründen blockiert.");
+                GiteaConnectionValidationException.Reason.UNREACHABLE, "Die Basis-URL ist nicht erreichbar oder wird aus Sicherheitsgründen blockiert.");
     }
 
     @Test
     void forbiddenTargetValidationFailureReportsAFriendlyErrorWithoutActivatingAndKeepsTheDraft()
             throws InterruptedException {
         assertValidationFailureIsReportedWithoutActivation(
-                "Diese Basis-URL darf aus Sicherheitsgründen nicht angesprochen werden.");
+                GiteaConnectionValidationException.Reason.BLOCKED, "Diese Basis-URL darf aus Sicherheitsgründen nicht angesprochen werden.");
     }
 
-    private void assertValidationFailureIsReportedWithoutActivation(String friendlyMessage)
+    private void assertValidationFailureIsReportedWithoutActivation(GiteaConnectionValidationException.Reason reason, String friendlyMessage)
             throws InterruptedException {
         draftStore.start(USER_ID, GUILD_ID, PANEL_CHANNEL_ID);
         ModalInteractionEvent event = submissionEvent(BASE_URL, OWNER, REPOSITORY, TOKEN);
         InteractionHook hook = stubDeferReplyWithHook(event);
         stubAccessiblePanelChannel(event);
         doAnswer(invocation -> {
-                    throw new GiteaConnectionValidationException(friendlyMessage);
+                    throw new GiteaConnectionValidationException(reason, null);
                 })
                 .when(connectionValidator)
                 .verifyReadAccess(URI.create(BASE_URL), TOKEN, OWNER, REPOSITORY);
@@ -424,6 +428,8 @@ class HolonetSetupCommandActionTest {
     @Test
     void modalSubmissionWithoutAnExistingDraftReportsAnExpiredSessionWithNoRetryButton() {
         ModalInteractionEvent event = mock(ModalInteractionEvent.class);
+        when(event.getUserLocale()).thenReturn(DiscordLocale.GERMAN);
+        when(event.getGuildLocale()).thenReturn(DiscordLocale.GERMAN);
         net.dv8tion.jda.api.entities.User user = userWithId(USER_ID);
         when(event.getUser()).thenReturn(user);
         ReplyCallbackAction replyAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
@@ -442,7 +448,10 @@ class HolonetSetupCommandActionTest {
 
     private SlashCommandInteractionEvent commandEvent(boolean memberAuthorized, boolean botChannelAccess) {
         SlashCommandInteractionEvent event = mock(SlashCommandInteractionEvent.class);
+        when(event.getUserLocale()).thenReturn(DiscordLocale.GERMAN);
+        when(event.getGuildLocale()).thenReturn(DiscordLocale.GERMAN);
         Guild guild = mock(Guild.class);
+        when(guild.getLocale()).thenReturn(DiscordLocale.GERMAN);
         when(guild.getIdLong()).thenReturn(GUILD_ID);
         when(event.getGuild()).thenReturn(guild);
 
@@ -484,6 +493,8 @@ class HolonetSetupCommandActionTest {
     private ModalInteractionEvent submissionEvent(
             long userId, String baseUrl, String owner, String repository, String token) {
         ModalInteractionEvent event = mock(ModalInteractionEvent.class);
+        when(event.getUserLocale()).thenReturn(DiscordLocale.GERMAN);
+        when(event.getGuildLocale()).thenReturn(DiscordLocale.GERMAN);
         net.dv8tion.jda.api.entities.User user = userWithId(userId);
         ModalMapping baseUrlMapping = textMapping(baseUrl);
         ModalMapping ownerMapping = textMapping(owner);
@@ -511,6 +522,7 @@ class HolonetSetupCommandActionTest {
 
     private InteractionHook stubDeferReplyWithHook(ModalInteractionEvent event) {
         InteractionHook hook = mock(InteractionHook.class);
+        when(hook.getInteraction()).thenReturn(event);
         ReplyCallbackAction deferAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
         when(event.deferReply(true)).thenReturn(deferAction);
         doAnswer(invocation -> {
@@ -529,6 +541,7 @@ class HolonetSetupCommandActionTest {
 
     private TextChannel stubAccessiblePanelChannel(ModalInteractionEvent event, long guildId, long panelChannelId) {
         Guild guild = mock(Guild.class);
+        when(guild.getLocale()).thenReturn(DiscordLocale.GERMAN);
         Member member = mock(Member.class);
         when(member.hasPermission(Permission.MANAGE_SERVER)).thenReturn(true);
         when(event.getGuild()).thenReturn(guild);

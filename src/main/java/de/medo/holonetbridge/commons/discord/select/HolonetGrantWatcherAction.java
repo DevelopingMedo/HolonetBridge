@@ -1,5 +1,6 @@
 package de.medo.holonetbridge.commons.discord.select;
 
+import de.medo.holonetbridge.commons.discord.i18n.Texts;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
@@ -12,10 +13,16 @@ import org.springframework.stereotype.Component;
 @Component
 public class HolonetGrantWatcherAction {
 
+    private final Texts texts;
+
+    public HolonetGrantWatcherAction(Texts texts) {
+        this.texts = texts;
+    }
+
     public void handle(EntitySelectInteractionEvent event) {
         Member member = event.getMentions().getMembers().stream().findFirst().orElse(null);
         if (member == null) {
-            event.reply("Die Person konnte nicht aufgelöst werden.").setEphemeral(true).queue();
+            event.reply(texts.user(event, "watcher.not-found")).setEphemeral(true).queue();
             return;
         }
         grantWatcher(event, member);
@@ -33,10 +40,10 @@ public class HolonetGrantWatcherAction {
                         Permission.MESSAGE_ATTACH_FILES)
                 .queue(
                         success -> event.getHook()
-                                .sendMessage(member.getAsMention() + " wurde als Beobachter hinzugefügt.")
+                                .sendMessage(texts.user(event, "watcher.added", member.getAsMention()))
                                 .queue(),
                         failure -> event.getHook()
-                                .sendMessage("Die Rechte konnten nicht vergeben werden.")
+                                .sendMessage(texts.user(event, "watcher.failed"))
                                 .queue());
     }
 }

@@ -30,11 +30,12 @@ import de.medo.holonetbridge.commons.provider.HolonetProviderType;
 import de.medo.holonetbridge.commons.provider.ProviderConnectionResolver;
 import de.medo.holonetbridge.commons.provider.ResolvedProvider;
 import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
-import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
+import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.modals.ModalMapping;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
@@ -158,10 +159,15 @@ class TicketSubmissionSurvivesRestartTest {
                     .thenReturn(new TicketDto("7", "Dark mode", "description", PROVIDER_BASE_URL + "/acme/support/7"));
 
             ModalInteractionEvent event = mock(ModalInteractionEvent.class);
+
+            when(event.getUserLocale()).thenReturn(DiscordLocale.GERMAN);
+
+            when(event.getGuildLocale()).thenReturn(DiscordLocale.GERMAN);
             User user = mock(User.class);
             when(user.getIdLong()).thenReturn(USER_ID);
             when(event.getUser()).thenReturn(user);
             Guild guild = mock(Guild.class);
+            when(guild.getLocale()).thenReturn(DiscordLocale.GERMAN);
             when(guild.getIdLong()).thenReturn(GUILD_ID);
             when(event.getGuild()).thenReturn(guild);
             when(event.getModalId()).thenReturn(HolonetFeatureModalButton.MODAL_ID);
@@ -179,6 +185,7 @@ class TicketSubmissionSurvivesRestartTest {
             ReplyCallbackAction replyAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
             when(event.deferReply(true)).thenReturn(replyAction);
             InteractionHook hook = mock(InteractionHook.class);
+            when(hook.getInteraction()).thenReturn(event);
             doAnswer(invocation -> {
                 Consumer<InteractionHook> onHook = invocation.getArgument(0);
                 onHook.accept(hook);

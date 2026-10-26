@@ -1,5 +1,6 @@
 package de.medo.holonetbridge.commons.discord.button;
 
+import de.medo.holonetbridge.commons.discord.i18n.Texts;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import net.dv8tion.jda.api.components.label.Label;
@@ -20,6 +21,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class HolonetFeatureModalButton {
 
+    private final Texts texts;
+
     /** Custom id of the "Idee" choice button. */
     public static final String BUTTON_ID = "ticket:kind:feature";
 
@@ -29,13 +32,10 @@ public class HolonetFeatureModalButton {
     public static final String INPUT_TITLE = "title";
     public static final String INPUT_DESCRIPTION = "description";
 
-    private static final String TITLE_HINT = "Beschreibe deine Idee in einem kurzen Satz.";
-    private static final String DESCRIPTION_HINT =
-            "Was soll am Ende möglich sein? Bitte so konkret wie möglich beschreiben.";
-
     private final HolonetTicketCreationSessionStore sessionStore;
 
-    public HolonetFeatureModalButton(HolonetTicketCreationSessionStore sessionStore) {
+    public HolonetFeatureModalButton(Texts texts, HolonetTicketCreationSessionStore sessionStore) {
+        this.texts = texts;
         this.sessionStore = sessionStore;
     }
 
@@ -43,19 +43,19 @@ public class HolonetFeatureModalButton {
         sessionStore
                 .get(event.getGuild().getIdLong(), event.getChannel().getIdLong(), event.getUser().getIdLong())
                 .ifPresent(session -> session.kind(HolonetTicketKind.FEATURE));
-        event.replyModal(featureModal()).queue();
+        event.replyModal(featureModal(event)).queue();
     }
 
-    private static Modal featureModal() {
+    private Modal featureModal(ButtonInteractionEvent event) {
         TextInput title = TextInput.create(INPUT_TITLE, TextInputStyle.SHORT)
                 .setRequiredRange(1, 100)
                 .build();
         TextInput description = TextInput.create(INPUT_DESCRIPTION, TextInputStyle.PARAGRAPH)
                 .build();
-        return Modal.create(MODAL_ID, "Neue Idee")
+        return Modal.create(MODAL_ID, texts.user(event, "feature.modal.title"))
                 .addComponents(
-                        Label.of("Titel", TITLE_HINT, title),
-                        Label.of("Beschreibung", DESCRIPTION_HINT, description))
+                        Label.of(texts.user(event, "ticket.title"), texts.user(event, "feature.title-hint"), title),
+                        Label.of(texts.user(event, "ticket.description"), texts.user(event, "feature.description-hint"), description))
                 .build();
     }
 }

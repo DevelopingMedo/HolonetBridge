@@ -1,10 +1,12 @@
 package de.medo.holonetbridge.commons.discord.button;
 
+import java.util.EnumSet;
+
+import de.medo.holonetbridge.commons.discord.i18n.Texts;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetGuildSequenceService;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannel;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannelRepository;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
-import java.util.EnumSet;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
@@ -23,6 +25,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class HolonetOpenSupportButton {
 
+    private final Texts texts;
+
     /** Custom id of the persistent "Support anfragen" button. */
     public static final String BUTTON_ID = "ticket:open";
 
@@ -31,9 +35,11 @@ public class HolonetOpenSupportButton {
     private final HolonetGuildSequenceService guildSequenceService;
 
     public HolonetOpenSupportButton(
+            Texts texts,
             HolonetTicketCreationSessionStore sessionStore,
             HolonetSupportChannelRepository supportChannelRepository,
             HolonetGuildSequenceService guildSequenceService) {
+        this.texts = texts;
         this.sessionStore = sessionStore;
         this.supportChannelRepository = supportChannelRepository;
         this.guildSequenceService = guildSequenceService;
@@ -43,7 +49,7 @@ public class HolonetOpenSupportButton {
         Guild guild = event.getGuild();
         Member member = event.getMember();
         if (guild == null || member == null) {
-            event.reply("Support-Kanäle können nur innerhalb eines Servers erstellt werden.")
+            event.reply(texts.user(event, "support.guild-only"))
                     .setEphemeral(true)
                     .queue();
             return;
@@ -79,19 +85,19 @@ public class HolonetOpenSupportButton {
                     supportChannelRepository.save(
                             new HolonetSupportChannel(channel.getIdLong(), guildId, userId, number));
                     sessionStore.startOrReset(guildId, channel.getIdLong(), userId);
-                    channel.sendMessage("Hast du ein Bug gefunden oder hast du eine neue Idee?")
+                    channel.sendMessage(texts.guild(guild, "support.choose-kind"))
                             .addComponents(
                                     ActionRow.of(
-                                            Button.primary(HolonetBugReportModalButton.BUTTON_ID, "Bug"),
-                                            Button.success(HolonetFeatureModalButton.BUTTON_ID, "Idee")),
+                                            Button.primary(HolonetBugReportModalButton.BUTTON_ID, texts.guild(guild, "support.bug")),
+                                            Button.success(HolonetFeatureModalButton.BUTTON_ID, texts.guild(guild, "support.feature"))),
                                     ActionRow.of(
-                                            Button.secondary(HolonetAddWatcherButton.BUTTON_ID, "Beobachter hinzufügen")))
+                                            Button.secondary(HolonetAddWatcherButton.BUTTON_ID, texts.guild(guild, "support.add-watcher"))))
                             .queue();
                     event.getHook()
-                            .sendMessage("Support-Kanal erstellt: " + channel.getAsMention())
+                            .sendMessage(texts.user(event, "support.created", channel.getAsMention()))
                             .queue();
                 }, failure -> event.getHook()
-                        .sendMessage("Der Support-Kanal konnte nicht erstellt werden.")
+                        .sendMessage(texts.user(event, "support.failed"))
                         .queue());
     }
 }
