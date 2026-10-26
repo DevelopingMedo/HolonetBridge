@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Baseline: describes the schema exactly as Hibernate's own `ddl-auto: update` had already been
+        creating it (see the DDL Hibernate itself logs for HolonetDiscordServer/HolonetSupportChannel),
+        so this is a versioning foundation, not a schema change. Every changeSet below is guarded with a
+        "tableExists" preCondition set to onFail="MARK_RAN":
+          - a brand-new database has neither table yet, so Liquibase runs the changeSet and creates it.
+          - an existing database already has the table (created previously by `ddl-auto: update`), so
+            Liquibase marks the changeSet as already applied instead of re-running (and failing on) a
+            CREATE TABLE against an existing table. No data is touched either way.
+        Column types/constraints must keep matching the entities exactly, since `ddl-auto` is now
+        `validate`: Hibernate will refuse to start if this changelog's result and the entity mapping
+        disagree.
+    -->
+
+    <changeSet id="1-holonet-discord-server" author="holonet-bridge">
+        <preConditions onFail="MARK_RAN" onFailMessage="holonet_discord_server already exists from a pre-Liquibase install; marking this changeSet as already applied.">
+            <not>
+                <tableExists tableName="holonet_discord_server"/>
+            </not>
+        </preConditions>
+        <createTable tableName="holonet_discord_server">
+            <column name="guild_id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="channel_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="message_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="2-holonet-support-channel" author="holonet-bridge">
+        <preConditions onFail="MARK_RAN" onFailMessage="holonet_support_channel already exists from a pre-Liquibase install; marking this changeSet as already applied.">
+            <not>
+                <tableExists tableName="holonet_support_channel"/>
+            </not>
+        </preConditions>
+        <createTable tableName="holonet_support_channel">
+            <column name="channel_id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="guild_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="requester_user_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="number" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ticket_id" type="VARCHAR(255)"/>
+        </createTable>
+    </changeSet>
+
+</databaseChangeLog>

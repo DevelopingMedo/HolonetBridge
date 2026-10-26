@@ -9,11 +9,5 @@ holonet:
   discord:
     token: ${DISCORD_TOKEN:dev-placeholder-token}
 
-spring:
-  datasource:
-    url: jdbc:h2:file:${DB_FILE_PATH:./data/holonet-bridge}
-    username: sa
-    password: ""
-  jpa:
-    hibernate:
-      ddl-auto: update
+# Datasource/JPA/Liquibase configuration is the same persistent-H2-file setup as the default profile
+# (see application.yml); the dev profile only overrides the holonet.* provider/Discord values above.

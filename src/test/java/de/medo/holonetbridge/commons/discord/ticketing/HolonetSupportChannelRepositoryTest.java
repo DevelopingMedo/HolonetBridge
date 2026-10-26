@@ -9,8 +9,13 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 /**
  * Verifies the JPA mapping of {@link HolonetSupportChannel} and the {@code findTopByGuildIdOrderByNumberDesc}
  * lookup used to generate the next support-channel name, against a real (in-memory, test-scoped) database.
+ *
+ * <p>{@code @DataJpaTest} does not run Liquibase (its auto-configuration slice only pulls in JPA/Hibernate,
+ * not {@code LiquibaseAutoConfiguration}), so {@code ddl-auto} is overridden back to {@code create-drop}
+ * here instead of inheriting the application-wide {@code validate}; the migration itself is covered
+ * separately by the full-context migration smoke test.
  */
-@DataJpaTest
+@DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
 class HolonetSupportChannelRepositoryTest {
 
     @Autowired

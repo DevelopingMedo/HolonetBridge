@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- Entry point only: every actual changelog file is included here, oldest first. Never delete or
+         reorder an included file once released; add new ones instead, so that both a fresh database and
+         an existing one replay the exact same changeset history. -->
+    <include file="db/changelog/db.changelog-1.0-baseline.xml" relativeToChangelogFile="false"/>
+
+</databaseChangeLog>
