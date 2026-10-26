@@ -1,64 +1,69 @@
 package de.medo.holonetbridge.commons.discord.modal;
 
-import de.medo.holonetbridge.commons.ProviderConnectionProperties;
-import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannelRepository;
-import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
-import de.medo.holonetbridge.commons.domain.ticket.HolonetTicket;
-import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
-import de.medo.holonetbridge.commons.extapi.TicketDto;
-import de.medo.holonetbridge.commons.extapi.TicketProvider;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+
+import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannel;
+import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannelRepository;
+import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
+import de.medo.holonetbridge.commons.domain.ticket.HolonetTicket;
+import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
+import de.medo.holonetbridge.commons.extapi.TicketDto;
+import de.medo.holonetbridge.commons.provider.HolonetProviderConnection;
+import de.medo.holonetbridge.commons.provider.ProviderConnectionResolver;
+import de.medo.holonetbridge.commons.provider.ResolvedProvider;
 import lombok.extern.slf4j.Slf4j;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
+import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.interactions.InteractionHook;
-import org.springframework.beans.factory.ObjectProvider;
+import net.dv8tion.jda.api.requests.ErrorResponse;
 import org.springframework.stereotype.Component;
 
 /**
- * Shared final step of the modal flows: turns a submitted {@link HolonetTicket} into a ticket at the
- * {@link TicketProvider}, links the ticket back to its support channel, clears the user's session, and posts the
- * confirmation - or, when the session has already been discarded, asks the user to restart the flow instead.
+ * Shared final step of the modal flows: turns a submitted {@link HolonetTicket} into a ticket at the guild's
+ * resolved provider connection ({@link ProviderConnectionResolver}), links the ticket (and the connection it
+ * was created against) back to its support channel, and posts the confirmation.
  *
- * <p>{@link TicketProvider} and {@link ProviderConnectionProperties} are injected as {@link ObjectProvider}s,
- * not directly, because neither is a startup-mandatory bean anymore (see {@code HolonetBridgeApplication}):
- * {@code GiteaConfiguration}'s old global, {@code @ConditionalOnProperty}-gated {@code TicketProvider} bean no
- * longer exists, and provider connections are now per-guild database rows managed through {@code /setup}
- * instead. Wiring this submitter to a guild's actually resolved connection (via {@code
- * ProviderConnectionResolver}) is a later work package ("Zuordnen"); until then, every submission here simply
- * reports "not configured" if no legacy global provider bean happens to be present.
+ * <p>Every guard here is durable, DB-backed state - never the in-memory {@link HolonetTicketCreationSessionStore}
+ * - so a button/modal submission resolves correctly even after a process restart has wiped that store:
+ * whether this channel is tracked at all, whether it already has a ticket, and which connection to create the
+ * ticket against all come from {@link HolonetSupportChannelRepository}/{@link ProviderConnectionResolver}.
+ * The session store is kept only for cosmetic bookkeeping (the kind choice shown back to the user while the
+ * modal is open) and is cleared here on success.
  */
 @Slf4j
 @Component
 public class HolonetTicketSubmitter {
 
     private final HolonetTicketCreationSessionStore sessionStore;
-    private final ObjectProvider<TicketProvider> ticketProvider;
+    private final ProviderConnectionResolver connectionResolver;
     private final HolonetSupportChannelRepository supportChannelRepository;
-    private final ObjectProvider<ProviderConnectionProperties> providerConnectionProperties;
 
     public HolonetTicketSubmitter(
             HolonetTicketCreationSessionStore sessionStore,
-            ObjectProvider<TicketProvider> ticketProvider,
-            HolonetSupportChannelRepository supportChannelRepository,
-            ObjectProvider<ProviderConnectionProperties> providerConnectionProperties) {
+            ProviderConnectionResolver connectionResolver,
+            HolonetSupportChannelRepository supportChannelRepository) {
         this.sessionStore = sessionStore;
-        this.ticketProvider = ticketProvider;
+        this.connectionResolver = connectionResolver;
         this.supportChannelRepository = supportChannelRepository;
-        this.providerConnectionProperties = providerConnectionProperties;
     }
 
-    public void submit(ModalInteractionEvent event, long userId, HolonetTicket ticket) {
-        sessionStore.get(userId).ifPresentOrElse(
-                session -> createTicket(
-                        event,
-                        userId,
-                        titleWithKindPrefix(session.kind(), ticket.getTitle()),
-                        ticket.getDescription()),
-                () -> replySessionExpired(event));
+    public void submit(ModalInteractionEvent event, long userId, HolonetTicketKind kind, HolonetTicket ticket) {
+        long channelId = event.getChannel().getIdLong();
+        Optional<HolonetSupportChannel> channel = supportChannelRepository.findById(channelId);
+        if (channel.isEmpty()) {
+            replyNotATrackedSupportChannel(event);
+            return;
+        }
+        if (channel.get().ticketId() != null) {
+            replyTicketAlreadyExists(event);
+            return;
+        }
+        createTicket(event, userId, titleWithKindPrefix(kind, ticket.getTitle()), ticket.getDescription());
     }
 
     /**
@@ -73,8 +78,11 @@ public class HolonetTicketSubmitter {
 
     private void createTicketAfterDefer(
             ModalInteractionEvent event, InteractionHook hook, long userId, String title, String description) {
-        TicketProvider provider = ticketProvider.getIfAvailable();
-        if (provider == null) {
+        long channelId = event.getChannel().getIdLong();
+        long guildId = event.getGuild().getIdLong();
+        Optional<ResolvedProvider> resolved = connectionResolver.forGuild(guildId);
+        if (resolved.isEmpty()) {
+            markBroken(channelId);
             hook.sendMessage("Für diesen Server ist noch kein Ticket-Provider eingerichtet. "
                             + "Ein Serveradmin muss zuerst /setup ausführen.")
                     .queue(success -> {}, hookFailure -> log.warn(
@@ -82,29 +90,37 @@ public class HolonetTicketSubmitter {
                             hookFailure));
             return;
         }
-        CompletableFuture.supplyAsync(() -> provider.create(title, description))
+        ResolvedProvider provider = resolved.get();
+        CompletableFuture.supplyAsync(() -> provider.ticketProvider().create(title, description))
                 .whenComplete((ticket, failure) -> {
                     if (failure != null) {
                         reportCreationFailure(hook, failure);
                         return;
                     }
                     try {
-                        finalizeTicket(event, hook, userId, ticket);
+                        finalizeTicket(event, hook, channelId, userId, provider.connection(), ticket);
                     } catch (RuntimeException exception) {
                         reportCreationFailure(hook, exception);
                     }
                 });
     }
 
-    private void finalizeTicket(ModalInteractionEvent event, InteractionHook hook, long userId, TicketDto ticket) {
-        long channelId = event.getChannel().getIdLong();
+    private void finalizeTicket(
+            ModalInteractionEvent event,
+            InteractionHook hook,
+            long channelId,
+            long userId,
+            HolonetProviderConnection connection,
+            TicketDto ticket) {
         supportChannelRepository.findById(channelId).ifPresent(channel -> {
-            channel.ticketId(ticket.id());
+            channel.ticketCreated(connection.id(), ticket.id(), ticket.url());
             supportChannelRepository.save(channel);
         });
-        sessionStore.clear(userId);
-        String confirmation = confirmationMessage(ticket);
-        event.getChannel().asTextChannel().sendMessage(confirmation).queue();
+        sessionStore.clear(event.getGuild().getIdLong(), channelId, userId);
+        String confirmation = confirmationMessage(ticket, connection);
+        TextChannel textChannel = event.getChannel().asTextChannel();
+        textChannel.sendMessage(confirmation)
+                .queue(success -> {}, deliveryFailure -> handleChannelDeliveryFailure(channelId, deliveryFailure));
         hook.sendMessage(confirmation)
                 .queue(success -> {}, hookFailure -> log.warn(
                         "Bestätigung für Ticket #{} konnte nicht an Discord zugestellt werden.",
@@ -112,27 +128,28 @@ public class HolonetTicketSubmitter {
                         hookFailure));
     }
 
-    private String confirmationMessage(TicketDto ticket) {
+    private String confirmationMessage(TicketDto ticket, HolonetProviderConnection connection) {
         String identity = "Ticket #%s wurde angelegt: %s".formatted(ticket.id(), ticket.title());
-        return validatedTicketUrl(ticket.url())
+        return validatedTicketUrl(ticket.url(), connection)
                 .map(url -> identity + "\nTicket öffnen: " + url)
                 .orElse(identity + "\n(Link derzeit nicht verfügbar.)");
     }
 
     /**
-     * Only ever shows a link whose scheme is http(s) and whose host matches the configured provider's own
-     * base url, so a provider adapter returning a malformed or unrelated url (e.g. from a compromised or
-     * misbehaving backend) can never get Discord users to click an attacker-controlled link. The ticket itself
-     * still exists either way - a missing or invalid url only hides the link, it never triggers another create
-     * call.
+     * Only ever shows a link whose scheme is http(s) and whose host matches the connection's own base url, so
+     * a provider adapter returning a malformed or unrelated url (e.g. from a compromised or misbehaving
+     * backend) can never get Discord users to click an attacker-controlled link. The ticket itself still
+     * exists either way - a missing or invalid url only hides the link, it never triggers another create call.
      */
-    private Optional<String> validatedTicketUrl(String url) {
+    private Optional<String> validatedTicketUrl(String url, HolonetProviderConnection connection) {
         if (url == null || url.isBlank()) {
             return Optional.empty();
         }
         URI parsed;
+        URI base;
         try {
             parsed = new URI(url);
+            base = new URI(connection.baseUrl());
         } catch (URISyntaxException exception) {
             return Optional.empty();
         }
@@ -140,10 +157,37 @@ public class HolonetTicketSubmitter {
         boolean allowedScheme = scheme != null
                 && (scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"));
         String host = parsed.getHost();
-        ProviderConnectionProperties properties = providerConnectionProperties.getIfAvailable();
-        boolean plausibleOrigin =
-                host != null && properties != null && host.equalsIgnoreCase(properties.baseUrl().getHost());
+        boolean plausibleOrigin = host != null && base.getHost() != null && host.equalsIgnoreCase(base.getHost());
         return parsed.isAbsolute() && allowedScheme && plausibleOrigin ? Optional.of(url) : Optional.empty();
+    }
+
+    /**
+     * Marks the channel {@code BROKEN} on a confirmed-unreachable Discord delivery failure (deleted channel,
+     * or the bot lost access/permissions); any other failure is logged but left {@code OPEN}, since it is not
+     * evidence that the channel itself is unusable.
+     */
+    private void handleChannelDeliveryFailure(long channelId, Throwable failure) {
+        if (isUnreachableChannelFailure(failure)) {
+            markBroken(channelId);
+        }
+        log.warn("Ticket-Bestätigung konnte nicht in den Support-Kanal gestellt werden.", failure);
+    }
+
+    private static boolean isUnreachableChannelFailure(Throwable failure) {
+        if (!(failure instanceof ErrorResponseException errorResponseException)) {
+            return false;
+        }
+        ErrorResponse errorResponse = errorResponseException.getErrorResponse();
+        return errorResponse == ErrorResponse.UNKNOWN_CHANNEL
+                || errorResponse == ErrorResponse.MISSING_ACCESS
+                || errorResponse == ErrorResponse.MISSING_PERMISSIONS;
+    }
+
+    private void markBroken(long channelId) {
+        supportChannelRepository.findById(channelId).ifPresent(channel -> {
+            channel.markBroken();
+            supportChannelRepository.save(channel);
+        });
     }
 
     /** Logs with a correlation id (no ticket content, no tokens) so the incident can be traced without secrets. */
@@ -159,8 +203,15 @@ public class HolonetTicketSubmitter {
                         hookFailure));
     }
 
-    private static void replySessionExpired(ModalInteractionEvent event) {
-        event.reply("Die Sitzung ist abgelaufen, bitte klick erneut auf „Support anfragen“.")
+    private static void replyNotATrackedSupportChannel(ModalInteractionEvent event) {
+        event.reply("Dieser Kanal wird nicht als Support-Kanal geführt. "
+                        + "Bitte starte eine neue Anfrage über „Support anfragen“.")
+                .setEphemeral(true)
+                .queue();
+    }
+
+    private static void replyTicketAlreadyExists(ModalInteractionEvent event) {
+        event.reply("Für diesen Kanal wurde bereits ein Ticket angelegt.")
                 .setEphemeral(true)
                 .queue();
     }

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Introduces durable ticket-to-connection assignment:
+          - holonet_guild_sequence (HolonetGuildSequence): one atomically-incremented counter row per guild,
+            replacing the old findTopByGuildIdOrderByNumberDesc()+1 read-then-write race for support-channel
+            numbering.
+          - holonet_support_channel gains connection_id (nullable; frozen at ticket-creation time, never
+            re-resolved on a later /setup connection switch - see HolonetSupportChannel), ticket_url, and
+            status (OPEN/BROKEN; see HolonetSupportChannelStatus - this is a minimal lifecycle only, the full
+            state machine including archiving is a later work package).
+
+        Existing rows that already had ticket_id set before connection_id existed (pre-upgrade data) are not
+        touched by this changelog: HolonetSupportChannelConnectionBackfill links them at application startup,
+        and only when their guild has exactly one HolonetProviderConnection candidate to link to - any guild
+        with zero or more than one candidate is left with connection_id null and logged instead of guessed at.
+
+        connection_id intentionally has no NOT NULL constraint and is not backed by a unique index together
+        with ticket_id beyond the plain composite index below: the "one open ticket per channel" invariant is
+        enforced by HolonetTicketSubmitter (the single write path), not at the schema level, matching the
+        existing convention in db.changelog-2.0-provider-connection.xml for holonet_provider_connection's
+        "exactly one active row per guild" invariant.
+    -->
+
+    <changeSet id="4-holonet-guild-sequence" author="holonet-bridge">
+        <createTable tableName="holonet_guild_sequence">
+            <column name="guild_id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="current_number" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="5-holonet-support-channel-connection-assignment" author="holonet-bridge">
+        <addColumn tableName="holonet_support_channel">
+            <column name="connection_id" type="UUID"/>
+            <column name="ticket_url" type="VARCHAR(2048)"/>
+            <column name="status" type="VARCHAR(20)" defaultValue="OPEN">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        <addForeignKeyConstraint
+                baseTableName="holonet_support_channel"
+                baseColumnNames="connection_id"
+                constraintName="fk_holonet_support_channel_connection"
+                referencedTableName="holonet_provider_connection"
+                referencedColumnNames="id"/>
+        <createIndex tableName="holonet_support_channel" indexName="idx_holonet_support_channel_connection_ticket">
+            <column name="connection_id"/>
+            <column name="ticket_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
