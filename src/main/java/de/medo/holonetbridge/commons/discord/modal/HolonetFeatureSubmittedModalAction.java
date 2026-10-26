@@ -1,7 +1,7 @@
 package de.medo.holonetbridge.commons.discord.modal;
 
 import de.medo.holonetbridge.commons.discord.button.HolonetFeatureModalButton;
-import de.medo.holonetbridge.commons.extapi.HolonetTicket;
+import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicket;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import org.springframework.stereotype.Component;
 
@@ -20,9 +20,10 @@ public class HolonetFeatureSubmittedModalAction {
 
     public void handle(ModalInteractionEvent event) {
         long userId = event.getUser().getIdLong();
-        HolonetTicket ticket = HolonetTicket.feature(
-                event.getValue(HolonetFeatureModalButton.INPUT_TITLE).getAsString(),
-                event.getValue(HolonetFeatureModalButton.INPUT_DESCRIPTION).getAsString());
+        HolonetTicket ticket = HolonetTicket.builder()
+                .title(event.getValue(HolonetFeatureModalButton.INPUT_TITLE).getAsString())
+                .text(event.getValue(HolonetFeatureModalButton.INPUT_DESCRIPTION).getAsString())
+                .build();
         ticketSubmitter.submit(event, userId, ticket);
     }
 }
