@@ -3,8 +3,9 @@ package de.medo.holonetbridge.commons.discord;
 import java.util.Collections;
 
 import de.medo.holonetbridge.commons.discord.listener.HolonetOnButtonInteractionListener;
+import de.medo.holonetbridge.commons.discord.listener.HolonetOnEntitySelectInteractionListener;
+import de.medo.holonetbridge.commons.discord.listener.HolonetOnModalInteractionListener;
 import de.medo.holonetbridge.commons.discord.setup.HolonetSetupListenerAdapter;
-import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketModalDialogListenerAdapter;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.Permission;
@@ -42,10 +43,11 @@ public class DiscordGatewayConfiguration {
     JDA jda(
             DiscordProperties discordProperties,
             HolonetOnButtonInteractionListener buttonListener,
-            HolonetTicketModalDialogListenerAdapter modalDialogListenerAdapter,
+            HolonetOnModalInteractionListener modalListener,
+            HolonetOnEntitySelectInteractionListener entitySelectListener,
             HolonetSetupListenerAdapter configurationListenerAdapter) {
         JDA jda = JDABuilder.createLight(discordProperties.token(), Collections.emptyList())
-                .addEventListeners(buttonListener, modalDialogListenerAdapter, configurationListenerAdapter)
+                .addEventListeners(buttonListener, modalListener, entitySelectListener, configurationListenerAdapter)
                 .build();
 
         jda.updateCommands()
