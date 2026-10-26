@@ -106,7 +106,16 @@ mvn package
 
 The provider port is the seam for isolated adapter tests: `GiteaTicketProviderTest` drives the Gitea adapter's HTTP calls (including a server-error response) through a `MockRestServiceServer`, without any real Gitea instance. Discord event handling is tested the same way on the other side of the boundary: `HolonetBridgeListenerAdapterTest` mocks the JDA event/action interfaces directly with Mockito (no gateway connection, no extra JDA-mock test library) to drive `HolonetBridgeListenerAdapter` through the whole button/modal flow.
 
-`GiteaTicketProviderIntegrationTest` additionally drives `GiteaTicketProvider` against a real Gitea instance started with Testcontainers (image `gitea/gitea:1.22`, mirroring the init steps from `.ci/deployment/docker-compose.yml`). It is skipped automatically when no Docker environment is reachable (`disabledWithoutDocker`). To run it with colima, point Testcontainers at the socket:
+`GiteaTicketProviderIntegrationTest` additionally drives `GiteaTicketProvider` against a real Gitea instance started with Testcontainers (image `gitea/gitea:1.22`, mirroring the init steps from `.ci/deployment/docker-compose.yml`). It is skipped automatically when no Docker environment is reachable (`disabledWithoutDocker`).
+
+Testcontainers auto-detects Docker via `/var/run/docker.sock`, but colima puts its socket at `~/.colima/default/docker.sock`. Expose it at the standard path once (requires sudo) and the test runs without any extra configuration:
+
+```sh
+sudo ln -sf "$HOME/.colima/default/docker.sock" /var/run/docker.sock
+mvn test
+```
+
+The symlink also satisfies Testcontainers' Ryuk helper, which mounts the socket at the path the Docker daemon sees inside colima's VM (`/var/run/docker.sock`). If you cannot create the symlink, set these variables for the test run instead:
 
 ```sh
 export DOCKER_HOST=unix://$HOME/.colima/default/docker.sock
