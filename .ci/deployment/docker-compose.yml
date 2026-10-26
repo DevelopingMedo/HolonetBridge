@@ -57,6 +57,10 @@ services:
     volumes:
       - ./holonet-bridge.jar:/app/app.jar:ro
       - gitea-token:/shared:ro
+      # Persists the H2 database file (default path ./data/holonet-bridge, relative to working_dir /app)
+      # across container re-creation; without this, `docker compose up` after any image/container change
+      # would silently start from an empty database.
+      - holonet-bridge-data:/app/data
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
       PROVIDER_BASE_URL: ${PROVIDER_BASE_URL:-gitea}
@@ -80,3 +84,4 @@ services:
 volumes:
   gitea-data:
   gitea-token:
+  holonet-bridge-data:

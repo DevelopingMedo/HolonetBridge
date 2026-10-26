@@ -18,7 +18,7 @@ The base package is `de.medo.holonetbridge`, with `HolonetBridgeApplication` kep
 
 | Package | Contains |
 | --- | --- |
-| `commons` | Everything that is valid across providers: application-level configuration binding (`ProviderConnectionProperties`) directly in the package, `commons.extapi` for the external ticket-system boundary (`TicketProvider` and `TicketDto`), `commons.domain.ticket` for provider- and Discord-independent ticket values (`HolonetTicket`, `HolonetTicketBug`, and `HolonetTicketKind`), `commons.markdown` for raw Markdown construction, and `commons.discord` for the Discord-facing integration. The Discord packages contain `DiscordProperties`, `DiscordGatewayConfiguration`, and the interactive flow, including `HolonetTicketCreationSession`/`HolonetTicketCreationSessionStore` for a user's in-progress Discord session. |
+| `commons` | Everything that is valid across providers: application-level configuration binding (`ProviderConnectionProperties`) directly in the package, `commons.extapi` for the external ticket-system boundary (`TicketProvider` and `TicketDto`), `commons.domain.ticket` for provider- and Discord-independent ticket values (`HolonetTicket`, `HolonetTicketBug`, and `HolonetTicketKind`), `commons.markdown` for raw Markdown construction, `commons.crypto` for `TokenCryptoService` (AES-256-GCM provider-token encryption, see "Provider-token encryption" below), and `commons.discord` for the Discord-facing integration. The Discord packages contain `DiscordProperties`, `DiscordGatewayConfiguration`, and the interactive flow, including `HolonetTicketCreationSession`/`HolonetTicketCreationSessionStore` for a user's in-progress Discord session. |
 | `gitea` | The Gitea provider adapter, as its own top-level package next to `commons`: `GiteaTicketProvider`, its request/response DTOs, `GiteaProperties` (the Gitea-specific owner/repository configuration, composed alongside `ProviderConnectionProperties` rather than extending it — see the Javadoc on `GiteaProperties` for why), and `GiteaConfiguration` (the conditional wiring that creates the two beans above only when Gitea is actually selected). Other providers (Jira, ...) would get their own top-level package the same way. |
 | `bootstrap` (tests) | Startup/smoke tests wiring the whole application context. |
 
@@ -58,6 +58,19 @@ services:
       HOLONET_DISCORD_TOKEN: ${HOLONET_DISCORD_TOKEN:?set this through your secret manager}
 ```
 
+### Provider-token encryption at rest
+
+`commons.crypto` provides `TokenCryptoService`, an AES-256-GCM service for encrypting a provider token before it is persisted: a fresh random nonce per encryption, and the Discord guild/provider-connection it belongs to bound in as authenticated associated data (`TokenEncryptionContext`), so a ciphertext read back under a different guild/connection fails to decrypt instead of silently succeeding. `EncryptedSecret` is the resulting ciphertext/nonce/key-version tuple meant for storage. There is no new provider-connection database entity in this work package yet — that lands later and persists `EncryptedSecret` instances — so `TokenCryptoService` is usable and tested standalone already.
+
+The AES master key(s) come from `holonet.crypto.active-key-version` and `holonet.crypto.keys.<version>` (a Base64-encoded 256-bit key per version), supplied the same way as the provider/Discord tokens above — the operator's secret manager, never the database:
+
+```
+HOLONET_CRYPTO_ACTIVE_KEY_VERSION=v1
+HOLONET_CRYPTO_KEYS_V1=<base64-encoded-256-bit-key>
+```
+
+Nothing in this work package requires these to be set (the application starts fine without them); they only matter once something actually calls `TokenCryptoService`. Missing or invalid key material fails fast with `MasterKeyUnavailableException` at the point a key is requested, never with a silently generated or otherwise substitute key. See [`docs/token-key-rotation.md`](docs/token-key-rotation.md) for the key-rotation procedure.
+
 ### The `/ticket` flow
 
 Once the gateway is connected, the bot registers a single global `/ticket` slash command (with no options) and drives the rest of the conversation through buttons and modals instead of command arguments:
@@ -95,6 +108,14 @@ Activate the profile with `SPRING_PROFILES_ACTIVE=dev`, for example:
 SPRING_PROFILES_ACTIVE=dev java -jar target/holonet-bridge-*.jar
 ```
 
+## Database schema migrations
+
+Schema changes go through Liquibase (`src/main/resources/db/changelog/db.changelog-master.xml`, including per-version changelog files such as `db.changelog-1.0-baseline.xml`) instead of Hibernate's own DDL generation: `spring.jpa.hibernate.ddl-auto` is `validate`, so Hibernate only checks the entity mapping against whatever Liquibase has produced and refuses to start on a mismatch, rather than silently creating or altering tables. `db.changelog-1.0-baseline.xml` is a versioning foundation, not a schema change: it describes the two tables (`holonet_discord_server`, `holonet_support_channel`) exactly as the previous `ddl-auto: update` setup had already been creating them. Its changeSets each carry a `tableExists` preCondition with `onFail="MARK_RAN"`, so both a brand-new database (tables created) and an existing one from before Liquibase (tables already present, changeSet marked as applied instead of re-run) end up on the same recorded schema history without any destructive recreation or manual `changelog-sync` step. Add new changelog files for future schema changes; never edit or remove an already-released one.
+
+The default/`dev` H2 database is a file rather than in-memory, so data survives process/container restarts: `DB_FILE_PATH` (default `./data/holonet-bridge`) controls where. The `.ci/deployment` Compose setup mounts that path as a named volume (`holonet-bridge-data`) so it also survives container re-creation, not just process restarts.
+
+`MigrationSmokeTest` (under `bootstrap`) starts the full Spring context against both a brand-new database file and a fixture representing a pre-Liquibase one (`src/test/resources/fixtures/legacy-h2`), asserting both that the context starts at all (which Hibernate's `validate` would otherwise have refused) and, for the legacy fixture, that its pre-existing data is unchanged afterward.
+
 ## Build and test
 
 Requires Java 25 for the currently selected Spring Boot baseline.
@@ -107,6 +128,8 @@ mvn package
 The provider port is the seam for isolated adapter tests: `GiteaTicketProviderTest` drives the Gitea adapter's HTTP calls (including a server-error response) through a `MockRestServiceServer`, without any real Gitea instance. Discord event handling is tested the same way on the other side of the boundary: `HolonetBridgeListenerAdapterTest` mocks the JDA event/action interfaces directly with Mockito (no gateway connection, no extra JDA-mock test library) to drive `HolonetBridgeListenerAdapter` through the whole button/modal flow.
 
 `GiteaTicketProviderIntegrationTest` additionally drives `GiteaTicketProvider` against a real Gitea instance started with Testcontainers (image `gitea/gitea:1.22`, mirroring the init steps from `.ci/deployment/docker-compose.yml`). It is skipped automatically when no Docker environment is reachable (`disabledWithoutDocker`).
+
+`TokenCryptoServiceTest` and `MasterKeyProviderTest` cover the encryption service and master-key resolution from "Provider-token encryption at rest" above (round-trip, tamper/context-mismatch detection, key rotation, fail-fast on missing/invalid key material); `MigrationSmokeTest` covers the Liquibase/Hibernate-validate migration setup from "Database schema migrations" above.
 
 Testcontainers auto-detects Docker via `/var/run/docker.sock`, but colima puts its socket at `~/.colima/default/docker.sock`. Expose it at the standard path once (requires sudo) and the test runs without any extra configuration:
 
@@ -126,3 +149,4 @@ mvn test
 ## Known gaps
 
 - Discord gateway enablement: there is currently no way to start the application with the gateway switched off. A previous `holonet.discord.enabled`/`HOLONET_DISCORD_ENABLED` toggle was removed because it only existed for test convenience; tests now mock the `JDA` bean directly instead (`@MockitoBean` in `BootstrapSmokeTest`). A proper toggle still needs a rework — likely tied to how a Discord bot is actually registered and obtains its token, which happens after the server is already running, not before.
+- Provider-connection persistence: `TokenCryptoService` (see "Provider-token encryption at rest" above) exists and is tested standalone, but nothing yet persists an `EncryptedSecret` for an actual per-guild provider connection — there is still only the single, globally configured `holonet.provider.*` connection. The entity that will own that and call `TokenCryptoService` is a later work package.

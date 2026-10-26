@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    url: jdbc:h2:file:${DB_FILE_PATH:./data/holonet-bridge};DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      # Liquibase (below) owns schema creation/evolution now; "validate" only checks the entity mapping
+      # against whatever Liquibase produced, so a drift between the two fails fast at startup instead of
+      # silently auto-altering the schema the way "update" did.
+      ddl-auto: validate
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.xml

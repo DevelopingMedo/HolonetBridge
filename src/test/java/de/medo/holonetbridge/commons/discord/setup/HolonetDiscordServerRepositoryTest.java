@@ -10,8 +10,13 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
  * Verifies the JPA mapping against a real (in-memory, test-scoped) database rather than mocking the
  * repository, since what actually needs checking here is the mapping itself: that {@code guildId} is the
  * primary key, so re-saving a configuration for the same guild overwrites rather than duplicates it.
+ *
+ * <p>{@code @DataJpaTest} does not run Liquibase (its auto-configuration slice only pulls in JPA/Hibernate,
+ * not {@code LiquibaseAutoConfiguration}), so {@code ddl-auto} is overridden back to {@code create-drop}
+ * here instead of inheriting the application-wide {@code validate}; the migration itself is covered
+ * separately by the full-context migration smoke test.
  */
-@DataJpaTest
+@DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
 class HolonetDiscordServerRepositoryTest {
 
     @Autowired

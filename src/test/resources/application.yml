@@ -1,0 +1,13 @@
+spring:
+  # Shadows src/main/resources/application.yml on the test classpath so plain @SpringBootTest contexts
+  # (which, unlike @DataJpaTest's @AutoConfigureTestDatabase, do not replace the datasource on their own)
+  # use a throwaway in-memory database instead of the production file path.
+  datasource:
+    url: jdbc:h2:mem:holonet-bridge-test;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.xml
