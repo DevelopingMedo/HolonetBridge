@@ -22,7 +22,7 @@ import java.util.function.Consumer;
 
 import de.medo.holonetbridge.commons.crypto.EncryptedSecret;
 import de.medo.holonetbridge.commons.discord.i18n.I18nProperties;
-import de.medo.holonetbridge.commons.discord.i18n.Texts;
+import de.medo.holonetbridge.commons.discord.i18n.MessageSourceConfiguration;
 import de.medo.holonetbridge.commons.discord.i18n.TicketDescriptionFormatter;
 import de.medo.holonetbridge.commons.discord.modal.HolonetBugReportSubmitModalAction;
 import de.medo.holonetbridge.commons.discord.modal.HolonetFeatureSubmittedModalAction;
@@ -55,6 +55,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.MessageSource;
 
 /**
  * Drives {@link HolonetOnModalInteractionListener} through its modal submissions using Mockito mocks of the JDA
@@ -62,7 +63,7 @@ import org.mockito.ArgumentCaptor;
  */
 class HolonetOnModalInteractionListenerTest {
 
-    private final Texts texts = new Texts(new I18nProperties(null));
+    private final MessageSource messageSource = new MessageSourceConfiguration().messageSource(new I18nProperties(null));
 
     private static final long USER_ID = 123456789L;
     private static final long GUILD_ID = 999L;
@@ -91,9 +92,9 @@ class HolonetOnModalInteractionListenerTest {
             mock(HolonetSetupConnectionSubmitModalAction.class);
     private final HolonetOnModalInteractionListener listener = new HolonetOnModalInteractionListener(
             new HolonetFeatureSubmittedModalAction(
-                    new HolonetTicketSubmitter(texts, new TicketDescriptionFormatter(texts), sessionStore, connectionResolver, supportChannelRepository)),
+                    new HolonetTicketSubmitter(messageSource, new TicketDescriptionFormatter(messageSource), sessionStore, connectionResolver, supportChannelRepository)),
             new HolonetBugReportSubmitModalAction(
-                    new HolonetTicketSubmitter(texts, new TicketDescriptionFormatter(texts), sessionStore, connectionResolver, supportChannelRepository)),
+                    new HolonetTicketSubmitter(messageSource, new TicketDescriptionFormatter(messageSource), sessionStore, connectionResolver, supportChannelRepository)),
             setupConnectionSubmit);
 
     private final User user = mock(User.class);

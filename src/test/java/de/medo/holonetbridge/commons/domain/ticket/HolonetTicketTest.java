@@ -19,8 +19,8 @@ class HolonetTicketTest {
                 .build();
 
         assertThat(ticket.getTitle()).isEqualTo("Login schlägt fehl");
-        assertThat(new TicketDescriptionFormatter(new Texts(new I18nProperties(null)))
-                .format(ticket, DiscordLocale.GERMAN))
+        assertThat(new TicketDescriptionFormatter(new MessageSourceConfiguration().messageSource(new I18nProperties(null)))
+                .format(ticket, DiscordLocale.GERMAN.toLocale()))
                 .isEqualTo("## Was hast du vor dem Fehler gemacht?\n\n"
                         + "  1. starte\n* **zweiter Schritt**  \n\n"
                         + "## Was hättest du erwartet?\n\n"

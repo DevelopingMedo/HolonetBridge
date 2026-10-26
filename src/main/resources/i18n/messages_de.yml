@@ -1,7 +1,4 @@
 setup:
-  command:
-    description: "Richtet die Support-Ticket-Nachricht in einem Kanal ein"
-    channel: "Kanal für die Support-Nachricht"
   guild-only: "/setup kann nur innerhalb eines Servers ausgeführt werden."
   manage-server: "Dazu fehlt dir die Berechtigung \"Server verwalten\"."
   cannot-post: "Ich habe in {0} keine Berechtigung, die Support-Nachricht zu posten."
@@ -77,3 +74,9 @@ validation:
   access: "Das Token hat keinen Lesezugriff auf dieses Repository (oder ist ungültig)."
   not-found: "Repository nicht gefunden. Bitte Owner und Repository-Namen prüfen."
   rejected: "Der Provider hat die Anfrage mit Status {0} abgelehnt."
+commands:
+  setup:
+    description: "Richtet die Support-Ticket-Nachricht in einem Kanal ein"
+    options:
+      channel:
+        description: "Kanal für die Support-Nachricht"

@@ -1,7 +1,4 @@
 setup:
-  command:
-    description: "Set up the support ticket panel in a channel"
-    channel: "Channel for the support panel"
   guild-only: "/setup can only be used in a server."
   manage-server: "You need the \"Manage Server\" permission."
   cannot-post: "I cannot post the support panel in {0}."
@@ -77,3 +74,9 @@ validation:
   access: "The token is invalid or has no read access to this repository."
   not-found: "Repository not found. Check the owner and repository name."
   rejected: "The provider rejected the request (HTTP {0})."
+commands:
+  setup:
+    description: "Set up the support ticket panel in a channel"
+    options:
+      channel:
+        description: "Channel for the support panel"

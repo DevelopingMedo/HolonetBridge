@@ -1,8 +1,5 @@
 # Russian is intentionally transliterated into Latin script.
 setup:
-  command:
-    description: "Nastroit panel obrashcheniy v kanale"
-    channel: "Kanal dlya paneli podderzhki"
   guild-only: "/setup mozhno ispolzovat tolko na servere."
   manage-server: "Nuzhno razreshenie \"Upravlenie serverom\"."
   cannot-post: "U menya net razresheniya otpravit panel podderzhki v {0}."
@@ -78,3 +75,9 @@ validation:
   access: "Token nedeystvitelen ili ne imeet prav chteniya repozitoriya."
   not-found: "Repozitoriy ne nayden. Prover vladeltsa i nazvanie repozitoriya."
   rejected: "Sistema otklonila zapros (HTTP {0})."
+commands:
+  setup:
+    description: "Nastroit panel obrashcheniy v kanale"
+    options:
+      channel:
+        description: "Kanal dlya paneli podderzhki"

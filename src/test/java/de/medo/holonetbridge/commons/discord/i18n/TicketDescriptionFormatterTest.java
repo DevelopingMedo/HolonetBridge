@@ -10,7 +10,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 class TicketDescriptionFormatterTest {
 
     private final TicketDescriptionFormatter formatter =
-            new TicketDescriptionFormatter(new Texts(new I18nProperties(null)));
+            new TicketDescriptionFormatter(new MessageSourceConfiguration().messageSource(new I18nProperties(null)));
 
     @ParameterizedTest
     @CsvSource({
@@ -28,7 +28,7 @@ class TicketDescriptionFormatterTest {
                 .recurrence("always")
                 .build();
 
-        assertThat(formatter.format(ticket, DiscordLocale.from(language)))
+        assertThat(formatter.format(ticket, DiscordLocale.from(language).toLocale()))
                 .startsWith("## " + heading + "\n\n  **Original**\nsteps  ")
                 .endsWith(recurrence);
     }

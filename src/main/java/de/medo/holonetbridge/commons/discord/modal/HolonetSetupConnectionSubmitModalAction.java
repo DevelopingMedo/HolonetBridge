@@ -11,7 +11,6 @@ import de.medo.holonetbridge.commons.crypto.TokenCryptoService;
 import de.medo.holonetbridge.commons.crypto.TokenEncryptionContext;
 import de.medo.holonetbridge.commons.discord.button.HolonetOpenSupportButton;
 import de.medo.holonetbridge.commons.discord.button.HolonetSetupRetryButton;
-import de.medo.holonetbridge.commons.discord.i18n.Texts;
 import de.medo.holonetbridge.commons.discord.setup.HolonetDiscordServer;
 import de.medo.holonetbridge.commons.discord.setup.HolonetDiscordServerRepository;
 import de.medo.holonetbridge.commons.discord.setup.HolonetSetupDraft;
@@ -30,6 +29,7 @@ import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.interactions.InteractionHook;
+import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
 
 /**
@@ -56,7 +56,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class HolonetSetupConnectionSubmitModalAction {
 
-    private final Texts texts;
+    private final MessageSource messageSource;
 
     private final HolonetSetupDraftStore draftStore;
     private final HolonetProviderConnectionService providerConnectionService;
@@ -65,13 +65,13 @@ public class HolonetSetupConnectionSubmitModalAction {
     private final GiteaConnectionValidator connectionValidator;
 
     public HolonetSetupConnectionSubmitModalAction(
-            Texts texts,
+            MessageSource messageSource,
             HolonetSetupDraftStore draftStore,
             HolonetProviderConnectionService providerConnectionService,
             HolonetDiscordServerRepository discordServerRepository,
             TokenCryptoService tokenCryptoService,
             GiteaConnectionValidator connectionValidator) {
-        this.texts = texts;
+        this.messageSource = messageSource;
         this.draftStore = draftStore;
         this.providerConnectionService = providerConnectionService;
         this.discordServerRepository = discordServerRepository;
@@ -80,10 +80,11 @@ public class HolonetSetupConnectionSubmitModalAction {
     }
 
     public void handle(ModalInteractionEvent event) {
+        Locale userLocale = event.getUserLocale().toLocale();
         long userId = event.getUser().getIdLong();
         Optional<HolonetSetupDraft> maybeDraft = draftStore.get(userId);
         if (maybeDraft.isEmpty()) {
-            replyFailureWithoutRetry(event, texts.user(event, "setup.expired"));
+            replyFailureWithoutRetry(event, messageSource.getMessage("setup.expired", null, userLocale));
             return;
         }
         HolonetSetupDraft draft = maybeDraft.get();
@@ -91,11 +92,11 @@ public class HolonetSetupConnectionSubmitModalAction {
         Guild guild = event.getGuild();
         Member member = event.getMember();
         if (guild == null || member == null) {
-            replyFailureWithoutRetry(event, texts.user(event, "setup.guild-only"));
+            replyFailureWithoutRetry(event, messageSource.getMessage("setup.guild-only", null, userLocale));
             return;
         }
         if (!member.hasPermission(Permission.MANAGE_SERVER)) {
-            replyFailureWithoutRetry(event, texts.user(event, "setup.manage-server"));
+            replyFailureWithoutRetry(event, messageSource.getMessage("setup.manage-server", null, userLocale));
             return;
         }
 
@@ -104,7 +105,7 @@ public class HolonetSetupConnectionSubmitModalAction {
                 || !guild.getSelfMember()
                         .hasPermission(panelChannel, Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND)) {
             replyFailureWithRetry(
-                    event, texts.user(event, "setup.channel-unavailable"));
+                    event, messageSource.getMessage("setup.channel-unavailable", null, userLocale));
             return;
         }
 
@@ -121,7 +122,7 @@ public class HolonetSetupConnectionSubmitModalAction {
         try {
             baseUrl = parseBaseUrl(rawBaseUrl);
         } catch (IllegalArgumentException e) {
-            replyFailureWithRetry(event, texts.user(event, "setup.invalid-url"));
+            replyFailureWithRetry(event, messageSource.getMessage("setup.invalid-url", null, userLocale));
             return;
         }
 
@@ -131,7 +132,7 @@ public class HolonetSetupConnectionSubmitModalAction {
         if (effectiveToken == null) {
             replyFailureWithRetry(
                     event,
-                    texts.user(event, "setup.token-required"));
+                    messageSource.getMessage("setup.token-required", null, userLocale));
             return;
         }
 
@@ -200,7 +201,7 @@ public class HolonetSetupConnectionSubmitModalAction {
         Optional<HolonetDiscordServer> existing = discordServerRepository.findById(guildId);
         if (existing.isPresent() && existing.get().channelId() == panelChannel.getIdLong()) {
             panelChannel
-                    .editMessageById(existing.get().messageId(), texts.guild(guild, "setup.panel.message"))
+                    .editMessageById(existing.get().messageId(), messageSource.getMessage("setup.panel.message", null, guild.getLocale().toLocale()))
                     .setComponents(panelComponents(guild))
                     .queue(
                             message -> finish(hook, panelChannel),
@@ -213,7 +214,7 @@ public class HolonetSetupConnectionSubmitModalAction {
     private void postNewPanel(
             InteractionHook hook, Guild guild, TextChannel panelChannel, long guildId, HolonetDiscordServer previous) {
         panelChannel
-                .sendMessage(texts.guild(guild, "setup.panel.message"))
+                .sendMessage(messageSource.getMessage("setup.panel.message", null, guild.getLocale().toLocale()))
                 .addComponents(panelComponents(guild))
                 .queue(
                         message -> {
@@ -223,7 +224,7 @@ public class HolonetSetupConnectionSubmitModalAction {
                             finish(hook, panelChannel);
                         },
                         failure -> hook.sendMessage(
-                                        texts.user(hook.getInteraction(), "setup.panel.failed"))
+                                        messageSource.getMessage("setup.panel.failed", null, hook.getInteraction().getUserLocale().toLocale()))
                                 .queue());
     }
 
@@ -239,16 +240,17 @@ public class HolonetSetupConnectionSubmitModalAction {
     }
 
     private void finish(InteractionHook hook, TextChannel panelChannel) {
-        hook.sendMessage(texts.user(hook.getInteraction(), "setup.saved", panelChannel.getAsMention()))
+        hook.sendMessage(messageSource.getMessage("setup.saved", new Object[] {panelChannel.getAsMention()}, hook.getInteraction().getUserLocale().toLocale()))
                 .queue();
     }
 
     private ActionRow panelComponents(Guild guild) {
-        return ActionRow.of(Button.success(HolonetOpenSupportButton.BUTTON_ID, texts.guild(guild, "setup.panel.button")));
+        return ActionRow.of(Button.success(HolonetOpenSupportButton.BUTTON_ID, messageSource.getMessage("setup.panel.button", null, guild.getLocale().toLocale())));
     }
 
     /** Logs with a correlation id (never the token) so an unexpected activation failure can be traced. */
     private void reportValidationFailure(InteractionHook hook, Throwable failure) {
+        Locale userLocale = hook.getInteraction().getUserLocale().toLocale();
         // CompletableFuture wraps exceptions thrown inside runAsync() in a CompletionException, so the
         // actual validation failure must be unwrapped before the instanceof check below can ever match.
         Throwable actual = failure instanceof CompletionException && failure.getCause() != null
@@ -263,11 +265,11 @@ public class HolonetSetupConnectionSubmitModalAction {
                 case NOT_FOUND -> "validation.not-found";
                 case REJECTED -> "validation.rejected";
             };
-            message = texts.user(hook.getInteraction(), key, Integer.toString(validationFailure.status()));
+            message = messageSource.getMessage(key, new Object[] {Integer.toString(validationFailure.status())}, userLocale);
         } else {
             String correlationId = UUID.randomUUID().toString();
             log.error("Provider-Verbindung konnte nicht eingerichtet werden [correlationId={}]", correlationId, failure);
-            message = texts.user(hook.getInteraction(), "setup.failed", correlationId);
+            message = messageSource.getMessage("setup.failed", new Object[] {correlationId}, userLocale);
         }
         hook.sendMessage(message).addComponents(retryActionRow(hook.getInteraction())).queue();
     }
@@ -282,7 +284,7 @@ public class HolonetSetupConnectionSubmitModalAction {
     }
 
     private ActionRow retryActionRow(net.dv8tion.jda.api.interactions.Interaction interaction) {
-        return ActionRow.of(Button.secondary(HolonetSetupRetryButton.BUTTON_ID, texts.user(interaction, "setup.retry")));
+        return ActionRow.of(Button.secondary(HolonetSetupRetryButton.BUTTON_ID, messageSource.getMessage("setup.retry", null, interaction.getUserLocale().toLocale())));
     }
 
     private static URI parseBaseUrl(String raw) {

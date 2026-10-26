@@ -1,11 +1,13 @@
 package de.medo.holonetbridge.commons.discord.button;
 
-import de.medo.holonetbridge.commons.discord.i18n.Texts;
+import java.util.Locale;
+
 import de.medo.holonetbridge.commons.discord.modal.HolonetProviderConnectionModal;
 import de.medo.holonetbridge.commons.discord.setup.HolonetSetupDraft;
 import de.medo.holonetbridge.commons.discord.setup.HolonetSetupDraftStore;
 import de.medo.holonetbridge.commons.provider.HolonetProviderConnectionService;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
+import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
 
 /**
@@ -17,7 +19,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class HolonetSetupRetryButton {
 
-    private final Texts texts;
+    private final MessageSource messageSource;
 
     /** Custom id of the "Erneut versuchen" button. */
     public static final String BUTTON_ID = "setup:retry";
@@ -26,18 +28,19 @@ public class HolonetSetupRetryButton {
     private final HolonetProviderConnectionService providerConnectionService;
 
     public HolonetSetupRetryButton(
-            Texts texts,
+            MessageSource messageSource,
             HolonetSetupDraftStore draftStore, HolonetProviderConnectionService providerConnectionService) {
-        this.texts = texts;
+        this.messageSource = messageSource;
         this.draftStore = draftStore;
         this.providerConnectionService = providerConnectionService;
     }
 
     public void handle(ButtonInteractionEvent event) {
+        Locale userLocale = event.getUserLocale().toLocale();
         long userId = event.getUser().getIdLong();
         draftStore.get(userId).ifPresentOrElse(
-                draft -> event.replyModal(HolonetProviderConnectionModal.build(tokenRequired(draft), draft, texts, event.getUserLocale())).queue(),
-                () -> event.reply(texts.user(event, "setup.expired"))
+                draft -> event.replyModal(HolonetProviderConnectionModal.build(tokenRequired(draft), draft, messageSource, userLocale)).queue(),
+                () -> event.reply(messageSource.getMessage("setup.expired", null, userLocale))
                         .setEphemeral(true)
                         .queue());
     }
