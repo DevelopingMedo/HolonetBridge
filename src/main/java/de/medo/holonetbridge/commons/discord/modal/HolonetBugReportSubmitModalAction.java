@@ -2,6 +2,7 @@ package de.medo.holonetbridge.commons.discord.modal;
 
 import de.medo.holonetbridge.commons.discord.button.HolonetBugReportModalButton;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketBug;
+import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import org.springframework.stereotype.Component;
 
@@ -27,6 +28,6 @@ public class HolonetBugReportSubmitModalAction {
                 .actual(event.getValue(HolonetBugReportModalButton.INPUT_ACTUAL).getAsString())
                 .recurrence(event.getValue(HolonetBugReportModalButton.INPUT_RECURRENCE).getAsStringList().get(0))
                 .build();
-        ticketSubmitter.submit(event, userId, ticket);
+        ticketSubmitter.submit(event, userId, HolonetTicketKind.BUG, ticket);
     }
 }

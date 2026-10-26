@@ -16,6 +16,7 @@ import de.medo.holonetbridge.commons.discord.button.HolonetFeatureModalButton;
 import de.medo.holonetbridge.commons.discord.button.HolonetOpenSupportButton;
 import de.medo.holonetbridge.commons.discord.button.HolonetSetupRetryButton;
 import de.medo.holonetbridge.commons.discord.setup.HolonetSetupDraftStore;
+import de.medo.holonetbridge.commons.discord.ticketing.HolonetGuildSequenceService;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannel;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannelRepository;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
@@ -65,8 +66,9 @@ class HolonetOnButtonInteractionListenerTest {
     private final HolonetSetupDraftStore setupDraftStore = new HolonetSetupDraftStore();
     private final HolonetProviderConnectionService providerConnectionService =
             mock(HolonetProviderConnectionService.class);
+    private final HolonetGuildSequenceService guildSequenceService = mock(HolonetGuildSequenceService.class);
     private final HolonetOnButtonInteractionListener listener = new HolonetOnButtonInteractionListener(
-            new HolonetOpenSupportButton(sessionStore, supportChannelRepository),
+            new HolonetOpenSupportButton(sessionStore, supportChannelRepository, guildSequenceService),
             new HolonetBugReportModalButton(sessionStore),
             new HolonetFeatureModalButton(sessionStore),
             new HolonetAddWatcherButton(),
@@ -83,6 +85,7 @@ class HolonetOnButtonInteractionListenerTest {
     void supportButtonCreatesAPrivateChannelAndPostsTheKindChooser() {
         Guild guild = mock(Guild.class);
         when(guild.getIdLong()).thenReturn(GUILD_ID);
+        when(guildSequenceService.nextNumberFor(GUILD_ID)).thenReturn(1L);
         Member member = mock(Member.class);
         when(member.getIdLong()).thenReturn(USER_ID);
         Role publicRole = mock(Role.class);
@@ -130,24 +133,25 @@ class HolonetOnButtonInteractionListenerTest {
         assertThat(channelCaptor.getValue().requesterUserId()).isEqualTo(USER_ID);
         assertThat(channelCaptor.getValue().number()).isEqualTo(1L);
 
-        assertThat(sessionStore.get(USER_ID)).isPresent();
+        assertThat(sessionStore.get(GUILD_ID, CHANNEL_ID, USER_ID)).isPresent();
         verify(createdChannel).sendMessage("Hast du ein Bug gefunden oder hast du eine neue Idee?");
         verify(hook).sendMessage("Support-Kanal erstellt: #holonetbridge-00001");
     }
 
     @Test
     void bugButtonStoresKindAndOpensTheBugReportModal() {
-        sessionStore.startOrReset(USER_ID);
+        sessionStore.startOrReset(GUILD_ID, CHANNEL_ID, USER_ID);
         ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
         when(event.getComponentId()).thenReturn(HolonetBugReportModalButton.BUTTON_ID);
         when(event.getUser()).thenReturn(user);
+        stubGuildAndChannel(event);
         ModalCallbackAction modalCallbackAction = mock(ModalCallbackAction.class, Answers.RETURNS_SELF);
         ArgumentCaptor<Modal> modalCaptor = ArgumentCaptor.forClass(Modal.class);
         when(event.replyModal(modalCaptor.capture())).thenReturn(modalCallbackAction);
 
         listener.onButtonInteraction(event);
 
-        assertThat(sessionStore.get(USER_ID)).hasValueSatisfying(
+        assertThat(sessionStore.get(GUILD_ID, CHANNEL_ID, USER_ID)).hasValueSatisfying(
                 session -> assertThat(session.kind()).isEqualTo(HolonetTicketKind.BUG));
         assertThat(modalCaptor.getValue().getId()).isEqualTo(HolonetBugReportModalButton.MODAL_ID);
         verify(modalCallbackAction).queue();
@@ -155,20 +159,31 @@ class HolonetOnButtonInteractionListenerTest {
 
     @Test
     void featureButtonStoresKindAndOpensTheFeatureModal() {
-        sessionStore.startOrReset(USER_ID);
+        sessionStore.startOrReset(GUILD_ID, CHANNEL_ID, USER_ID);
         ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
         when(event.getComponentId()).thenReturn(HolonetFeatureModalButton.BUTTON_ID);
         when(event.getUser()).thenReturn(user);
+        stubGuildAndChannel(event);
         ModalCallbackAction modalCallbackAction = mock(ModalCallbackAction.class, Answers.RETURNS_SELF);
         ArgumentCaptor<Modal> modalCaptor = ArgumentCaptor.forClass(Modal.class);
         when(event.replyModal(modalCaptor.capture())).thenReturn(modalCallbackAction);
 
         listener.onButtonInteraction(event);
 
-        assertThat(sessionStore.get(USER_ID)).hasValueSatisfying(
+        assertThat(sessionStore.get(GUILD_ID, CHANNEL_ID, USER_ID)).hasValueSatisfying(
                 session -> assertThat(session.kind()).isEqualTo(HolonetTicketKind.FEATURE));
         assertThat(modalCaptor.getValue().getId()).isEqualTo(HolonetFeatureModalButton.MODAL_ID);
         verify(modalCallbackAction).queue();
+    }
+
+    /** Stubs the guild/channel id lookups {@code HolonetBugReportModalButton}/{@code HolonetFeatureModalButton} use. */
+    private static void stubGuildAndChannel(ButtonInteractionEvent event) {
+        Guild guild = mock(Guild.class);
+        when(guild.getIdLong()).thenReturn(GUILD_ID);
+        when(event.getGuild()).thenReturn(guild);
+        MessageChannelUnion channel = mock(MessageChannelUnion.class);
+        when(channel.getIdLong()).thenReturn(CHANNEL_ID);
+        when(event.getChannel()).thenReturn(channel);
     }
 
     @Test

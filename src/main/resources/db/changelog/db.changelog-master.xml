@@ -10,5 +10,6 @@
          an existing one replay the exact same changeset history. -->
     <include file="db/changelog/db.changelog-1.0-baseline.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/db.changelog-2.0-provider-connection.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/db.changelog-3.0-ticket-assignment.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

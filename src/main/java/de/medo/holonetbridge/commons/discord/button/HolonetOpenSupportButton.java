@@ -1,5 +1,6 @@
 package de.medo.holonetbridge.commons.discord.button;
 
+import de.medo.holonetbridge.commons.discord.ticketing.HolonetGuildSequenceService;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannel;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannelRepository;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
@@ -27,12 +28,15 @@ public class HolonetOpenSupportButton {
 
     private final HolonetTicketCreationSessionStore sessionStore;
     private final HolonetSupportChannelRepository supportChannelRepository;
+    private final HolonetGuildSequenceService guildSequenceService;
 
     public HolonetOpenSupportButton(
             HolonetTicketCreationSessionStore sessionStore,
-            HolonetSupportChannelRepository supportChannelRepository) {
+            HolonetSupportChannelRepository supportChannelRepository,
+            HolonetGuildSequenceService guildSequenceService) {
         this.sessionStore = sessionStore;
         this.supportChannelRepository = supportChannelRepository;
+        this.guildSequenceService = guildSequenceService;
     }
 
     public void handle(ButtonInteractionEvent event) {
@@ -47,10 +51,7 @@ public class HolonetOpenSupportButton {
 
         long guildId = guild.getIdLong();
         long userId = member.getIdLong();
-        long number = supportChannelRepository
-                .findTopByGuildIdOrderByNumberDesc(guildId)
-                .map(channel -> channel.number() + 1)
-                .orElse(1L);
+        long number = guildSequenceService.nextNumberFor(guildId);
         String name = "holonetbridge-%05d".formatted(number);
         Category parent = event.getChannel().asTextChannel().getParentCategory();
 
@@ -77,7 +78,7 @@ public class HolonetOpenSupportButton {
                 .queue(channel -> {
                     supportChannelRepository.save(
                             new HolonetSupportChannel(channel.getIdLong(), guildId, userId, number));
-                    sessionStore.startOrReset(userId);
+                    sessionStore.startOrReset(guildId, channel.getIdLong(), userId);
                     channel.sendMessage("Hast du ein Bug gefunden oder hast du eine neue Idee?")
                             .addComponents(
                                     ActionRow.of(

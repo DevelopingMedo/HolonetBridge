@@ -45,7 +45,7 @@ public class HolonetBugReportModalButton {
 
     public void handle(ButtonInteractionEvent event) {
         sessionStore
-                .get(event.getUser().getIdLong())
+                .get(event.getGuild().getIdLong(), event.getChannel().getIdLong(), event.getUser().getIdLong())
                 .ifPresent(session -> session.kind(HolonetTicketKind.BUG));
         event.replyModal(bugReportModal()).queue();
     }
