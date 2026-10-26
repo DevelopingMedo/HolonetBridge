@@ -1,5 +1,6 @@
 package de.medo.holonetbridge.commons.discord.button;
 
+import de.medo.holonetbridge.commons.discord.i18n.Texts;
 import de.medo.holonetbridge.commons.discord.modal.HolonetProviderConnectionModal;
 import de.medo.holonetbridge.commons.discord.setup.HolonetSetupDraft;
 import de.medo.holonetbridge.commons.discord.setup.HolonetSetupDraftStore;
@@ -16,6 +17,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class HolonetSetupRetryButton {
 
+    private final Texts texts;
+
     /** Custom id of the "Erneut versuchen" button. */
     public static final String BUTTON_ID = "setup:retry";
 
@@ -23,7 +26,9 @@ public class HolonetSetupRetryButton {
     private final HolonetProviderConnectionService providerConnectionService;
 
     public HolonetSetupRetryButton(
+            Texts texts,
             HolonetSetupDraftStore draftStore, HolonetProviderConnectionService providerConnectionService) {
+        this.texts = texts;
         this.draftStore = draftStore;
         this.providerConnectionService = providerConnectionService;
     }
@@ -31,8 +36,8 @@ public class HolonetSetupRetryButton {
     public void handle(ButtonInteractionEvent event) {
         long userId = event.getUser().getIdLong();
         draftStore.get(userId).ifPresentOrElse(
-                draft -> event.replyModal(HolonetProviderConnectionModal.build(tokenRequired(draft), draft)).queue(),
-                () -> event.reply("Die Sitzung ist abgelaufen, bitte führe /setup erneut aus.")
+                draft -> event.replyModal(HolonetProviderConnectionModal.build(tokenRequired(draft), draft, texts, event.getUserLocale())).queue(),
+                () -> event.reply(texts.user(event, "setup.expired"))
                         .setEphemeral(true)
                         .queue());
     }

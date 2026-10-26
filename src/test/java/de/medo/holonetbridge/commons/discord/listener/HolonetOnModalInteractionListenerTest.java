@@ -21,6 +21,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import de.medo.holonetbridge.commons.crypto.EncryptedSecret;
+import de.medo.holonetbridge.commons.discord.i18n.I18nProperties;
+import de.medo.holonetbridge.commons.discord.i18n.Texts;
+import de.medo.holonetbridge.commons.discord.i18n.TicketDescriptionFormatter;
 import de.medo.holonetbridge.commons.discord.modal.HolonetBugReportSubmitModalAction;
 import de.medo.holonetbridge.commons.discord.modal.HolonetFeatureSubmittedModalAction;
 import de.medo.holonetbridge.commons.discord.modal.HolonetSetupConnectionSubmitModalAction;
@@ -41,6 +44,7 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
+import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.modals.ModalMapping;
 import net.dv8tion.jda.api.requests.ErrorResponse;
@@ -49,14 +53,16 @@ import net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Answers;
+import org.mockito.ArgumentCaptor;
 
 /**
  * Drives {@link HolonetOnModalInteractionListener} through its modal submissions using Mockito mocks of the JDA
  * event types directly, without any real gateway connection.
  */
 class HolonetOnModalInteractionListenerTest {
+
+    private final Texts texts = new Texts(new I18nProperties(null));
 
     private static final long USER_ID = 123456789L;
     private static final long GUILD_ID = 999L;
@@ -85,9 +91,9 @@ class HolonetOnModalInteractionListenerTest {
             mock(HolonetSetupConnectionSubmitModalAction.class);
     private final HolonetOnModalInteractionListener listener = new HolonetOnModalInteractionListener(
             new HolonetFeatureSubmittedModalAction(
-                    new HolonetTicketSubmitter(sessionStore, connectionResolver, supportChannelRepository)),
+                    new HolonetTicketSubmitter(texts, new TicketDescriptionFormatter(texts), sessionStore, connectionResolver, supportChannelRepository)),
             new HolonetBugReportSubmitModalAction(
-                    new HolonetTicketSubmitter(sessionStore, connectionResolver, supportChannelRepository)),
+                    new HolonetTicketSubmitter(texts, new TicketDescriptionFormatter(texts), sessionStore, connectionResolver, supportChannelRepository)),
             setupConnectionSubmit);
 
     private final User user = mock(User.class);
@@ -133,9 +139,35 @@ class HolonetOnModalInteractionListenerTest {
     }
 
     @Test
+    void usesServerLanguageForTicketAndPublicMessageButUserLanguageForPersonalReply() throws InterruptedException {
+        ModalInteractionEvent event = bugReportEvent("Login fails", "Did X", "Works", "Crashed");
+        when(event.getUserLocale()).thenReturn(DiscordLocale.CROATIAN);
+        ModalMapping recurrence = selectionMapping("always");
+        when(event.getValue("recurrence")).thenReturn(recurrence);
+        InteractionHook hook = stubDeferReplyWithHook(event);
+        CountDownLatch replied = stubHookSendMessage(hook);
+        TextChannel channel = stubModalChannel(event, CHANNEL_ID);
+        when(channel.sendMessage(anyString())).thenReturn(mock(MessageCreateAction.class, Answers.RETURNS_SELF));
+        String url = PROVIDER_BASE_URL + "/acme/support/issues/42";
+        when(ticketProvider.create(eq("[Bug] Login fails"), anyString()))
+                .thenReturn(new TicketDto("42", "[Bug] Login fails", "ignored", url));
+
+        listener.onModalInteraction(event);
+        awaitHookReply(replied);
+
+        ArgumentCaptor<String> description = ArgumentCaptor.forClass(String.class);
+        verify(ticketProvider).create(eq("[Bug] Login fails"), description.capture());
+        assertThat(description.getValue()).startsWith("## Was hast du vor dem Fehler gemacht?").endsWith("Jedes Mal");
+        verify(channel).sendMessage("Ticket #42 wurde angelegt: [Bug] Login fails\nTicket öffnen: " + url);
+        verify(hook).sendMessage("Prijava #42 je otvorena: [Bug] Login fails\nOtvori prijavu: " + url);
+    }
+
+    @Test
     void featureModalSubmissionCreatesAFeatureTicketAndPostsTheConfirmationInTheChannel() throws InterruptedException {
         sessionStore.startOrReset(GUILD_ID, CHANNEL_ID, USER_ID);
         ModalInteractionEvent event = mock(ModalInteractionEvent.class);
+        when(event.getUserLocale()).thenReturn(DiscordLocale.GERMAN);
+        when(event.getGuildLocale()).thenReturn(DiscordLocale.GERMAN);
         when(event.getModalId()).thenReturn("ticket:modal:feature");
         when(event.getUser()).thenReturn(user);
         ModalMapping title = textMapping("Dark mode");
@@ -423,6 +455,8 @@ class HolonetOnModalInteractionListenerTest {
     @Test
     void unknownModalIdsAreIgnored() {
         ModalInteractionEvent event = mock(ModalInteractionEvent.class);
+        when(event.getUserLocale()).thenReturn(DiscordLocale.GERMAN);
+        when(event.getGuildLocale()).thenReturn(DiscordLocale.GERMAN);
         when(event.getModalId()).thenReturn("something:else");
 
         listener.onModalInteraction(event);
@@ -438,6 +472,8 @@ class HolonetOnModalInteractionListenerTest {
      */
     private ModalInteractionEvent bugReportEvent(String title, String steps, String expected, String actual) {
         ModalInteractionEvent event = mock(ModalInteractionEvent.class);
+        when(event.getUserLocale()).thenReturn(DiscordLocale.GERMAN);
+        when(event.getGuildLocale()).thenReturn(DiscordLocale.GERMAN);
         when(event.getModalId()).thenReturn("ticket:modal:bug-report");
         when(event.getUser()).thenReturn(user);
         ModalMapping titleMapping = textMapping(title);
@@ -460,6 +496,7 @@ class HolonetOnModalInteractionListenerTest {
      */
     private static InteractionHook stubDeferReplyWithHook(ModalInteractionEvent event) {
         InteractionHook hook = mock(InteractionHook.class);
+        when(hook.getInteraction()).thenReturn(event);
         ReplyCallbackAction replyAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
         when(event.deferReply(true)).thenReturn(replyAction);
         doAnswer(invocation -> {
@@ -495,6 +532,7 @@ class HolonetOnModalInteractionListenerTest {
     /** Stubs the modal event's guild and channel (union + text channel) and returns the {@link TextChannel}. */
     private static TextChannel stubModalChannel(ModalInteractionEvent event, long channelId) {
         Guild guild = mock(Guild.class);
+        when(guild.getLocale()).thenReturn(DiscordLocale.GERMAN);
         when(guild.getIdLong()).thenReturn(GUILD_ID);
         when(event.getGuild()).thenReturn(guild);
         MessageChannelUnion union = channelUnion(channelId);

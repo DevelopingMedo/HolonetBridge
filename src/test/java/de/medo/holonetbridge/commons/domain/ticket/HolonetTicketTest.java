@@ -2,6 +2,8 @@ package de.medo.holonetbridge.commons.domain.ticket;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import de.medo.holonetbridge.commons.discord.i18n.*;
+import net.dv8tion.jda.api.interactions.DiscordLocale;
 import org.junit.jupiter.api.Test;
 
 class HolonetTicketTest {
@@ -17,7 +19,8 @@ class HolonetTicketTest {
                 .build();
 
         assertThat(ticket.getTitle()).isEqualTo("Login schlägt fehl");
-        assertThat(ticket.getDescription())
+        assertThat(new TicketDescriptionFormatter(new Texts(new I18nProperties(null)))
+                .format(ticket, DiscordLocale.GERMAN))
                 .isEqualTo("## Was hast du vor dem Fehler gemacht?\n\n"
                         + "  1. starte\n* **zweiter Schritt**  \n\n"
                         + "## Was hättest du erwartet?\n\n"

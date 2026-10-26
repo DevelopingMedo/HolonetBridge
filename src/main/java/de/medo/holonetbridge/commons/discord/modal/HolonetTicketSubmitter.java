@@ -6,6 +6,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+import de.medo.holonetbridge.commons.discord.i18n.Texts;
+import de.medo.holonetbridge.commons.discord.i18n.TicketDescriptionFormatter;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannel;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannelRepository;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
@@ -19,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
+import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.requests.ErrorResponse;
 import org.springframework.stereotype.Component;
@@ -39,14 +42,21 @@ import org.springframework.stereotype.Component;
 @Component
 public class HolonetTicketSubmitter {
 
+    private final Texts texts;
+    private final TicketDescriptionFormatter descriptionFormatter;
+
     private final HolonetTicketCreationSessionStore sessionStore;
     private final ProviderConnectionResolver connectionResolver;
     private final HolonetSupportChannelRepository supportChannelRepository;
 
     public HolonetTicketSubmitter(
+            Texts texts,
+            TicketDescriptionFormatter descriptionFormatter,
             HolonetTicketCreationSessionStore sessionStore,
             ProviderConnectionResolver connectionResolver,
             HolonetSupportChannelRepository supportChannelRepository) {
+        this.texts = texts;
+        this.descriptionFormatter = descriptionFormatter;
         this.sessionStore = sessionStore;
         this.connectionResolver = connectionResolver;
         this.supportChannelRepository = supportChannelRepository;
@@ -63,7 +73,9 @@ public class HolonetTicketSubmitter {
             replyTicketAlreadyExists(event);
             return;
         }
-        createTicket(event, userId, titleWithKindPrefix(kind, ticket.getTitle()), ticket.getDescription());
+        createTicket(
+                event, userId, titleWithKindPrefix(kind, ticket.getTitle()),
+                descriptionFormatter.format(ticket, event.getGuildLocale()));
     }
 
     /**
@@ -83,8 +95,7 @@ public class HolonetTicketSubmitter {
         Optional<ResolvedProvider> resolved = connectionResolver.forGuild(guildId);
         if (resolved.isEmpty()) {
             markBroken(channelId);
-            hook.sendMessage("Für diesen Server ist noch kein Ticket-Provider eingerichtet. "
-                            + "Ein Serveradmin muss zuerst /setup ausführen.")
+            hook.sendMessage(texts.user(event, "ticket.no-provider"))
                     .queue(success -> {}, hookFailure -> log.warn(
                             "Hinweis auf fehlenden Ticket-Provider konnte nicht an Discord zugestellt werden.",
                             hookFailure));
@@ -117,22 +128,22 @@ public class HolonetTicketSubmitter {
             supportChannelRepository.save(channel);
         });
         sessionStore.clear(event.getGuild().getIdLong(), channelId, userId);
-        String confirmation = confirmationMessage(ticket, connection);
+        String confirmation = confirmationMessage(ticket, connection, event.getGuildLocale());
         TextChannel textChannel = event.getChannel().asTextChannel();
         textChannel.sendMessage(confirmation)
                 .queue(success -> {}, deliveryFailure -> handleChannelDeliveryFailure(channelId, deliveryFailure));
-        hook.sendMessage(confirmation)
+        hook.sendMessage(confirmationMessage(ticket, connection, event.getUserLocale()))
                 .queue(success -> {}, hookFailure -> log.warn(
                         "Bestätigung für Ticket #{} konnte nicht an Discord zugestellt werden.",
                         ticket.id(),
                         hookFailure));
     }
 
-    private String confirmationMessage(TicketDto ticket, HolonetProviderConnection connection) {
-        String identity = "Ticket #%s wurde angelegt: %s".formatted(ticket.id(), ticket.title());
+    private String confirmationMessage(TicketDto ticket, HolonetProviderConnection connection, DiscordLocale locale) {
+        String identity = texts.get(locale, "ticket.created", ticket.id(), ticket.title());
         return validatedTicketUrl(ticket.url(), connection)
-                .map(url -> identity + "\nTicket öffnen: " + url)
-                .orElse(identity + "\n(Link derzeit nicht verfügbar.)");
+                .map(url -> identity + "\n" + texts.get(locale, "ticket.open", url))
+                .orElse(identity + "\n" + texts.get(locale, "ticket.no-link"));
     }
 
     /**
@@ -191,11 +202,10 @@ public class HolonetTicketSubmitter {
     }
 
     /** Logs with a correlation id (no ticket content, no tokens) so the incident can be traced without secrets. */
-    private static void reportCreationFailure(InteractionHook hook, Throwable failure) {
+    private void reportCreationFailure(InteractionHook hook, Throwable failure) {
         String correlationId = UUID.randomUUID().toString();
         log.error("Ticket konnte nicht angelegt werden [correlationId={}]", correlationId, failure);
-        hook.sendMessage("Das Ticket konnte nicht angelegt werden. Bitte versuch es erneut (Referenz: %s)."
-                        .formatted(correlationId))
+        hook.sendMessage(texts.user(hook.getInteraction(), "ticket.failed", correlationId))
                 .queue(success -> {}, hookFailure -> log.error(
                         "Fehlermeldung zur fehlgeschlagenen Ticket-Erstellung konnte nicht an Discord zugestellt "
                                 + "werden [correlationId={}]",
@@ -203,15 +213,14 @@ public class HolonetTicketSubmitter {
                         hookFailure));
     }
 
-    private static void replyNotATrackedSupportChannel(ModalInteractionEvent event) {
-        event.reply("Dieser Kanal wird nicht als Support-Kanal geführt. "
-                        + "Bitte starte eine neue Anfrage über „Support anfragen“.")
+    private void replyNotATrackedSupportChannel(ModalInteractionEvent event) {
+        event.reply(texts.user(event, "ticket.untracked"))
                 .setEphemeral(true)
                 .queue();
     }
 
-    private static void replyTicketAlreadyExists(ModalInteractionEvent event) {
-        event.reply("Für diesen Kanal wurde bereits ein Ticket angelegt.")
+    private void replyTicketAlreadyExists(ModalInteractionEvent event) {
+        event.reply(texts.user(event, "ticket.exists"))
                 .setEphemeral(true)
                 .queue();
     }

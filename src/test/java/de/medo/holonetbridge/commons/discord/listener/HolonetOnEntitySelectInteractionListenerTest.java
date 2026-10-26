@@ -6,9 +6,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import de.medo.holonetbridge.commons.discord.select.HolonetGrantWatcherAction;
 import java.util.List;
 import java.util.function.Consumer;
+
+import de.medo.holonetbridge.commons.discord.i18n.I18nProperties;
+import de.medo.holonetbridge.commons.discord.i18n.Texts;
+import de.medo.holonetbridge.commons.discord.select.HolonetGrantWatcherAction;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Mentions;
@@ -17,13 +20,14 @@ import net.dv8tion.jda.api.entities.PermissionOverride;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
+import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.requests.restaction.PermissionOverrideAction;
 import net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Answers;
+import org.mockito.ArgumentCaptor;
 
 /**
  * Drives {@link HolonetOnEntitySelectInteractionListener} through its watcher selection using Mockito mocks of the
@@ -31,8 +35,10 @@ import org.mockito.Answers;
  */
 class HolonetOnEntitySelectInteractionListenerTest {
 
+    private final Texts texts = new Texts(new I18nProperties(null));
+
     private final HolonetOnEntitySelectInteractionListener listener =
-            new HolonetOnEntitySelectInteractionListener(new HolonetGrantWatcherAction());
+            new HolonetOnEntitySelectInteractionListener(new HolonetGrantWatcherAction(texts));
 
     @Test
     void watcherSelectionGrantsViewAndCommentPermissions() {
@@ -49,11 +55,16 @@ class HolonetOnEntitySelectInteractionListenerTest {
         when(channel.upsertPermissionOverride(member)).thenReturn(overrideAction);
 
         EntitySelectInteractionEvent event = mock(EntitySelectInteractionEvent.class);
+
+        when(event.getUserLocale()).thenReturn(DiscordLocale.GERMAN);
+
+        when(event.getGuildLocale()).thenReturn(DiscordLocale.GERMAN);
         when(event.getComponentId()).thenReturn("ticket:watcher:select");
         when(event.getMentions()).thenReturn(mentions);
         when(event.getChannel()).thenReturn(union);
         when(event.deferReply(true)).thenReturn(mock(ReplyCallbackAction.class, Answers.RETURNS_SELF));
         InteractionHook hook = mock(InteractionHook.class);
+        when(hook.getInteraction()).thenReturn(event);
         when(event.getHook()).thenReturn(hook);
         when(hook.sendMessage(anyString())).thenReturn(newSendMessageAction());
 

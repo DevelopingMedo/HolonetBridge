@@ -4,6 +4,7 @@ import java.net.URI;
 
 import de.medo.holonetbridge.commons.net.SsrfBlockedTargetException;
 import de.medo.holonetbridge.commons.net.SsrfSafeHttpClientFactory;
+import de.medo.holonetbridge.gitea.GiteaConnectionValidationException.Reason;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
@@ -38,26 +39,26 @@ public class GiteaConnectionValidator {
                     .build();
         } catch (SsrfBlockedTargetException e) {
             throw new GiteaConnectionValidationException(
-                    "Diese Basis-URL darf aus Sicherheitsgründen nicht angesprochen werden.", e);
+                    Reason.BLOCKED, e);
         }
 
         try {
             client.get().uri("/api/v1/repos/{owner}/{repo}", owner, repository).retrieve().toBodilessEntity();
         } catch (RestClientResponseException e) {
-            throw new GiteaConnectionValidationException(friendlyMessageFor(e.getStatusCode()), e);
+            throw new GiteaConnectionValidationException(reasonFor(e.getStatusCode()), e.getStatusCode().value(), e);
         } catch (ResourceAccessException e) {
             throw new GiteaConnectionValidationException(
-                    "Die Basis-URL ist nicht erreichbar oder wird aus Sicherheitsgründen blockiert.", e);
+                    Reason.UNREACHABLE, e);
         }
     }
 
-    private static String friendlyMessageFor(HttpStatusCode status) {
+    private static Reason reasonFor(HttpStatusCode status) {
         if (status.value() == 401 || status.value() == 403) {
-            return "Das Token hat keinen Lesezugriff auf dieses Repository (oder ist ungültig).";
+            return Reason.ACCESS;
         }
         if (status.value() == 404) {
-            return "Repository nicht gefunden. Bitte Owner und Repository-Namen prüfen.";
+            return Reason.NOT_FOUND;
         }
-        return "Der Provider hat die Anfrage mit Status " + status.value() + " abgelehnt.";
+        return Reason.REJECTED;
     }
 }

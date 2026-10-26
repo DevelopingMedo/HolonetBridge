@@ -1,5 +1,6 @@
 package de.medo.holonetbridge.commons.discord.command;
 
+import de.medo.holonetbridge.commons.discord.i18n.Texts;
 import de.medo.holonetbridge.commons.discord.modal.HolonetProviderConnectionModal;
 import de.medo.holonetbridge.commons.discord.setup.HolonetSetupDraftStore;
 import de.medo.holonetbridge.commons.provider.HolonetProviderConnectionService;
@@ -26,6 +27,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class HolonetSetupCommandAction {
 
+    private final Texts texts;
+
     /** Name of the {@code /setup} slash command. */
     public static final String COMMAND_SETUP = "setup";
 
@@ -36,7 +39,9 @@ public class HolonetSetupCommandAction {
     private final HolonetProviderConnectionService providerConnectionService;
 
     public HolonetSetupCommandAction(
+            Texts texts,
             HolonetSetupDraftStore draftStore, HolonetProviderConnectionService providerConnectionService) {
+        this.texts = texts;
         this.draftStore = draftStore;
         this.providerConnectionService = providerConnectionService;
     }
@@ -45,11 +50,11 @@ public class HolonetSetupCommandAction {
         Guild guild = event.getGuild();
         Member member = event.getMember();
         if (guild == null || member == null) {
-            replyError(event, "/setup kann nur innerhalb eines Servers ausgeführt werden.");
+            replyError(event, texts.user(event, "setup.guild-only"));
             return;
         }
         if (!member.hasPermission(Permission.MANAGE_SERVER)) {
-            replyError(event, "Dazu fehlt dir die Berechtigung \"Server verwalten\".");
+            replyError(event, texts.user(event, "setup.manage-server"));
             return;
         }
 
@@ -57,14 +62,13 @@ public class HolonetSetupCommandAction {
         if (!guild.getSelfMember().hasPermission(channel, Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND)) {
             replyError(
                     event,
-                    "Ich habe in " + channel.getAsMention()
-                            + " keine Berechtigung, die Support-Nachricht zu posten.");
+                    texts.user(event, "setup.cannot-post", channel.getAsMention()));
             return;
         }
 
         draftStore.start(member.getIdLong(), guild.getIdLong(), channel.getIdLong());
         boolean tokenRequired = providerConnectionService.activeConnection(guild.getIdLong()).isEmpty();
-        event.replyModal(HolonetProviderConnectionModal.build(tokenRequired, null)).queue();
+        event.replyModal(HolonetProviderConnectionModal.build(tokenRequired, null, texts, event.getUserLocale())).queue();
     }
 
     private static void replyError(SlashCommandInteractionEvent event, String message) {
