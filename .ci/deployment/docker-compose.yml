@@ -68,6 +68,12 @@ services:
       PROVIDER_GITEA_OWNER: ${GITEA_ADMIN_USERNAME:-holonet}
       PROVIDER_GITEA_REPOSITORY: ${GITEA_REPO_NAME:-support}
       DISCORD_TOKEN: ${DISCORD_TOKEN:-dev-placeholder-token}
+      # The SSRF guard (see SsrfSafeUrlValidator/SsrfPolicyProperties) blocks connections to private/internal
+      # addresses by default, including this compose network. This entry is the operator's own self-hosting
+      # allowlist exemption for exactly the bundled Gitea sidecar on this Docker network - it does not lift
+      # the block for any other internal target, and guild members configuring a connection via /setup have
+      # no way to add to or widen it.
+      HOLONET_NETWORK_SSRF_ALLOWED_INTERNAL_TARGETS: ${HOLONET_NETWORK_SSRF_ALLOWED_INTERNAL_TARGETS:-gitea:3000}
     command:
       - sh
       - -c

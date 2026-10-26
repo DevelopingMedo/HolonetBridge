@@ -15,27 +15,36 @@ import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.interactions.InteractionHook;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 /**
  * Shared final step of the modal flows: turns a submitted {@link HolonetTicket} into a ticket at the
  * {@link TicketProvider}, links the ticket back to its support channel, clears the user's session, and posts the
  * confirmation - or, when the session has already been discarded, asks the user to restart the flow instead.
+ *
+ * <p>{@link TicketProvider} and {@link ProviderConnectionProperties} are injected as {@link ObjectProvider}s,
+ * not directly, because neither is a startup-mandatory bean anymore (see {@code HolonetBridgeApplication}):
+ * {@code GiteaConfiguration}'s old global, {@code @ConditionalOnProperty}-gated {@code TicketProvider} bean no
+ * longer exists, and provider connections are now per-guild database rows managed through {@code /setup}
+ * instead. Wiring this submitter to a guild's actually resolved connection (via {@code
+ * ProviderConnectionResolver}) is a later work package ("Zuordnen"); until then, every submission here simply
+ * reports "not configured" if no legacy global provider bean happens to be present.
  */
 @Slf4j
 @Component
 public class HolonetTicketSubmitter {
 
     private final HolonetTicketCreationSessionStore sessionStore;
-    private final TicketProvider ticketProvider;
+    private final ObjectProvider<TicketProvider> ticketProvider;
     private final HolonetSupportChannelRepository supportChannelRepository;
-    private final ProviderConnectionProperties providerConnectionProperties;
+    private final ObjectProvider<ProviderConnectionProperties> providerConnectionProperties;
 
     public HolonetTicketSubmitter(
             HolonetTicketCreationSessionStore sessionStore,
-            TicketProvider ticketProvider,
+            ObjectProvider<TicketProvider> ticketProvider,
             HolonetSupportChannelRepository supportChannelRepository,
-            ProviderConnectionProperties providerConnectionProperties) {
+            ObjectProvider<ProviderConnectionProperties> providerConnectionProperties) {
         this.sessionStore = sessionStore;
         this.ticketProvider = ticketProvider;
         this.supportChannelRepository = supportChannelRepository;
@@ -64,7 +73,16 @@ public class HolonetTicketSubmitter {
 
     private void createTicketAfterDefer(
             ModalInteractionEvent event, InteractionHook hook, long userId, String title, String description) {
-        CompletableFuture.supplyAsync(() -> ticketProvider.create(title, description))
+        TicketProvider provider = ticketProvider.getIfAvailable();
+        if (provider == null) {
+            hook.sendMessage("Für diesen Server ist noch kein Ticket-Provider eingerichtet. "
+                            + "Ein Serveradmin muss zuerst /setup ausführen.")
+                    .queue(success -> {}, hookFailure -> log.warn(
+                            "Hinweis auf fehlenden Ticket-Provider konnte nicht an Discord zugestellt werden.",
+                            hookFailure));
+            return;
+        }
+        CompletableFuture.supplyAsync(() -> provider.create(title, description))
                 .whenComplete((ticket, failure) -> {
                     if (failure != null) {
                         reportCreationFailure(hook, failure);
@@ -122,8 +140,9 @@ public class HolonetTicketSubmitter {
         boolean allowedScheme = scheme != null
                 && (scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"));
         String host = parsed.getHost();
-        boolean plausibleOrigin = host != null
-                && host.equalsIgnoreCase(providerConnectionProperties.baseUrl().getHost());
+        ProviderConnectionProperties properties = providerConnectionProperties.getIfAvailable();
+        boolean plausibleOrigin =
+                host != null && properties != null && host.equalsIgnoreCase(properties.baseUrl().getHost());
         return parsed.isAbsolute() && allowedScheme && plausibleOrigin ? Optional.of(url) : Optional.empty();
     }
 

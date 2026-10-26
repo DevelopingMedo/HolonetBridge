@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Introduces holonet_provider_connection (HolonetProviderConnection): a guild's ticket-provider target
+        plus its encrypted access token, replacing the old global/single-provider configuration. There is no
+        database-level unique constraint enforcing "at most one active row per guild" here on purpose - that
+        invariant is enforced transactionally in HolonetProviderConnectionService, the single write path for
+        this table, not at the schema level. guild_id gets a plain (non-unique) index instead, since a guild
+        accumulates one inactive row per past target/token change and both the active-connection lookup and
+        the per-guild history view need an efficient lookup across all of them.
+    -->
+
+    <changeSet id="3-holonet-provider-connection" author="holonet-bridge">
+        <createTable tableName="holonet_provider_connection">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="guild_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="provider_type" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="base_url" type="VARCHAR(2048)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="owner" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="repository" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="active" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="secret_ciphertext" type="BLOB">
+                <constraints nullable="false"/>
+            </column>
+            <column name="secret_nonce" type="BLOB">
+                <constraints nullable="false"/>
+            </column>
+            <column name="secret_key_version" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="holonet_provider_connection" indexName="idx_holonet_provider_connection_guild_id">
+            <column name="guild_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

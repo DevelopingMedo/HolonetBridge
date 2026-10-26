@@ -15,6 +15,7 @@ import static org.mockito.Mockito.when;
 import de.medo.holonetbridge.commons.ProviderConnectionProperties;
 import de.medo.holonetbridge.commons.discord.modal.HolonetBugReportSubmitModalAction;
 import de.medo.holonetbridge.commons.discord.modal.HolonetFeatureSubmittedModalAction;
+import de.medo.holonetbridge.commons.discord.modal.HolonetSetupConnectionSubmitModalAction;
 import de.medo.holonetbridge.commons.discord.modal.HolonetTicketSubmitter;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannel;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannelRepository;
@@ -28,6 +29,7 @@ import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
@@ -58,11 +60,34 @@ class HolonetOnModalInteractionListenerTest {
             mock(HolonetSupportChannelRepository.class);
     private final ProviderConnectionProperties providerConnectionProperties =
             new ProviderConnectionProperties("gitea", URI.create(PROVIDER_BASE_URL), "test-token");
+    private final HolonetSetupConnectionSubmitModalAction setupConnectionSubmit =
+            mock(HolonetSetupConnectionSubmitModalAction.class);
     private final HolonetOnModalInteractionListener listener = new HolonetOnModalInteractionListener(
             new HolonetFeatureSubmittedModalAction(new HolonetTicketSubmitter(
-                    sessionStore, ticketProvider, supportChannelRepository, providerConnectionProperties)),
+                    sessionStore,
+                    providerOf(ticketProvider),
+                    supportChannelRepository,
+                    providerOf(providerConnectionProperties))),
             new HolonetBugReportSubmitModalAction(new HolonetTicketSubmitter(
-                    sessionStore, ticketProvider, supportChannelRepository, providerConnectionProperties)));
+                    sessionStore,
+                    providerOf(ticketProvider),
+                    supportChannelRepository,
+                    providerOf(providerConnectionProperties))),
+            setupConnectionSubmit);
+
+    /**
+     * Spring 7's {@code ObjectProvider} declares default implementations for every method, so it has no single
+     * abstract method left and cannot be created via a lambda; overriding {@code stream()} is the documented
+     * extension point for custom implementations.
+     */
+    private static <T> org.springframework.beans.factory.ObjectProvider<T> providerOf(T value) {
+        return new org.springframework.beans.factory.ObjectProvider<>() {
+            @Override
+            public Stream<T> stream() {
+                return value == null ? Stream.empty() : Stream.of(value);
+            }
+        };
+    }
 
     private final User user = mock(User.class);
 
@@ -353,6 +378,40 @@ class HolonetOnModalInteractionListenerTest {
 
         verify(event).reply("Die Sitzung ist abgelaufen, bitte klick erneut auf „Support anfragen“.");
         verify(ticketProvider, never()).create(anyString(), anyString());
+    }
+
+    /**
+     * No {@code TicketProvider} bean exists in the main application context anymore (see {@code
+     * HolonetTicketSubmitter}'s Javadoc) until a later work package wires ticket creation to a guild's
+     * resolved connection; until then, every submission must fail gracefully instead of throwing.
+     */
+    @Test
+    void bugReportSubmissionWithoutAConfiguredTicketProviderRepliesInsteadOfThrowing() throws InterruptedException {
+        HolonetTicketCreationSessionStore unconfiguredSessionStore = new HolonetTicketCreationSessionStore();
+        unconfiguredSessionStore.startOrReset(USER_ID).kind(HolonetTicketKind.BUG);
+        HolonetOnModalInteractionListener unconfiguredListener = new HolonetOnModalInteractionListener(
+                new HolonetFeatureSubmittedModalAction(new HolonetTicketSubmitter(
+                        unconfiguredSessionStore,
+                        providerOf((TicketProvider) null),
+                        supportChannelRepository,
+                        providerOf((ProviderConnectionProperties) null))),
+                new HolonetBugReportSubmitModalAction(new HolonetTicketSubmitter(
+                        unconfiguredSessionStore,
+                        providerOf((TicketProvider) null),
+                        supportChannelRepository,
+                        providerOf((ProviderConnectionProperties) null))),
+                setupConnectionSubmit);
+
+        ModalInteractionEvent event = bugReportEvent("Login fails", "did A", "expected A", "got B");
+        InteractionHook hook = stubDeferReplyWithHook(event);
+        CountDownLatch hookReplied = stubHookSendMessage(hook);
+
+        unconfiguredListener.onModalInteraction(event);
+        awaitHookReply(hookReplied);
+
+        ArgumentCaptor<String> hookMessageCaptor = ArgumentCaptor.forClass(String.class);
+        verify(hook).sendMessage(hookMessageCaptor.capture());
+        assertThat(hookMessageCaptor.getValue()).contains("noch kein Ticket-Provider eingerichtet");
     }
 
     @Test
