@@ -1,38 +1,33 @@
-package de.medo.holonetbridge.commons.discord.setup;
+package de.medo.holonetbridge.commons.discord.command;
 
 import de.medo.holonetbridge.commons.discord.DiscordGatewayConfiguration;
 import de.medo.holonetbridge.commons.discord.button.HolonetOpenSupportButton;
+import de.medo.holonetbridge.commons.discord.setup.HolonetDiscordServer;
+import de.medo.holonetbridge.commons.discord.setup.HolonetDiscordServerRepository;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
-import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.springframework.stereotype.Component;
 
 /**
- * Handles the admin-only {@code /setup} command, which posts the persistent "Support
- * anfragen" message that end users click to start a support request. The
- * chosen channel and message id are remembered per guild in {@link HolonetDiscordServerRepository} so the
- * message survives an application restart.
+ * Handles the admin-only {@code /setup} command: posts the persistent "Support anfragen" message (the
+ * {@link HolonetOpenSupportButton}) into the chosen channel and remembers that channel and message per guild in
+ * {@link HolonetDiscordServerRepository}, so the message survives an application restart.
  *
- * <p>Re-running the command against a different channel posts a new message but does not delete the previous
- * one; cleaning up a stale message after reconfiguring is left to the admin for now.
+ * <p>Re-running the command against a different channel posts a new message but does not delete the previous one;
+ * cleaning up a stale message after reconfiguring is left to the admin for now.
  */
 @Component
-public class HolonetSetupListenerAdapter extends ListenerAdapter {
+public class HolonetSetupCommandAction {
 
     private final HolonetDiscordServerRepository repository;
 
-    HolonetSetupListenerAdapter(HolonetDiscordServerRepository repository) {
+    public HolonetSetupCommandAction(HolonetDiscordServerRepository repository) {
         this.repository = repository;
     }
 
-    @Override
-    public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
-        if (!DiscordGatewayConfiguration.COMMAND_SETUP.equals(event.getName())) {
-            return;
-        }
-
+    public void handle(SlashCommandInteractionEvent event) {
         long guildId = event.getGuild().getIdLong();
         TextChannel channel = event.getOption(DiscordGatewayConfiguration.OPTION_CHANNEL)
                 .getAsChannel()

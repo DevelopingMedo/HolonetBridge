@@ -5,7 +5,7 @@ import java.util.Collections;
 import de.medo.holonetbridge.commons.discord.listener.HolonetOnButtonInteractionListener;
 import de.medo.holonetbridge.commons.discord.listener.HolonetOnEntitySelectInteractionListener;
 import de.medo.holonetbridge.commons.discord.listener.HolonetOnModalInteractionListener;
-import de.medo.holonetbridge.commons.discord.setup.HolonetSetupListenerAdapter;
+import de.medo.holonetbridge.commons.discord.listener.HolonetOnSlashCommandInteractionListener;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.Permission;
@@ -32,7 +32,7 @@ public class DiscordGatewayConfiguration {
 
     /**
      * Name of the {@code /setup} command, handled by {@link
-     * HolonetSetupListenerAdapter}.
+     * HolonetOnSlashCommandInteractionListener}.
      */
     public static final String COMMAND_SETUP = "setup";
 
@@ -45,9 +45,9 @@ public class DiscordGatewayConfiguration {
             HolonetOnButtonInteractionListener buttonListener,
             HolonetOnModalInteractionListener modalListener,
             HolonetOnEntitySelectInteractionListener entitySelectListener,
-            HolonetSetupListenerAdapter configurationListenerAdapter) {
+            HolonetOnSlashCommandInteractionListener slashCommandListener) {
         JDA jda = JDABuilder.createLight(discordProperties.token(), Collections.emptyList())
-                .addEventListeners(buttonListener, modalListener, entitySelectListener, configurationListenerAdapter)
+                .addEventListeners(buttonListener, modalListener, entitySelectListener, slashCommandListener)
                 .build();
 
         jda.updateCommands()

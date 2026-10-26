@@ -1,4 +1,4 @@
-package de.medo.holonetbridge.commons.discord.setup;
+package de.medo.holonetbridge.commons.discord.listener;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -10,6 +10,9 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import de.medo.holonetbridge.commons.discord.DiscordGatewayConfiguration;
+import de.medo.holonetbridge.commons.discord.command.HolonetSetupCommandAction;
+import de.medo.holonetbridge.commons.discord.setup.HolonetDiscordServer;
+import de.medo.holonetbridge.commons.discord.setup.HolonetDiscordServerRepository;
 import java.util.function.Consumer;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Message;
@@ -26,19 +29,18 @@ import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
 
 /**
- * Drives {@link HolonetSetupListenerAdapter} using Mockito mocks of the JDA event/entity types,
- * the same way {@code HolonetTicketModalDialogListenerAdapterTest} does, without any real gateway connection
- * or database.
+ * Drives {@link HolonetOnSlashCommandInteractionListener} using Mockito mocks of the JDA event/entity types,
+ * without any real gateway connection or database.
  */
-class HolonetSetupListenerAdapterTest {
+class HolonetOnSlashCommandInteractionListenerTest {
 
     private static final long GUILD_ID = 999L;
     private static final long CHANNEL_ID = 111L;
     private static final long MESSAGE_ID = 222L;
 
     private final HolonetDiscordServerRepository repository = mock(HolonetDiscordServerRepository.class);
-    private final HolonetSetupListenerAdapter listener =
-            new HolonetSetupListenerAdapter(repository);
+    private final HolonetOnSlashCommandInteractionListener listener =
+            new HolonetOnSlashCommandInteractionListener(new HolonetSetupCommandAction(repository));
 
     @Test
     void slashCommandIgnoresOtherCommandNames() {

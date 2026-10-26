@@ -12,7 +12,7 @@ import jakarta.persistence.Table;
  */
 @Entity
 @Table(name = "holonet_discord_server")
-class HolonetDiscordServer {
+public class HolonetDiscordServer {
 
     @Id
     private Long guildId;
@@ -22,21 +22,21 @@ class HolonetDiscordServer {
 
     protected HolonetDiscordServer() {}
 
-    HolonetDiscordServer(long guildId, long channelId, long messageId) {
+    public HolonetDiscordServer(long guildId, long channelId, long messageId) {
         this.guildId = guildId;
         this.channelId = channelId;
         this.messageId = messageId;
     }
 
-    long guildId() {
+    public long guildId() {
         return guildId;
     }
 
-    long channelId() {
+    public long channelId() {
         return channelId;
     }
 
-    long messageId() {
+    public long messageId() {
         return messageId;
     }
 }
