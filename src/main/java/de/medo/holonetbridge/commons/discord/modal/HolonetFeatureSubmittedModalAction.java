@@ -22,7 +22,7 @@ public class HolonetFeatureSubmittedModalAction {
         long userId = event.getUser().getIdLong();
         HolonetTicket ticket = HolonetTicket.builder()
                 .title(event.getValue(HolonetFeatureModalButton.INPUT_TITLE).getAsString())
-                .text(event.getValue(HolonetFeatureModalButton.INPUT_DESCRIPTION).getAsString())
+                .description(event.getValue(HolonetFeatureModalButton.INPUT_DESCRIPTION).getAsString())
                 .build();
         ticketSubmitter.submit(event, userId, ticket);
     }

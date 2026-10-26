@@ -7,49 +7,35 @@ import org.junit.jupiter.api.Test;
 class HolonetTicketTest {
 
     @Test
-    void bugTicketRendersARealisticMarkdownDescription() {
-        HolonetTicket ticket = HolonetTicket.builder()
-                .title("Login schlägt fehl")
-                .h2("Was hast du vor dem Fehler gemacht?")
-                .text("1. Ich habe mich mit meinem Konto angemeldet.\n2. Danach habe ich auf „Einstellungen“ geklickt.")
-                .h2("Was hättest du erwartet?")
-                .text("Die Einstellungen sollten sich öffnen und mein Profil anzeigen.")
-                .h2("Was ist stattdessen passiert?")
-                .text("Stattdessen erscheint eine leere Seite mit der Fehlermeldung:\n"
-                        + "`NullPointerException at com.holonet.SettingsController.load(SettingsController.java:42)`")
-                .h2("Tritt der Fehler erneut auf?")
-                .text("Jedes Mal")
-                .build();
+    void bugDescriptionHasFourSectionsAndPreservesRawInput() {
+        HolonetTicket ticket = new HolonetTicketBug(
+                "Login schlägt fehl",
+                "  1. starte\n* **zweiter Schritt**  ",
+                "* soll funktionieren\n  ",
+                "`Fehler`\nweiter",
+                "Jedes Mal");
 
         assertThat(ticket.title()).isEqualTo("Login schlägt fehl");
-        assertThat(ticket.getMarkdownFormat()).isEqualTo("""
-                ## Was hast du vor dem Fehler gemacht?
-
-                1. Ich habe mich mit meinem Konto angemeldet.
-                2. Danach habe ich auf „Einstellungen“ geklickt.
-
-                ## Was hättest du erwartet?
-
-                Die Einstellungen sollten sich öffnen und mein Profil anzeigen.
-
-                ## Was ist stattdessen passiert?
-
-                Stattdessen erscheint eine leere Seite mit der Fehlermeldung:
-                `NullPointerException at com.holonet.SettingsController.load(SettingsController.java:42)`
-
-                ## Tritt der Fehler erneut auf?
-
-                Jedes Mal""");
+        assertThat(ticket.getDescription())
+                .isEqualTo("## Was hast du vor dem Fehler gemacht?\n\n"
+                        + "  1. starte\n* **zweiter Schritt**  \n\n"
+                        + "## Was hättest du erwartet?\n\n"
+                        + "* soll funktionieren\n  \n\n"
+                        + "## Was ist stattdessen passiert?\n\n"
+                        + "`Fehler`\nweiter\n\n"
+                        + "## Tritt der Fehler erneut auf?\n\n"
+                        + "Jedes Mal");
     }
 
     @Test
-    void featureTicketPassesItsDescriptionThroughUnchanged() {
+    void featureDescriptionIsPassedThroughUnchanged() {
+        String description = "  **raw Markdown**\nsecond line\n  ";
         HolonetTicket ticket = HolonetTicket.builder()
                 .title("Dark mode")
-                .text("Ich möchte einen Dark-Mode-Schalter in den Einstellungen.")
+                .description(description)
                 .build();
 
         assertThat(ticket.title()).isEqualTo("Dark mode");
-        assertThat(ticket.getMarkdownFormat()).isEqualTo("Ich möchte einen Dark-Mode-Schalter in den Einstellungen.");
+        assertThat(ticket.getDescription()).isSameAs(description);
     }
 }

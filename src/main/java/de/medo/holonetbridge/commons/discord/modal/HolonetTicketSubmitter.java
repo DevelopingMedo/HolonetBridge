@@ -36,7 +36,7 @@ public class HolonetTicketSubmitter {
                         event,
                         userId,
                         titleWithKindPrefix(session.kind(), ticket.title()),
-                        ticket.getMarkdownFormat()),
+                        ticket.getDescription()),
                 () -> replySessionExpired(event));
     }
 

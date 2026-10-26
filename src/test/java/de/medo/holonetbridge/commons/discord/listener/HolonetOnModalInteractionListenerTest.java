@@ -84,10 +84,10 @@ class HolonetOnModalInteractionListenerTest {
         ArgumentCaptor<String> descriptionCaptor = ArgumentCaptor.forClass(String.class);
         verify(ticketProvider).create(eq("[Bug] Login fails"), descriptionCaptor.capture());
         assertThat(descriptionCaptor.getValue())
-                .contains("## Was hast du vor dem Fehler gemacht?", "Did X then Y")
-                .contains("## Was hättest du erwartet?", "It should work")
-                .contains("## Was ist stattdessen passiert?", "It crashed")
-                .contains("## Tritt der Fehler erneut auf?", "Jedes Mal");
+                .isEqualTo("## Was hast du vor dem Fehler gemacht?\n\nDid X then Y\n\n"
+                        + "## Was hättest du erwartet?\n\nIt should work\n\n"
+                        + "## Was ist stattdessen passiert?\n\nIt crashed\n\n"
+                        + "## Tritt der Fehler erneut auf?\n\nJedes Mal");
         verify(channel).sendMessage("Ticket #42 wurde angelegt: [Bug] Login fails");
         assertThat(sessionStore.get(USER_ID)).isEmpty();
     }
