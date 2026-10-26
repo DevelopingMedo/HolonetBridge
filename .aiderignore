@@ -1,0 +1,2 @@
+# Do not feed the generated map back into its own input.
+docs/repomap.md

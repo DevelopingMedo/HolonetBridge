@@ -27,3 +27,8 @@ data/
 .classpath
 .project
 .settings/
+
+# Aider local history and parser cache
+.aider.chat.history.md
+.aider.input.history
+.aider.tags.cache*/
