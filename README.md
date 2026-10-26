@@ -106,6 +106,14 @@ mvn package
 
 The provider port is the seam for isolated adapter tests: `GiteaTicketProviderTest` drives the Gitea adapter's HTTP calls (including a server-error response) through a `MockRestServiceServer`, without any real Gitea instance. Discord event handling is tested the same way on the other side of the boundary: `HolonetBridgeListenerAdapterTest` mocks the JDA event/action interfaces directly with Mockito (no gateway connection, no extra JDA-mock test library) to drive `HolonetBridgeListenerAdapter` through the whole button/modal flow.
 
+`GiteaTicketProviderIntegrationTest` additionally drives `GiteaTicketProvider` against a real Gitea instance started with Testcontainers (image `gitea/gitea:1.22`, mirroring the init steps from `.ci/deployment/docker-compose.yml`). It is skipped automatically when no Docker environment is reachable (`disabledWithoutDocker`). To run it with colima, point Testcontainers at the socket:
+
+```sh
+export DOCKER_HOST=unix://$HOME/.colima/default/docker.sock
+export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
+mvn test
+```
+
 ## Known gaps
 
 - Discord gateway enablement: there is currently no way to start the application with the gateway switched off. A previous `holonet.discord.enabled`/`HOLONET_DISCORD_ENABLED` toggle was removed because it only existed for test convenience; tests now mock the `JDA` bean directly instead (`@MockitoBean` in `BootstrapSmokeTest`). A proper toggle still needs a rework — likely tied to how a Discord bot is actually registered and obtains its token, which happens after the server is already running, not before.
