@@ -1,11 +1,15 @@
 package de.medo.holonetbridge.commons.discord.modal;
 
+import de.medo.holonetbridge.commons.ProviderConnectionProperties;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannelRepository;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicket;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import de.medo.holonetbridge.commons.extapi.TicketDto;
 import de.medo.holonetbridge.commons.extapi.TicketProvider;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
@@ -25,14 +29,17 @@ public class HolonetTicketSubmitter {
     private final HolonetTicketCreationSessionStore sessionStore;
     private final TicketProvider ticketProvider;
     private final HolonetSupportChannelRepository supportChannelRepository;
+    private final ProviderConnectionProperties providerConnectionProperties;
 
     public HolonetTicketSubmitter(
             HolonetTicketCreationSessionStore sessionStore,
             TicketProvider ticketProvider,
-            HolonetSupportChannelRepository supportChannelRepository) {
+            HolonetSupportChannelRepository supportChannelRepository,
+            ProviderConnectionProperties providerConnectionProperties) {
         this.sessionStore = sessionStore;
         this.ticketProvider = ticketProvider;
         this.supportChannelRepository = supportChannelRepository;
+        this.providerConnectionProperties = providerConnectionProperties;
     }
 
     public void submit(ModalInteractionEvent event, long userId, HolonetTicket ticket) {
@@ -78,13 +85,46 @@ public class HolonetTicketSubmitter {
             supportChannelRepository.save(channel);
         });
         sessionStore.clear(userId);
-        String confirmation = "Ticket #%s wurde angelegt: %s".formatted(ticket.id(), ticket.title());
+        String confirmation = confirmationMessage(ticket);
         event.getChannel().asTextChannel().sendMessage(confirmation).queue();
         hook.sendMessage(confirmation)
                 .queue(success -> {}, hookFailure -> log.warn(
                         "Bestätigung für Ticket #{} konnte nicht an Discord zugestellt werden.",
                         ticket.id(),
                         hookFailure));
+    }
+
+    private String confirmationMessage(TicketDto ticket) {
+        String identity = "Ticket #%s wurde angelegt: %s".formatted(ticket.id(), ticket.title());
+        return validatedTicketUrl(ticket.url())
+                .map(url -> identity + "\nTicket öffnen: " + url)
+                .orElse(identity + "\n(Link derzeit nicht verfügbar.)");
+    }
+
+    /**
+     * Only ever shows a link whose scheme is http(s) and whose host matches the configured provider's own
+     * base url, so a provider adapter returning a malformed or unrelated url (e.g. from a compromised or
+     * misbehaving backend) can never get Discord users to click an attacker-controlled link. The ticket itself
+     * still exists either way - a missing or invalid url only hides the link, it never triggers another create
+     * call.
+     */
+    private Optional<String> validatedTicketUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return Optional.empty();
+        }
+        URI parsed;
+        try {
+            parsed = new URI(url);
+        } catch (URISyntaxException exception) {
+            return Optional.empty();
+        }
+        String scheme = parsed.getScheme();
+        boolean allowedScheme = scheme != null
+                && (scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"));
+        String host = parsed.getHost();
+        boolean plausibleOrigin = host != null
+                && host.equalsIgnoreCase(providerConnectionProperties.baseUrl().getHost());
+        return parsed.isAbsolute() && allowedScheme && plausibleOrigin ? Optional.of(url) : Optional.empty();
     }
 
     /** Logs with a correlation id (no ticket content, no tokens) so the incident can be traced without secrets. */

@@ -1,6 +1,7 @@
 package de.medo.holonetbridge.gitea;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * The subset of Gitea's issue representation this adapter reads from responses.
@@ -9,6 +10,10 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
  * {@code /issues/{index}} endpoints), as opposed to {@code id}, which is a global, cross-repository identifier.
  * {@link de.medo.holonetbridge.commons.extapi.TicketDto#id()} is populated from {@code number}, since that is
  * what future read/edit/comment calls against this same repository need to address the issue again.
+ *
+ * <p>{@code htmlUrl} (Gitea's {@code html_url}) is the browser-facing issue page, as opposed to Gitea's
+ * {@code url} field, which points at the REST resource. {@link de.medo.holonetbridge.commons.extapi.TicketDto#url()}
+ * is populated from {@code htmlUrl} since that is the link worth showing to a human.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
-record GiteaIssueResponse(long number, String title, String body) {}
+record GiteaIssueResponse(long number, String title, String body, @JsonProperty("html_url") String htmlUrl) {}

@@ -48,7 +48,10 @@ public class GiteaTicketProvider implements TicketProvider {
         }
 
         return new TicketDto(
-                String.valueOf(response.number()), response.title(), response.body() == null ? "" : response.body());
+                String.valueOf(response.number()),
+                response.title(),
+                response.body() == null ? "" : response.body(),
+                response.htmlUrl());
     }
 
     @Override

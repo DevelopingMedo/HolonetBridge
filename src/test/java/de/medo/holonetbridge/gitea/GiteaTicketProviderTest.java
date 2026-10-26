@@ -50,7 +50,8 @@ class GiteaTicketProviderTest {
                         """))
                 .andRespond(withSuccess(
                         """
-                        {"number":42,"id":999,"title":"[Bug] Login fails","body":"Steps to reproduce..."}
+                        {"number":42,"id":999,"title":"[Bug] Login fails","body":"Steps to reproduce...",
+                        "html_url":"https://tickets.example.invalid/acme/support/issues/42"}
                         """,
                         MediaType.APPLICATION_JSON));
 
@@ -59,6 +60,23 @@ class GiteaTicketProviderTest {
         assertThat(ticket.id()).isEqualTo("42");
         assertThat(ticket.title()).isEqualTo("[Bug] Login fails");
         assertThat(ticket.description()).isEqualTo("Steps to reproduce...");
+        assertThat(ticket.url()).isEqualTo("https://tickets.example.invalid/acme/support/issues/42");
+        server.verify();
+    }
+
+    @Test
+    void createsAnIssueWithAMissingHtmlUrlLeavesTicketUrlNull() {
+        server.expect(requestTo("https://tickets.example.invalid/api/v1/repos/acme/support/issues"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess(
+                        """
+                        {"number":43,"id":1000,"title":"[Bug] Login fails","body":"Steps to reproduce..."}
+                        """,
+                        MediaType.APPLICATION_JSON));
+
+        TicketDto ticket = provider.create("[Bug] Login fails", "Steps to reproduce...");
+
+        assertThat(ticket.url()).isNull();
         server.verify();
     }
 
