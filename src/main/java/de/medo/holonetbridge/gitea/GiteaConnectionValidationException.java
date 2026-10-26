@@ -1,17 +1,27 @@
 package de.medo.holonetbridge.gitea;
 
-/**
- * Thrown by {@link GiteaConnectionValidator} when a candidate connection fails validation: unreachable host,
- * blocked by the SSRF network policy, invalid/insufficient token, or the repository does not exist. The
- * message is always safe to show a Discord user as is - it never includes the token or raw exception detail.
- */
 public class GiteaConnectionValidationException extends RuntimeException {
 
-    public GiteaConnectionValidationException(String message) {
-        super(message);
+    public enum Reason { BLOCKED, UNREACHABLE, ACCESS, NOT_FOUND, REJECTED }
+
+    private final Reason reason;
+    private final int status;
+
+    public GiteaConnectionValidationException(Reason reason, Throwable cause) {
+        this(reason, 0, cause);
     }
 
-    public GiteaConnectionValidationException(String message, Throwable cause) {
-        super(message, cause);
+    public GiteaConnectionValidationException(Reason reason, int status, Throwable cause) {
+        super("Gitea connection validation failed: " + reason + " (HTTP " + status + ")", cause);
+        this.reason = reason;
+        this.status = status;
+    }
+
+    public Reason reason() {
+        return reason;
+    }
+
+    public int status() {
+        return status;
     }
 }

@@ -10,11 +10,16 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Collection;
+import java.util.function.Consumer;
+
 import de.medo.holonetbridge.commons.discord.button.HolonetAddWatcherButton;
 import de.medo.holonetbridge.commons.discord.button.HolonetBugReportModalButton;
 import de.medo.holonetbridge.commons.discord.button.HolonetFeatureModalButton;
 import de.medo.holonetbridge.commons.discord.button.HolonetOpenSupportButton;
 import de.medo.holonetbridge.commons.discord.button.HolonetSetupRetryButton;
+import de.medo.holonetbridge.commons.discord.i18n.I18nProperties;
+import de.medo.holonetbridge.commons.discord.i18n.Texts;
 import de.medo.holonetbridge.commons.discord.setup.HolonetSetupDraftStore;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetGuildSequenceService;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannel;
@@ -22,8 +27,6 @@ import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannelRepo
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import de.medo.holonetbridge.commons.provider.HolonetProviderConnectionService;
-import java.util.Collection;
-import java.util.function.Consumer;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Message;
@@ -33,6 +36,7 @@ import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
+import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.modals.Modal;
 import net.dv8tion.jda.api.requests.restaction.ChannelAction;
@@ -42,8 +46,8 @@ import net.dv8tion.jda.api.requests.restaction.interactions.ModalCallbackAction;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Answers;
+import org.mockito.ArgumentCaptor;
 
 /**
  * Drives {@link HolonetOnButtonInteractionListener} through its four buttons using Mockito mocks of the JDA event
@@ -55,6 +59,8 @@ import org.mockito.Answers;
  * chains used in production code work without stubbing every single step.
  */
 class HolonetOnButtonInteractionListenerTest {
+
+    private final Texts texts = new Texts(new I18nProperties(null));
 
     private static final long USER_ID = 123456789L;
     private static final long GUILD_ID = 999L;
@@ -68,11 +74,11 @@ class HolonetOnButtonInteractionListenerTest {
             mock(HolonetProviderConnectionService.class);
     private final HolonetGuildSequenceService guildSequenceService = mock(HolonetGuildSequenceService.class);
     private final HolonetOnButtonInteractionListener listener = new HolonetOnButtonInteractionListener(
-            new HolonetOpenSupportButton(sessionStore, supportChannelRepository, guildSequenceService),
-            new HolonetBugReportModalButton(sessionStore),
-            new HolonetFeatureModalButton(sessionStore),
-            new HolonetAddWatcherButton(),
-            new HolonetSetupRetryButton(setupDraftStore, providerConnectionService));
+            new HolonetOpenSupportButton(texts, sessionStore, supportChannelRepository, guildSequenceService),
+            new HolonetBugReportModalButton(texts, sessionStore),
+            new HolonetFeatureModalButton(texts, sessionStore),
+            new HolonetAddWatcherButton(texts),
+            new HolonetSetupRetryButton(texts, setupDraftStore, providerConnectionService));
 
     private final User user = mock(User.class);
 
@@ -84,6 +90,7 @@ class HolonetOnButtonInteractionListenerTest {
     @Test
     void supportButtonCreatesAPrivateChannelAndPostsTheKindChooser() {
         Guild guild = mock(Guild.class);
+        when(guild.getLocale()).thenReturn(DiscordLocale.GERMAN);
         when(guild.getIdLong()).thenReturn(GUILD_ID);
         when(guildSequenceService.nextNumberFor(GUILD_ID)).thenReturn(1L);
         Member member = mock(Member.class);
@@ -101,12 +108,17 @@ class HolonetOnButtonInteractionListenerTest {
         when(guild.createTextChannel("holonetbridge-00001", null)).thenReturn(channelAction);
 
         ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
+
+        when(event.getUserLocale()).thenReturn(DiscordLocale.GERMAN);
+
+        when(event.getGuildLocale()).thenReturn(DiscordLocale.GERMAN);
         when(event.getComponentId()).thenReturn(HolonetOpenSupportButton.BUTTON_ID);
         when(event.getGuild()).thenReturn(guild);
         when(event.getMember()).thenReturn(member);
         when(event.getChannel()).thenReturn(buttonChannelUnion);
         when(event.deferReply(true)).thenReturn(mock(ReplyCallbackAction.class, Answers.RETURNS_SELF));
         InteractionHook hook = mock(InteractionHook.class);
+        when(hook.getInteraction()).thenReturn(event);
         when(event.getHook()).thenReturn(hook);
         when(hook.sendMessage(anyString())).thenReturn(newSendMessageAction());
 
@@ -134,7 +146,7 @@ class HolonetOnButtonInteractionListenerTest {
         assertThat(channelCaptor.getValue().number()).isEqualTo(1L);
 
         assertThat(sessionStore.get(GUILD_ID, CHANNEL_ID, USER_ID)).isPresent();
-        verify(createdChannel).sendMessage("Hast du ein Bug gefunden oder hast du eine neue Idee?");
+        verify(createdChannel).sendMessage("Hast du einen Bug gefunden oder hast du eine neue Idee?");
         verify(hook).sendMessage("Support-Kanal erstellt: #holonetbridge-00001");
     }
 
@@ -142,6 +154,8 @@ class HolonetOnButtonInteractionListenerTest {
     void bugButtonStoresKindAndOpensTheBugReportModal() {
         sessionStore.startOrReset(GUILD_ID, CHANNEL_ID, USER_ID);
         ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
+        when(event.getUserLocale()).thenReturn(DiscordLocale.GERMAN);
+        when(event.getGuildLocale()).thenReturn(DiscordLocale.GERMAN);
         when(event.getComponentId()).thenReturn(HolonetBugReportModalButton.BUTTON_ID);
         when(event.getUser()).thenReturn(user);
         stubGuildAndChannel(event);
@@ -161,6 +175,8 @@ class HolonetOnButtonInteractionListenerTest {
     void featureButtonStoresKindAndOpensTheFeatureModal() {
         sessionStore.startOrReset(GUILD_ID, CHANNEL_ID, USER_ID);
         ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
+        when(event.getUserLocale()).thenReturn(DiscordLocale.GERMAN);
+        when(event.getGuildLocale()).thenReturn(DiscordLocale.GERMAN);
         when(event.getComponentId()).thenReturn(HolonetFeatureModalButton.BUTTON_ID);
         when(event.getUser()).thenReturn(user);
         stubGuildAndChannel(event);
@@ -179,6 +195,7 @@ class HolonetOnButtonInteractionListenerTest {
     /** Stubs the guild/channel id lookups {@code HolonetBugReportModalButton}/{@code HolonetFeatureModalButton} use. */
     private static void stubGuildAndChannel(ButtonInteractionEvent event) {
         Guild guild = mock(Guild.class);
+        when(guild.getLocale()).thenReturn(DiscordLocale.GERMAN);
         when(guild.getIdLong()).thenReturn(GUILD_ID);
         when(event.getGuild()).thenReturn(guild);
         MessageChannelUnion channel = mock(MessageChannelUnion.class);
@@ -189,6 +206,8 @@ class HolonetOnButtonInteractionListenerTest {
     @Test
     void unknownButtonIdsAreIgnored() {
         ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
+        when(event.getUserLocale()).thenReturn(DiscordLocale.GERMAN);
+        when(event.getGuildLocale()).thenReturn(DiscordLocale.GERMAN);
         when(event.getComponentId()).thenReturn("something:else");
 
         listener.onButtonInteraction(event);
@@ -200,6 +219,8 @@ class HolonetOnButtonInteractionListenerTest {
     @Test
     void watcherButtonOpensTheUserSelector() {
         ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
+        when(event.getUserLocale()).thenReturn(DiscordLocale.GERMAN);
+        when(event.getGuildLocale()).thenReturn(DiscordLocale.GERMAN);
         when(event.getComponentId()).thenReturn(HolonetAddWatcherButton.BUTTON_ID);
         ReplyCallbackAction replyAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
         when(event.reply(anyString())).thenReturn(replyAction);
@@ -216,6 +237,8 @@ class HolonetOnButtonInteractionListenerTest {
         setupDraftStore.start(USER_ID, GUILD_ID, CHANNEL_ID);
         when(providerConnectionService.activeConnection(GUILD_ID)).thenReturn(java.util.Optional.empty());
         ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
+        when(event.getUserLocale()).thenReturn(DiscordLocale.GERMAN);
+        when(event.getGuildLocale()).thenReturn(DiscordLocale.GERMAN);
         when(event.getComponentId()).thenReturn(HolonetSetupRetryButton.BUTTON_ID);
         when(event.getUser()).thenReturn(user);
         ModalCallbackAction modalCallbackAction = mock(ModalCallbackAction.class, Answers.RETURNS_SELF);

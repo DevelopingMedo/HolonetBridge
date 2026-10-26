@@ -1,5 +1,6 @@
 package de.medo.holonetbridge.commons.discord.button;
 
+import de.medo.holonetbridge.commons.discord.i18n.Texts;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import net.dv8tion.jda.api.components.label.Label;
@@ -18,6 +19,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class HolonetBugReportModalButton {
 
+    private final Texts texts;
+
     /** Custom id of the "Bug" choice button. */
     public static final String BUTTON_ID = "ticket:kind:bug";
 
@@ -30,16 +33,10 @@ public class HolonetBugReportModalButton {
     public static final String INPUT_ACTUAL = "actual";
     public static final String INPUT_RECURRENCE = "recurrence";
 
-    private static final String TITLE_HINT = "Beschreibe das Problem in einem kurzen Satz.";
-    private static final String STEPS_HINT =
-            "Schritte der Reihe nach, damit jemand sie nachmachen kann. Inkl. Voraussetzungen (Einstellungen).";
-    private static final String EXPECTED_HINT = "Was sollte nach diesen Schritten normalerweise passieren?";
-    private static final String ACTUAL_HINT =
-            "Beschreibe das Ergebnis. Füge wenn möglich die exakte und vollständige Fehlermeldung hier ein.";
-
     private final HolonetTicketCreationSessionStore sessionStore;
 
-    public HolonetBugReportModalButton(HolonetTicketCreationSessionStore sessionStore) {
+    public HolonetBugReportModalButton(Texts texts, HolonetTicketCreationSessionStore sessionStore) {
+        this.texts = texts;
         this.sessionStore = sessionStore;
     }
 
@@ -47,10 +44,10 @@ public class HolonetBugReportModalButton {
         sessionStore
                 .get(event.getGuild().getIdLong(), event.getChannel().getIdLong(), event.getUser().getIdLong())
                 .ifPresent(session -> session.kind(HolonetTicketKind.BUG));
-        event.replyModal(bugReportModal()).queue();
+        event.replyModal(bugReportModal(event)).queue();
     }
 
-    private static Modal bugReportModal() {
+    private Modal bugReportModal(ButtonInteractionEvent event) {
         TextInput title = TextInput.create(INPUT_TITLE, TextInputStyle.SHORT)
                 .setRequiredRange(1, 100)
                 .build();
@@ -58,19 +55,19 @@ public class HolonetBugReportModalButton {
         TextInput expected = TextInput.create(INPUT_EXPECTED, TextInputStyle.PARAGRAPH).build();
         TextInput actual = TextInput.create(INPUT_ACTUAL, TextInputStyle.PARAGRAPH).build();
         StringSelectMenu recurrence = StringSelectMenu.create(INPUT_RECURRENCE)
-                .addOption("Jedes Mal", "Jedes Mal")
-                .addOption("Manchmal", "Manchmal")
-                .addOption("Bisher nur einmal", "Bisher nur einmal")
-                .addOption("Noch nicht erneut ausprobiert", "Noch nicht erneut ausprobiert")
+                .addOption(texts.user(event, "bug.recurrence-always"), "always")
+                .addOption(texts.user(event, "bug.recurrence-sometimes"), "sometimes")
+                .addOption(texts.user(event, "bug.recurrence-once"), "once")
+                .addOption(texts.user(event, "bug.recurrence-not-retried"), "not-retried")
                 .setRequired(true)
                 .build();
-        return Modal.create(MODAL_ID, "Bug melden")
+        return Modal.create(MODAL_ID, texts.user(event, "bug.modal.title"))
                 .addComponents(
-                        Label.of("Titel", TITLE_HINT, title),
-                        Label.of("Was hast du vor dem Fehler gemacht?", STEPS_HINT, steps),
-                        Label.of("Was hättest du erwartet?", EXPECTED_HINT, expected),
-                        Label.of("Was ist stattdessen passiert?", ACTUAL_HINT, actual),
-                        Label.of("Tritt der Fehler erneut auf?", recurrence))
+                        Label.of(texts.user(event, "ticket.title"), texts.user(event, "bug.title-hint"), title),
+                        Label.of(texts.user(event, "bug.steps"), texts.user(event, "bug.steps-hint"), steps),
+                        Label.of(texts.user(event, "bug.expected"), texts.user(event, "bug.expected-hint"), expected),
+                        Label.of(texts.user(event, "bug.actual"), texts.user(event, "bug.actual-hint"), actual),
+                        Label.of(texts.user(event, "bug.recurrence"), recurrence))
                 .build();
     }
 }
