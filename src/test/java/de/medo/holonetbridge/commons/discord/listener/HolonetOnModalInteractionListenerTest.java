@@ -23,7 +23,6 @@ import java.util.function.Consumer;
 import de.medo.holonetbridge.commons.crypto.EncryptedSecret;
 import de.medo.holonetbridge.commons.discord.i18n.I18nProperties;
 import de.medo.holonetbridge.commons.discord.i18n.MessageSourceConfiguration;
-import de.medo.holonetbridge.commons.discord.i18n.TicketDescriptionFormatter;
 import de.medo.holonetbridge.commons.discord.modal.HolonetBugReportSubmitModalAction;
 import de.medo.holonetbridge.commons.discord.modal.HolonetFeatureSubmittedModalAction;
 import de.medo.holonetbridge.commons.discord.modal.HolonetSetupConnectionSubmitModalAction;
@@ -92,9 +91,9 @@ class HolonetOnModalInteractionListenerTest {
             mock(HolonetSetupConnectionSubmitModalAction.class);
     private final HolonetOnModalInteractionListener listener = new HolonetOnModalInteractionListener(
             new HolonetFeatureSubmittedModalAction(
-                    new HolonetTicketSubmitter(messageSource, new TicketDescriptionFormatter(messageSource), sessionStore, connectionResolver, supportChannelRepository)),
+                    new HolonetTicketSubmitter(messageSource, sessionStore, connectionResolver, supportChannelRepository)),
             new HolonetBugReportSubmitModalAction(
-                    new HolonetTicketSubmitter(messageSource, new TicketDescriptionFormatter(messageSource), sessionStore, connectionResolver, supportChannelRepository)),
+                    new HolonetTicketSubmitter(messageSource, sessionStore, connectionResolver, supportChannelRepository), messageSource),
             setupConnectionSubmit);
 
     private final User user = mock(User.class);
