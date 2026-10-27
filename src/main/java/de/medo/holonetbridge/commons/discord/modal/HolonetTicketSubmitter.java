@@ -6,7 +6,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import de.medo.holonetbridge.commons.discord.i18n.TicketDescriptionFormatter;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannel;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannelRepository;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
@@ -43,7 +42,6 @@ import org.springframework.stereotype.Component;
 public class HolonetTicketSubmitter {
 
     private final MessageSource messageSource;
-    private final TicketDescriptionFormatter descriptionFormatter;
 
     private final HolonetTicketCreationSessionStore sessionStore;
     private final ProviderConnectionResolver connectionResolver;
@@ -51,12 +49,10 @@ public class HolonetTicketSubmitter {
 
     public HolonetTicketSubmitter(
             MessageSource messageSource,
-            TicketDescriptionFormatter descriptionFormatter,
             HolonetTicketCreationSessionStore sessionStore,
             ProviderConnectionResolver connectionResolver,
             HolonetSupportChannelRepository supportChannelRepository) {
         this.messageSource = messageSource;
-        this.descriptionFormatter = descriptionFormatter;
         this.sessionStore = sessionStore;
         this.connectionResolver = connectionResolver;
         this.supportChannelRepository = supportChannelRepository;
@@ -75,7 +71,7 @@ public class HolonetTicketSubmitter {
         }
         createTicket(
                 event, userId, titleWithKindPrefix(kind, ticket.getTitle()),
-                descriptionFormatter.format(ticket, event.getGuildLocale().toLocale()));
+                ticket.getDescription());
     }
 
     /**
