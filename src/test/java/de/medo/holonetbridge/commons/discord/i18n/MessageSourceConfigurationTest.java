@@ -105,6 +105,11 @@ class MessageSourceConfigurationTest {
         assertThat(data.getArray("options").getObject(0).getObject("description_localizations").getString("de"))
                 .isEqualTo("Kanal für die Support-Nachricht");
         assertThat(new DiscordCommandLocalization(messageSource).apply("setup.name")).isEmpty();
+        // Languages without a dedicated bundle receive English; adding a bundle needs no Java change.
+        assertThat(data.getObject("description_localizations").getString("fr"))
+                .isEqualTo(messageSource.getMessage("commands.setup.description", null, Locale.ROOT));
+        assertThat(new DiscordCommandLocalization(messageSource).apply("setup.description"))
+                .doesNotContainKey(DiscordLocale.UNKNOWN);
     }
 
     @ParameterizedTest

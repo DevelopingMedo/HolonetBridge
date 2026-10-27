@@ -1,7 +1,6 @@
 package de.medo.holonetbridge.commons.discord.i18n;
 
 import java.util.EnumMap;
-import java.util.List;
 import java.util.Map;
 
 import net.dv8tion.jda.api.interactions.DiscordLocale;
@@ -21,8 +20,10 @@ public class DiscordCommandLocalization implements LocalizationFunction {
     @Override
     public Map<DiscordLocale, String> apply(String key) {
         Map<DiscordLocale, String> translations = new EnumMap<>(DiscordLocale.class);
-        for (DiscordLocale locale : List.of(DiscordLocale.ENGLISH_US, DiscordLocale.ENGLISH_UK,
-                DiscordLocale.GERMAN, DiscordLocale.CROATIAN, DiscordLocale.RUSSIAN)) {
+        for (DiscordLocale locale : DiscordLocale.values()) {
+            if (locale == DiscordLocale.UNKNOWN) {
+                continue;
+            }
             String translation = messageSource.getMessage("commands." + key, null, null, locale.toLocale());
             if (translation != null) {
                 translations.put(locale, translation);

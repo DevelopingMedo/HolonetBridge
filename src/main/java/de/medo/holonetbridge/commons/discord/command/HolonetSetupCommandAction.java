@@ -63,9 +63,9 @@ public class HolonetSetupCommandAction {
 
         TextChannel channel = event.getOption(OPTION_CHANNEL).getAsChannel().asTextChannel();
         if (!guild.getSelfMember().hasPermission(channel, Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND)) {
-            replyError(
-                    event,
-                    messageSource.getMessage("setup.cannot-post", new Object[] {channel.getAsMention()}, userLocale));
+            String message = messageSource.getMessage(
+                    "setup.cannot-post", new Object[] {channel.getAsMention()}, userLocale);
+            replyError(event, message);
             return;
         }
 
