@@ -11,5 +11,8 @@
     <include file="db/changelog/db.changelog-1.0-baseline.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/db.changelog-2.0-provider-connection.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/db.changelog-3.0-ticket-assignment.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/db.changelog-4.0-bot-interaction-session.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/db.changelog-5.0-setup-connection-modal.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/db.changelog-6.0-ticket-session.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

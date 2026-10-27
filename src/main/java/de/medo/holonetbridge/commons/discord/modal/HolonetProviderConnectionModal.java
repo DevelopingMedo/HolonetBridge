@@ -1,9 +1,11 @@
 package de.medo.holonetbridge.commons.discord.modal;
 
-import de.medo.holonetbridge.commons.discord.setup.HolonetSetupDraft;
+import de.medo.holonetbridge.commons.domain.setup.HolonetSetupConnectionModal;
 import net.dv8tion.jda.api.components.label.Label;
+import net.dv8tion.jda.api.components.selections.EntitySelectMenu;
 import net.dv8tion.jda.api.components.textinput.TextInput;
 import net.dv8tion.jda.api.components.textinput.TextInputStyle;
+import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.modals.Modal;
 
 /**
@@ -18,6 +20,7 @@ public final class HolonetProviderConnectionModal {
     /** Custom id of the Gitea provider-connection modal. */
     public static final String MODAL_ID = "setup:modal:provider-gitea";
 
+    public static final String INPUT_CHANNEL = "channel";
     public static final String INPUT_BASE_URL = "base_url";
     public static final String INPUT_OWNER = "owner";
     public static final String INPUT_REPOSITORY = "repository";
@@ -31,7 +34,15 @@ public final class HolonetProviderConnectionModal {
      * @param prefill non-secret field values to restore after a failed validation, or {@code null} for a
      *     fresh {@code /setup} invocation; the token field is never prefilled, regardless.
      */
-    public static Modal build(boolean tokenRequired, HolonetSetupDraft prefill) {
+    public static Modal build(boolean tokenRequired, HolonetSetupConnectionModal prefill) {
+
+        EntitySelectMenu channel = EntitySelectMenu.create(
+                        INPUT_CHANNEL,
+                        EntitySelectMenu.SelectTarget.CHANNEL)
+                .setChannelTypes(ChannelType.TEXT)
+                .setRequired(true)
+                .build();
+
         TextInput baseUrl = TextInput.create(INPUT_BASE_URL, TextInputStyle.SHORT)
                 .setRequiredRange(1, 200)
                 .setPlaceholder("https://gitea.example.com")
@@ -50,15 +61,16 @@ public final class HolonetProviderConnectionModal {
                 .setRequiredRange(tokenRequired ? 1 : 0, 200)
                 .setPlaceholder(tokenRequired
                         ? "Gitea-Zugriffstoken"
-                        : "Leer lassen, um das vorhandene Token zu behalten")
+                        : "Token bereits eingerichtet: Leer lassen, um das vorhandene Token zu behalten")
                 .build();
 
         return Modal.create(MODAL_ID, "Gitea-Verbindung einrichten")
                 .addComponents(
+                        Label.of("Ticket Kanal", "Wähle den Kanal aus auf dem der Bot sich einnisten soll.", channel),
                         Label.of("Basis-URL", "Die Adresse deiner Gitea-Instanz.", baseUrl),
                         Label.of("Owner", "Benutzer- oder Organisationsname des Repositories.", owner),
                         Label.of("Repository", "Name des Repositories für Tickets.", repository),
-                        Label.of("Zugriffstoken", token))
+                        Label.of("Zugriffstoken", "Ein API Token um auf den Provider zuzugreifen.", token))
                 .build();
     }
 }

@@ -9,6 +9,7 @@ import java.util.concurrent.CompletableFuture;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannel;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannelRepository;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
+import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketSessionService;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicket;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import de.medo.holonetbridge.commons.extapi.TicketDto;
@@ -34,6 +35,11 @@ import org.springframework.stereotype.Component;
  * ticket against all come from {@link HolonetSupportChannelRepository}/{@link ProviderConnectionResolver}.
  * The session store is kept only for cosmetic bookkeeping (the kind choice shown back to the user while the
  * modal is open) and is cleared here on success.
+ *
+ * <p>{@code ticket} is saved as the user's durable draft (see {@link HolonetTicketSessionService}) before the
+ * provider is ever called, so a crash or a failed attempt always leaves something resumable behind instead of
+ * silently losing what was just submitted; a successful creation discards that draft here, since there is
+ * nothing left to resume once the real ticket exists.
  */
 @Slf4j
 @Component
@@ -42,14 +48,17 @@ public class HolonetTicketSubmitter {
     private final HolonetTicketCreationSessionStore sessionStore;
     private final ProviderConnectionResolver connectionResolver;
     private final HolonetSupportChannelRepository supportChannelRepository;
+    private final HolonetTicketSessionService ticketSessionService;
 
     public HolonetTicketSubmitter(
             HolonetTicketCreationSessionStore sessionStore,
             ProviderConnectionResolver connectionResolver,
-            HolonetSupportChannelRepository supportChannelRepository) {
+            HolonetSupportChannelRepository supportChannelRepository,
+            HolonetTicketSessionService ticketSessionService) {
         this.sessionStore = sessionStore;
         this.connectionResolver = connectionResolver;
         this.supportChannelRepository = supportChannelRepository;
+        this.ticketSessionService = ticketSessionService;
     }
 
     public void submit(ModalInteractionEvent event, long userId, HolonetTicketKind kind, HolonetTicket ticket) {
@@ -63,6 +72,7 @@ public class HolonetTicketSubmitter {
             replyTicketAlreadyExists(event);
             return;
         }
+        ticketSessionService.saveDraft(channelId, userId, ticket);
         createTicket(event, userId, titleWithKindPrefix(kind, ticket.getTitle()), ticket.getDescription());
     }
 
@@ -117,6 +127,7 @@ public class HolonetTicketSubmitter {
             supportChannelRepository.save(channel);
         });
         sessionStore.clear(event.getGuild().getIdLong(), channelId, userId);
+        ticketSessionService.discardDraft(channelId, userId);
         String confirmation = confirmationMessage(ticket, connection);
         TextChannel textChannel = event.getChannel().asTextChannel();
         textChannel.sendMessage(confirmation)

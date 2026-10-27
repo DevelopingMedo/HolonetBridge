@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Introduces holonet_bot_interaction_session (HolonetBotInteractionSession): base metadata for the
+        "resume or start over" check at the start of a multi-step bot interaction flow (e.g. /setup, a bug or
+        feature report). This changelog only lays the foundation - the actual flows that read/write this
+        table follow in later work packages.
+
+        No unique constraint on (discord_id, user_id): a user may have more than one unfinished occurrence
+        outstanding at once, so this is intentionally not one row per user.
+    -->
+
+    <changeSet id="6-holonet-bot-interaction-session" author="holonet-bridge">
+        <createTable tableName="holonet_bot_interaction_session">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="discord_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="holonet_bot_interaction_session" indexName="idx_holonet_bot_interaction_session_discord_user">
+            <column name="discord_id"/>
+            <column name="user_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

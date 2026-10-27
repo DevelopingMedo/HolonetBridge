@@ -1,7 +1,6 @@
 package de.medo.holonetbridge.commons.discord;
 
 import static de.medo.holonetbridge.commons.discord.command.HolonetSetupCommandAction.COMMAND_SETUP;
-import static de.medo.holonetbridge.commons.discord.command.HolonetSetupCommandAction.OPTION_CHANNEL;
 
 import java.util.Collections;
 
@@ -12,12 +11,9 @@ import de.medo.holonetbridge.commons.discord.listener.HolonetOnSlashCommandInter
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.Permission;
-import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.interactions.InteractionContextType;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
-import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
-import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -49,12 +45,6 @@ public class DiscordGatewayConfiguration {
                         Commands.slash(
                                         COMMAND_SETUP,
                                         "Richtet die Support-Ticket-Nachricht in einem Kanal ein")
-                                .addOptions(new OptionData(
-                                                OptionType.CHANNEL,
-                                                OPTION_CHANNEL,
-                                                "Kanal für die Support-Nachricht",
-                                                true)
-                                        .setChannelTypes(ChannelType.TEXT))
                                 .setDefaultPermissions(
                                         DefaultMemberPermissions.enabledFor(Permission.MANAGE_SERVER))
                                 .setContexts(InteractionContextType.GUILD))

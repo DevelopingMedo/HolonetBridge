@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Introduces holonet_setup_connection_modal (HolonetSetupConnectionModal): the non-secret field values
+        of an in-progress/failed /setup Gitea connection modal, one row per holonet_bot_interaction_session
+        (session_id is both the foreign key and this table's own primary key, a strict one-to-one). This
+        lets /setup offer "resume" after a restart instead of only during the lifetime of an in-memory map.
+
+        No token/secret column exists here on purpose and never will: the submitted token is only ever a
+        short-lived local variable in HolonetSetupConnectionSubmitModalAction, so this table can never leak
+        a previously entered credential back into a resumed modal.
+    -->
+
+    <changeSet id="7-holonet-setup-connection-modal" author="holonet-bridge">
+        <createTable tableName="holonet_setup_connection_modal">
+            <column name="session_id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="channel_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="base_url" type="VARCHAR(2048)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="owner" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="repository" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint
+                baseTableName="holonet_setup_connection_modal"
+                baseColumnNames="session_id"
+                constraintName="fk_holonet_setup_connection_modal_session"
+                referencedTableName="holonet_bot_interaction_session"
+                referencedColumnNames="id"/>
+    </changeSet>
+
+</databaseChangeLog>

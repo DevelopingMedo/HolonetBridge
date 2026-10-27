@@ -29,6 +29,7 @@ import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannel;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannelRepository;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannelStatus;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
+import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketSessionService;
 import de.medo.holonetbridge.commons.extapi.TicketDto;
 import de.medo.holonetbridge.commons.extapi.TicketProvider;
 import de.medo.holonetbridge.commons.provider.HolonetProviderConnection;
@@ -83,11 +84,12 @@ class HolonetOnModalInteractionListenerTest {
             Instant.now());
     private final HolonetSetupConnectionSubmitModalAction setupConnectionSubmit =
             mock(HolonetSetupConnectionSubmitModalAction.class);
+    private final HolonetTicketSessionService ticketSessionService = mock(HolonetTicketSessionService.class);
     private final HolonetOnModalInteractionListener listener = new HolonetOnModalInteractionListener(
-            new HolonetFeatureSubmittedModalAction(
-                    new HolonetTicketSubmitter(sessionStore, connectionResolver, supportChannelRepository)),
-            new HolonetBugReportSubmitModalAction(
-                    new HolonetTicketSubmitter(sessionStore, connectionResolver, supportChannelRepository)),
+            new HolonetFeatureSubmittedModalAction(new HolonetTicketSubmitter(
+                    sessionStore, connectionResolver, supportChannelRepository, ticketSessionService)),
+            new HolonetBugReportSubmitModalAction(new HolonetTicketSubmitter(
+                    sessionStore, connectionResolver, supportChannelRepository, ticketSessionService)),
             setupConnectionSubmit);
 
     private final User user = mock(User.class);

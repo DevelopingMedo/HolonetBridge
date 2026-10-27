@@ -14,15 +14,22 @@ import de.medo.holonetbridge.commons.discord.button.HolonetAddWatcherButton;
 import de.medo.holonetbridge.commons.discord.button.HolonetBugReportModalButton;
 import de.medo.holonetbridge.commons.discord.button.HolonetFeatureModalButton;
 import de.medo.holonetbridge.commons.discord.button.HolonetOpenSupportButton;
+import de.medo.holonetbridge.commons.discord.button.HolonetSetupRestartButton;
 import de.medo.holonetbridge.commons.discord.button.HolonetSetupRetryButton;
-import de.medo.holonetbridge.commons.discord.setup.HolonetSetupDraftStore;
+import de.medo.holonetbridge.commons.discord.setup.HolonetSetupSessionStore;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetGuildSequenceService;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannel;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannelRepository;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
+import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketSessionService;
+import de.medo.holonetbridge.commons.domain.setup.HolonetSetupConnectionModal;
+import de.medo.holonetbridge.commons.domain.ticket.HolonetTicket;
+import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketBug;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import de.medo.holonetbridge.commons.provider.HolonetProviderConnectionService;
 import java.util.Collection;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Consumer;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
@@ -63,16 +70,18 @@ class HolonetOnButtonInteractionListenerTest {
     private final HolonetTicketCreationSessionStore sessionStore = new HolonetTicketCreationSessionStore();
     private final HolonetSupportChannelRepository supportChannelRepository =
             mock(HolonetSupportChannelRepository.class);
-    private final HolonetSetupDraftStore setupDraftStore = new HolonetSetupDraftStore();
+    private final HolonetSetupSessionStore setupSessionStore = mock(HolonetSetupSessionStore.class);
     private final HolonetProviderConnectionService providerConnectionService =
             mock(HolonetProviderConnectionService.class);
     private final HolonetGuildSequenceService guildSequenceService = mock(HolonetGuildSequenceService.class);
+    private final HolonetTicketSessionService ticketSessionService = mock(HolonetTicketSessionService.class);
     private final HolonetOnButtonInteractionListener listener = new HolonetOnButtonInteractionListener(
             new HolonetOpenSupportButton(sessionStore, supportChannelRepository, guildSequenceService),
-            new HolonetBugReportModalButton(sessionStore),
-            new HolonetFeatureModalButton(sessionStore),
+            new HolonetBugReportModalButton(sessionStore, ticketSessionService),
+            new HolonetFeatureModalButton(sessionStore, ticketSessionService),
             new HolonetAddWatcherButton(),
-            new HolonetSetupRetryButton(setupDraftStore, providerConnectionService));
+            new HolonetSetupRetryButton(setupSessionStore, providerConnectionService),
+            new HolonetSetupRestartButton(setupSessionStore, providerConnectionService));
 
     private final User user = mock(User.class);
 
@@ -176,6 +185,176 @@ class HolonetOnButtonInteractionListenerTest {
         verify(modalCallbackAction).queue();
     }
 
+    @Test
+    void bugButtonOffersResumeOrRestartWhenAnUnfinishedBugDraftExists() {
+        when(ticketSessionService.findUnfinishedDraft(CHANNEL_ID, USER_ID))
+                .thenReturn(Optional.of(bugDraft()));
+        ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
+        when(event.getComponentId()).thenReturn(HolonetBugReportModalButton.BUTTON_ID);
+        when(event.getUser()).thenReturn(user);
+        stubGuildAndChannel(event);
+        ReplyCallbackAction replyAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
+        when(event.reply(anyString())).thenReturn(replyAction);
+
+        listener.onButtonInteraction(event);
+
+        verify(event).reply("Du hast einen unvollendeten Vorgang. Möchtest du fortsetzen oder neu starten?");
+        verify(replyAction).setEphemeral(true);
+        verify(replyAction).queue();
+        verify(event, never()).replyModal(any());
+    }
+
+    @Test
+    void bugResumeButtonReopensThePrefilledModal() {
+        when(ticketSessionService.findUnfinishedDraft(CHANNEL_ID, USER_ID))
+                .thenReturn(Optional.of(bugDraft()));
+        ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
+        when(event.getComponentId()).thenReturn(HolonetBugReportModalButton.RESUME_BUTTON_ID);
+        when(event.getUser()).thenReturn(user);
+        stubGuildAndChannel(event);
+        ModalCallbackAction modalCallbackAction = mock(ModalCallbackAction.class, Answers.RETURNS_SELF);
+        ArgumentCaptor<Modal> modalCaptor = ArgumentCaptor.forClass(Modal.class);
+        when(event.replyModal(modalCaptor.capture())).thenReturn(modalCallbackAction);
+
+        listener.onButtonInteraction(event);
+
+        assertThat(modalCaptor.getValue().getId()).isEqualTo(HolonetBugReportModalButton.MODAL_ID);
+        verify(modalCallbackAction).queue();
+    }
+
+    @Test
+    void bugResumeButtonReportsAnExpiredDraftWhenNoneExistsAnymore() {
+        when(ticketSessionService.findUnfinishedDraft(CHANNEL_ID, USER_ID)).thenReturn(Optional.empty());
+        ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
+        when(event.getComponentId()).thenReturn(HolonetBugReportModalButton.RESUME_BUTTON_ID);
+        when(event.getUser()).thenReturn(user);
+        stubGuildAndChannel(event);
+        ReplyCallbackAction replyAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
+        when(event.reply(anyString())).thenReturn(replyAction);
+
+        listener.onButtonInteraction(event);
+
+        verify(event).reply(
+                "Der gespeicherte Bug-Report ist nicht mehr verfügbar. Bitte starte über die Bug-Auswahl neu.");
+        verify(event, never()).replyModal(any());
+    }
+
+    @Test
+    void bugRestartButtonDiscardsTheDraftAndOpensABlankModal() {
+        ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
+        when(event.getComponentId()).thenReturn(HolonetBugReportModalButton.RESTART_BUTTON_ID);
+        when(event.getUser()).thenReturn(user);
+        stubGuildAndChannel(event);
+        ModalCallbackAction modalCallbackAction = mock(ModalCallbackAction.class, Answers.RETURNS_SELF);
+        ArgumentCaptor<Modal> modalCaptor = ArgumentCaptor.forClass(Modal.class);
+        when(event.replyModal(modalCaptor.capture())).thenReturn(modalCallbackAction);
+
+        listener.onButtonInteraction(event);
+
+        verify(ticketSessionService).discardDraft(CHANNEL_ID, USER_ID);
+        assertThat(modalCaptor.getValue().getId()).isEqualTo(HolonetBugReportModalButton.MODAL_ID);
+        verify(modalCallbackAction).queue();
+    }
+
+    @Test
+    void bugButtonIgnoresALeftoverFeatureDraftAndOpensABlankModal() {
+        when(ticketSessionService.findUnfinishedDraft(CHANNEL_ID, USER_ID))
+                .thenReturn(Optional.of(HolonetTicket.builder().title("Dark mode").description("d").build()));
+        ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
+        when(event.getComponentId()).thenReturn(HolonetBugReportModalButton.BUTTON_ID);
+        when(event.getUser()).thenReturn(user);
+        stubGuildAndChannel(event);
+        ModalCallbackAction modalCallbackAction = mock(ModalCallbackAction.class, Answers.RETURNS_SELF);
+        ArgumentCaptor<Modal> modalCaptor = ArgumentCaptor.forClass(Modal.class);
+        when(event.replyModal(modalCaptor.capture())).thenReturn(modalCallbackAction);
+
+        listener.onButtonInteraction(event);
+
+        assertThat(modalCaptor.getValue().getId()).isEqualTo(HolonetBugReportModalButton.MODAL_ID);
+        verify(event, never()).reply(anyString());
+    }
+
+    @Test
+    void featureButtonOffersResumeOrRestartWhenAnUnfinishedFeatureDraftExists() {
+        when(ticketSessionService.findUnfinishedDraft(CHANNEL_ID, USER_ID))
+                .thenReturn(Optional.of(HolonetTicket.builder().title("Dark mode").description("d").build()));
+        ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
+        when(event.getComponentId()).thenReturn(HolonetFeatureModalButton.BUTTON_ID);
+        when(event.getUser()).thenReturn(user);
+        stubGuildAndChannel(event);
+        ReplyCallbackAction replyAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
+        when(event.reply(anyString())).thenReturn(replyAction);
+
+        listener.onButtonInteraction(event);
+
+        verify(event).reply("Du hast einen unvollendeten Vorgang. Möchtest du fortsetzen oder neu starten?");
+        verify(replyAction).setEphemeral(true);
+        verify(replyAction).queue();
+        verify(event, never()).replyModal(any());
+    }
+
+    @Test
+    void featureResumeButtonReopensThePrefilledModal() {
+        when(ticketSessionService.findUnfinishedDraft(CHANNEL_ID, USER_ID))
+                .thenReturn(Optional.of(HolonetTicket.builder().title("Dark mode").description("d").build()));
+        ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
+        when(event.getComponentId()).thenReturn(HolonetFeatureModalButton.RESUME_BUTTON_ID);
+        when(event.getUser()).thenReturn(user);
+        stubGuildAndChannel(event);
+        ModalCallbackAction modalCallbackAction = mock(ModalCallbackAction.class, Answers.RETURNS_SELF);
+        ArgumentCaptor<Modal> modalCaptor = ArgumentCaptor.forClass(Modal.class);
+        when(event.replyModal(modalCaptor.capture())).thenReturn(modalCallbackAction);
+
+        listener.onButtonInteraction(event);
+
+        assertThat(modalCaptor.getValue().getId()).isEqualTo(HolonetFeatureModalButton.MODAL_ID);
+        verify(modalCallbackAction).queue();
+    }
+
+    @Test
+    void featureRestartButtonDiscardsTheDraftAndOpensABlankModal() {
+        ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
+        when(event.getComponentId()).thenReturn(HolonetFeatureModalButton.RESTART_BUTTON_ID);
+        when(event.getUser()).thenReturn(user);
+        stubGuildAndChannel(event);
+        ModalCallbackAction modalCallbackAction = mock(ModalCallbackAction.class, Answers.RETURNS_SELF);
+        ArgumentCaptor<Modal> modalCaptor = ArgumentCaptor.forClass(Modal.class);
+        when(event.replyModal(modalCaptor.capture())).thenReturn(modalCallbackAction);
+
+        listener.onButtonInteraction(event);
+
+        verify(ticketSessionService).discardDraft(CHANNEL_ID, USER_ID);
+        assertThat(modalCaptor.getValue().getId()).isEqualTo(HolonetFeatureModalButton.MODAL_ID);
+        verify(modalCallbackAction).queue();
+    }
+
+    @Test
+    void featureButtonIgnoresALeftoverBugDraftAndOpensABlankModal() {
+        when(ticketSessionService.findUnfinishedDraft(CHANNEL_ID, USER_ID)).thenReturn(Optional.of(bugDraft()));
+        ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
+        when(event.getComponentId()).thenReturn(HolonetFeatureModalButton.BUTTON_ID);
+        when(event.getUser()).thenReturn(user);
+        stubGuildAndChannel(event);
+        ModalCallbackAction modalCallbackAction = mock(ModalCallbackAction.class, Answers.RETURNS_SELF);
+        ArgumentCaptor<Modal> modalCaptor = ArgumentCaptor.forClass(Modal.class);
+        when(event.replyModal(modalCaptor.capture())).thenReturn(modalCallbackAction);
+
+        listener.onButtonInteraction(event);
+
+        assertThat(modalCaptor.getValue().getId()).isEqualTo(HolonetFeatureModalButton.MODAL_ID);
+        verify(event, never()).reply(anyString());
+    }
+
+    private static HolonetTicketBug bugDraft() {
+        return HolonetTicketBug.builder()
+                .title("Login fails")
+                .steps("did X")
+                .expected("should work")
+                .actual("crashed")
+                .recurrence("Jedes Mal")
+                .build();
+    }
+
     /** Stubs the guild/channel id lookups {@code HolonetBugReportModalButton}/{@code HolonetFeatureModalButton} use. */
     private static void stubGuildAndChannel(ButtonInteractionEvent event) {
         Guild guild = mock(Guild.class);
@@ -213,11 +392,13 @@ class HolonetOnButtonInteractionListenerTest {
 
     @Test
     void setupRetryButtonReopensTheProviderConnectionModalWhenADraftExists() {
-        setupDraftStore.start(USER_ID, GUILD_ID, CHANNEL_ID);
-        when(providerConnectionService.activeConnection(GUILD_ID)).thenReturn(java.util.Optional.empty());
+        when(setupSessionStore.findUnfinished(GUILD_ID, USER_ID))
+                .thenReturn(Optional.of(new HolonetSetupConnectionModal(UUID.randomUUID())));
+        when(providerConnectionService.activeConnection(GUILD_ID)).thenReturn(Optional.empty());
         ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
         when(event.getComponentId()).thenReturn(HolonetSetupRetryButton.BUTTON_ID);
         when(event.getUser()).thenReturn(user);
+        stubGuild(event, GUILD_ID);
         ModalCallbackAction modalCallbackAction = mock(ModalCallbackAction.class, Answers.RETURNS_SELF);
         ArgumentCaptor<Modal> modalCaptor = ArgumentCaptor.forClass(Modal.class);
         when(event.replyModal(modalCaptor.capture())).thenReturn(modalCallbackAction);
@@ -227,6 +408,47 @@ class HolonetOnButtonInteractionListenerTest {
         assertThat(modalCaptor.getValue().getId())
                 .isEqualTo(de.medo.holonetbridge.commons.discord.modal.HolonetProviderConnectionModal.MODAL_ID);
         verify(modalCallbackAction).queue();
+    }
+
+    @Test
+    void setupRetryButtonReportsAnExpiredSessionWhenNoDraftExists() {
+        when(setupSessionStore.findUnfinished(GUILD_ID, USER_ID)).thenReturn(Optional.empty());
+        ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
+        when(event.getComponentId()).thenReturn(HolonetSetupRetryButton.BUTTON_ID);
+        when(event.getUser()).thenReturn(user);
+        stubGuild(event, GUILD_ID);
+        ReplyCallbackAction replyAction = mock(ReplyCallbackAction.class, Answers.RETURNS_SELF);
+        when(event.reply(anyString())).thenReturn(replyAction);
+
+        listener.onButtonInteraction(event);
+
+        verify(event).reply("Die Sitzung ist abgelaufen, bitte führe /setup erneut aus.");
+        verify(event, never()).replyModal(any());
+    }
+
+    @Test
+    void setupRestartButtonDiscardsTheDraftAndOpensABlankModal() {
+        when(providerConnectionService.activeConnection(GUILD_ID)).thenReturn(Optional.empty());
+        ButtonInteractionEvent event = mock(ButtonInteractionEvent.class);
+        when(event.getComponentId()).thenReturn(HolonetSetupRestartButton.BUTTON_ID);
+        when(event.getUser()).thenReturn(user);
+        stubGuild(event, GUILD_ID);
+        ModalCallbackAction modalCallbackAction = mock(ModalCallbackAction.class, Answers.RETURNS_SELF);
+        ArgumentCaptor<Modal> modalCaptor = ArgumentCaptor.forClass(Modal.class);
+        when(event.replyModal(modalCaptor.capture())).thenReturn(modalCallbackAction);
+
+        listener.onButtonInteraction(event);
+
+        verify(setupSessionStore).discard(GUILD_ID, USER_ID);
+        assertThat(modalCaptor.getValue().getId())
+                .isEqualTo(de.medo.holonetbridge.commons.discord.modal.HolonetProviderConnectionModal.MODAL_ID);
+        verify(modalCallbackAction).queue();
+    }
+
+    private static void stubGuild(ButtonInteractionEvent event, long guildId) {
+        Guild guild = mock(Guild.class);
+        when(guild.getIdLong()).thenReturn(guildId);
+        when(event.getGuild()).thenReturn(guild);
     }
 
     /**

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Introduces holonet_ticket (HolonetTicket/HolonetTicketBug, single-table inheritance via the "kind"
+        discriminator): the persisted draft of one in-progress bug/feature report, one row per
+        holonet_bot_interaction_session (session_id has its own unique constraint, not reused as this
+        table's primary key, since HolonetTicket already needs its own id for the inheritance mapping). This
+        lets the bug/feature report flow offer "resume" or "start over" after a restart, matching the
+        db.changelog-5.0-setup-connection-modal.xml pattern for /setup.
+
+        steps/expected/actual/recurrence are only ever populated for a BUG row; description is only ever
+        populated for a FEATURE row (HolonetTicketBug computes its description from the other four columns
+        instead of storing it) - both sets of columns are nullable because of this, not because either kind
+        is incomplete. No token/secret column exists here, and never will.
+    -->
+
+    <changeSet id="8-holonet-ticket" author="holonet-bridge">
+        <createTable tableName="holonet_ticket">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="session_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="kind" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="title" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="VARCHAR(4000)"/>
+            <column name="steps" type="VARCHAR(4000)"/>
+            <column name="expected" type="VARCHAR(4000)"/>
+            <column name="actual" type="VARCHAR(4000)"/>
+            <column name="recurrence" type="VARCHAR(255)"/>
+        </createTable>
+        <addForeignKeyConstraint
+                baseTableName="holonet_ticket"
+                baseColumnNames="session_id"
+                constraintName="fk_holonet_ticket_session"
+                referencedTableName="holonet_bot_interaction_session"
+                referencedColumnNames="id"/>
+        <addUniqueConstraint
+                tableName="holonet_ticket"
+                columnNames="session_id"
+                constraintName="uq_holonet_ticket_session"/>
+    </changeSet>
+
+</databaseChangeLog>

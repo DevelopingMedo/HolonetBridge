@@ -1,13 +1,17 @@
 package de.medo.holonetbridge.commons.discord.command;
 
+import de.medo.holonetbridge.commons.discord.button.HolonetSetupRestartButton;
+import de.medo.holonetbridge.commons.discord.button.HolonetSetupRetryButton;
 import de.medo.holonetbridge.commons.discord.modal.HolonetProviderConnectionModal;
-import de.medo.holonetbridge.commons.discord.setup.HolonetSetupDraftStore;
+import de.medo.holonetbridge.commons.discord.setup.HolonetSetupSessionStore;
 import de.medo.holonetbridge.commons.provider.HolonetProviderConnectionService;
 import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
-import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import net.dv8tion.jda.api.modals.Modal;
 import org.springframework.stereotype.Component;
 
 /**
@@ -16,12 +20,13 @@ import org.springframework.stereotype.Component;
  * a server admin, so this re-checks {@link Permission#MANAGE_SERVER} explicitly here rather than relying on
  * it alone.
  *
- * <p>The command's immediate response is always the Gitea connection modal (or, if a precondition fails, a
- * plain ephemeral reply) - never {@code deferReply} - because Discord only accepts a modal as the direct
- * response to the interaction that triggered it. The chosen panel channel and guild are stashed in {@link
- * HolonetSetupDraftStore} under the invoking user's id so the later modal submission ({@link
- * de.medo.holonetbridge.commons.discord.modal.HolonetSetupConnectionSubmitModalAction}) knows where to post
- * the support panel without that channel having to be a modal field itself.
+ * <p>If a previous attempt for this guild/user already reached a modal submission (see {@link
+ * HolonetSetupSessionStore}) - e.g. a failed validation never retried, or the bot restarted in between - the
+ * command asks whether to resume it (see {@link HolonetSetupRetryButton}) or discard it and start fresh (see
+ * {@link HolonetSetupRestartButton}) instead of opening a modal directly. Otherwise, the command's immediate
+ * response is always the Gitea connection modal (or, if a precondition fails, a plain ephemeral reply) -
+ * never {@code deferReply} - because Discord only accepts a modal as the direct response to the interaction
+ * that triggered it.
  */
 @Component
 public class HolonetSetupCommandAction {
@@ -29,15 +34,12 @@ public class HolonetSetupCommandAction {
     /** Name of the {@code /setup} slash command. */
     public static final String COMMAND_SETUP = "setup";
 
-    /** Name of the {@code /setup} command's single {@code CHANNEL} option. */
-    public static final String OPTION_CHANNEL = "channel";
-
-    private final HolonetSetupDraftStore draftStore;
+    private final HolonetSetupSessionStore sessionStore;
     private final HolonetProviderConnectionService providerConnectionService;
 
     public HolonetSetupCommandAction(
-            HolonetSetupDraftStore draftStore, HolonetProviderConnectionService providerConnectionService) {
-        this.draftStore = draftStore;
+            HolonetSetupSessionStore sessionStore, HolonetProviderConnectionService providerConnectionService) {
+        this.sessionStore = sessionStore;
         this.providerConnectionService = providerConnectionService;
     }
 
@@ -53,18 +55,26 @@ public class HolonetSetupCommandAction {
             return;
         }
 
-        TextChannel channel = event.getOption(OPTION_CHANNEL).getAsChannel().asTextChannel();
-        if (!guild.getSelfMember().hasPermission(channel, Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND)) {
-            replyError(
-                    event,
-                    "Ich habe in " + channel.getAsMention()
-                            + " keine Berechtigung, die Support-Nachricht zu posten.");
+        long guildId = guild.getIdLong();
+        long userId = member.getIdLong();
+        if (sessionStore.findUnfinished(guildId, userId).isPresent()) {
+            askToResumeOrRestart(event);
             return;
         }
 
-        draftStore.start(member.getIdLong(), guild.getIdLong(), channel.getIdLong());
-        boolean tokenRequired = providerConnectionService.activeConnection(guild.getIdLong()).isEmpty();
-        event.replyModal(HolonetProviderConnectionModal.build(tokenRequired, null)).queue();
+        boolean tokenRequired = providerConnectionService.activeConnection(guildId).isEmpty();
+        Modal setupModal = HolonetProviderConnectionModal.build(tokenRequired, null);
+
+        event.replyModal(setupModal).queue();
+    }
+
+    private static void askToResumeOrRestart(SlashCommandInteractionEvent event) {
+        event.reply("Du hast einen unvollendeten Vorgang. Möchtest du fortsetzen oder neu starten?")
+                .setEphemeral(true)
+                .addComponents(ActionRow.of(
+                        Button.primary(HolonetSetupRetryButton.BUTTON_ID, "Fortsetzen"),
+                        Button.secondary(HolonetSetupRestartButton.BUTTON_ID, "Neu starten")))
+                .queue();
     }
 
     private static void replyError(SlashCommandInteractionEvent event, String message) {

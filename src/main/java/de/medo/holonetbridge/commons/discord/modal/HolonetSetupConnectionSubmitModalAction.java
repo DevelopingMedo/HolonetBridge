@@ -13,8 +13,7 @@ import de.medo.holonetbridge.commons.discord.button.HolonetOpenSupportButton;
 import de.medo.holonetbridge.commons.discord.button.HolonetSetupRetryButton;
 import de.medo.holonetbridge.commons.discord.setup.HolonetDiscordServer;
 import de.medo.holonetbridge.commons.discord.setup.HolonetDiscordServerRepository;
-import de.medo.holonetbridge.commons.discord.setup.HolonetSetupDraft;
-import de.medo.holonetbridge.commons.discord.setup.HolonetSetupDraftStore;
+import de.medo.holonetbridge.commons.discord.setup.HolonetSetupSessionStore;
 import de.medo.holonetbridge.commons.provider.HolonetProviderConnection;
 import de.medo.holonetbridge.commons.provider.HolonetProviderConnectionService;
 import de.medo.holonetbridge.commons.provider.HolonetProviderType;
@@ -40,7 +39,7 @@ import org.springframework.stereotype.Component;
  *   <li>the invoking user still actually has {@link Permission#MANAGE_SERVER} (re-checked here, not just
  *       trusted from the earlier {@code /setup} invocation or Discord's own default command permission,
  *       which a server admin can loosen independently of this code);
- *   <li>the bot can still post into the panel channel chosen back at {@code /setup} time;
+ *   <li>the bot can actually post into the panel channel chosen right here in the modal;
  *   <li>the submitted base URL is syntactically a valid absolute http(s) URL;
  *   <li>the target is SSRF-safe to reach and the (new-or-kept) token can actually read the repository -
  *       {@link GiteaConnectionValidator} proves read access only, never write access, and never creates a
@@ -50,6 +49,12 @@ import org.springframework.stereotype.Component;
  * <p>A blank token submission ("keep") is only valid when the target (base URL/owner/repository) is
  * unchanged from the guild's current active connection; there is no anonymous/tokenless mode for Gitea
  * otherwise, since the token is what the validation step above actually exercises.
+ *
+ * <p>Every submission upserts its non-secret fields into {@link HolonetSetupSessionStore} first, regardless
+ * of whether it is a fresh attempt or a resumed one - there is no "expired session" failure mode anymore,
+ * since the store no longer depends on an in-memory record created by the earlier {@code /setup} invocation
+ * surviving. The stored attempt is only discarded once {@link HolonetProviderConnectionService#activate}
+ * actually succeeds.
  */
 @Slf4j
 @Component
@@ -58,19 +63,19 @@ public class HolonetSetupConnectionSubmitModalAction {
     private static final String PANEL_MESSAGE =
             "Brauchst du Unterstützung? Klick unten, um ein Support-Ticket zu erstellen.";
 
-    private final HolonetSetupDraftStore draftStore;
+    private final HolonetSetupSessionStore sessionStore;
     private final HolonetProviderConnectionService providerConnectionService;
     private final HolonetDiscordServerRepository discordServerRepository;
     private final TokenCryptoService tokenCryptoService;
     private final GiteaConnectionValidator connectionValidator;
 
     public HolonetSetupConnectionSubmitModalAction(
-            HolonetSetupDraftStore draftStore,
+            HolonetSetupSessionStore sessionStore,
             HolonetProviderConnectionService providerConnectionService,
             HolonetDiscordServerRepository discordServerRepository,
             TokenCryptoService tokenCryptoService,
             GiteaConnectionValidator connectionValidator) {
-        this.draftStore = draftStore;
+        this.sessionStore = sessionStore;
         this.providerConnectionService = providerConnectionService;
         this.discordServerRepository = discordServerRepository;
         this.tokenCryptoService = tokenCryptoService;
@@ -79,13 +84,6 @@ public class HolonetSetupConnectionSubmitModalAction {
 
     public void handle(ModalInteractionEvent event) {
         long userId = event.getUser().getIdLong();
-        Optional<HolonetSetupDraft> maybeDraft = draftStore.get(userId);
-        if (maybeDraft.isEmpty()) {
-            replyFailureWithoutRetry(event, "Die Sitzung ist abgelaufen, bitte führe /setup erneut aus.");
-            return;
-        }
-        HolonetSetupDraft draft = maybeDraft.get();
-
         Guild guild = event.getGuild();
         Member member = event.getMember();
         if (guild == null || member == null) {
@@ -96,15 +94,12 @@ public class HolonetSetupConnectionSubmitModalAction {
             replyFailureWithoutRetry(event, "Dazu fehlt dir die Berechtigung \"Server verwalten\".");
             return;
         }
+        long guildId = guild.getIdLong();
 
-        TextChannel panelChannel = guild.getTextChannelById(draft.panelChannelId());
-        if (panelChannel == null
-                || !guild.getSelfMember()
-                        .hasPermission(panelChannel, Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND)) {
-            replyFailureWithRetry(
-                    event, "Der gewählte Kanal ist nicht mehr erreichbar oder ich habe dort keine Berechtigung.");
-            return;
-        }
+        long panelChannelId = event.getValue(HolonetProviderConnectionModal.INPUT_CHANNEL)
+                .getAsLongList()
+                .get(0);
+        TextChannel panelChannel = guild.getTextChannelById(panelChannelId);
 
         String rawBaseUrl =
                 event.getValue(HolonetProviderConnectionModal.INPUT_BASE_URL).getAsString().trim();
@@ -113,7 +108,18 @@ public class HolonetSetupConnectionSubmitModalAction {
                 event.getValue(HolonetProviderConnectionModal.INPUT_REPOSITORY).getAsString().trim();
         String rawToken = event.getValue(HolonetProviderConnectionModal.INPUT_TOKEN).getAsString();
         String submittedToken = rawToken.isBlank() ? null : rawToken;
-        draft.lastSubmittedTarget(rawBaseUrl, owner, repository);
+
+        // Upserted before any validation so a failed attempt (or a restart in between) can still be resumed
+        // with exactly what was just typed in, never just the previous attempt's values.
+        sessionStore.upsert(guildId, userId, panelChannelId, rawBaseUrl, owner, repository);
+
+        if (panelChannel == null
+                || !guild.getSelfMember()
+                        .hasPermission(panelChannel, Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND)) {
+            replyFailureWithRetry(
+                    event, "Der gewählte Kanal ist nicht mehr erreichbar oder ich habe dort keine Berechtigung.");
+            return;
+        }
 
         URI baseUrl;
         try {
@@ -123,7 +129,6 @@ public class HolonetSetupConnectionSubmitModalAction {
             return;
         }
 
-        long guildId = draft.guildId();
         Optional<HolonetProviderConnection> current = providerConnectionService.activeConnection(guildId);
         String effectiveToken = resolveEffectiveToken(submittedToken, current, baseUrl, owner, repository);
         if (effectiveToken == null) {
@@ -187,7 +192,7 @@ public class HolonetSetupConnectionSubmitModalAction {
                         providerConnectionService.activate(
                                 guildId, HolonetProviderType.GITEA, baseUrl.toString(), owner, repository,
                                 submittedToken);
-                        draftStore.clear(userId);
+                        sessionStore.discard(guildId, userId);
                         upsertPanelAndFinish(hook, guild, panelChannel, guildId);
                     } catch (RuntimeException e) {
                         reportValidationFailure(hook, e);
@@ -271,7 +276,7 @@ public class HolonetSetupConnectionSubmitModalAction {
         event.reply(message).setEphemeral(true).addComponents(retryActionRow()).queue();
     }
 
-    /** No retry button for failures where retrying would hit the exact same problem (expired/foreign session). */
+    /** No retry button for failures where retrying would hit the exact same problem (not in a guild, no permission). */
     private static void replyFailureWithoutRetry(ModalInteractionEvent event, String message) {
         event.reply(message).setEphemeral(true).queue();
     }
