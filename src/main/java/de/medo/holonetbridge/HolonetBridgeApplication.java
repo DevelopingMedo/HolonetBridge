@@ -18,7 +18,8 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
         basePackages = {
             "de.medo.holonetbridge.commons.discord",
             "de.medo.holonetbridge.commons.crypto",
-            "de.medo.holonetbridge.commons.net"
+            "de.medo.holonetbridge.commons.net",
+            "de.medo.holonetbridge.commons.provider"
         })
 public class HolonetBridgeApplication {
 
