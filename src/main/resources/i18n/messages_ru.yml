@@ -8,6 +8,16 @@ setup:
   invalid-url: "Ukazhi korrektnyy bazovyy URL http(s)."
   token-required: "Dlya novogo podklyucheniya ili izmeneniya provaydera, URL ili tseli nuzhen token."
   draft-saved: "Dannye sokhraneny. Proverka provaydera i aktivatsiya podklyucheniya poka ne realizovany."
+  healthcheck:
+    success: "Bazovyy URL i token dlya {0} uspeshno provereny."
+    invalid-url: "Ukazhi korrektnyy URL http(s) bez dannykh avtorizatsii, zaprosa ili fragmenta i zapusti /setup eshche raz."
+    token-required: "Dlya proverki podklyucheniya nuzhen token. Zapusti /setup eshche raz i vvedi token."
+    unsupported: "Proverka podklyucheniya dlya {0} poka ne realizovana. Zapusti /setup eshche raz i vyberi podderzhivaemogo provaydera."
+    unreachable: "Bazovyy URL nedostupen ili zablokirovan politikoy bezopasnosti. Prover URL i zapusti /setup eshche raz."
+    access: "Provayder otklonil token ili u tokena net prav dlya proverki podklyucheniya. Zapusti /setup eshche raz i prover token."
+    invalid-response: "Bazovyy URL ne vernul korrektnyy otvet provaydera. Prover URL i zapusti /setup eshche raz."
+    rejected: "Provayder otklonil proverku podklyucheniya. Prover URL i token i zapusti /setup eshche raz."
+    failed: "Proverka podklyucheniya ne udalas. Zapusti /setup eshche raz."
   panel:
     message: "Nuzhna pomoshch? Nazhmi vnizu, chtoby sozdat obrashchenie."
     button: "Zaprosit podderzhku"

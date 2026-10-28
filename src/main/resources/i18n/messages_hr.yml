@@ -7,6 +7,16 @@ setup:
   invalid-url: "Unesi valjanu osnovnu http(s) adresu."
   token-required: "Token je potreban za novu vezu ili promjenu pružatelja, osnovne adrese ili odredišta."
   draft-saved: "Podaci su spremljeni. Provjera pružatelja i aktivacija veze još nisu implementirane."
+  healthcheck:
+    success: "Osnovna adresa i token za {0} uspješno su provjereni."
+    invalid-url: "Unesi valjanu http(s) adresu bez pristupnih podataka, upita ili fragmenta i ponovno pokreni /setup."
+    token-required: "Za provjeru veze potreban je token. Ponovno pokreni /setup i unesi token."
+    unsupported: "Provjera veze za {0} još nije implementirana. Ponovno pokreni /setup i odaberi podržanog pružatelja."
+    unreachable: "Osnovna adresa nije dostupna ili je blokirana iz sigurnosnih razloga. Provjeri adresu i ponovno pokreni /setup."
+    access: "Pružatelj je odbio token ili token nema dozvole za provjeru veze. Ponovno pokreni /setup i provjeri token."
+    invalid-response: "Osnovna adresa nije vratila valjan odgovor pružatelja. Provjeri adresu i ponovno pokreni /setup."
+    rejected: "Pružatelj je odbio provjeru veze. Provjeri adresu i token i ponovno pokreni /setup."
+    failed: "Provjera veze nije uspjela. Ponovno pokreni /setup."
   panel:
     message: "Trebaš pomoć? Klikni ispod za otvaranje zahtjeva za podršku."
     button: "Zatraži podršku"

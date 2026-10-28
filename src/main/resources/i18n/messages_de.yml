@@ -7,6 +7,16 @@ setup:
   invalid-url: "Bitte eine gültige http(s)-Basis-URL angeben."
   token-required: "Für eine neue Verbindung oder eine Änderung von Provider, Basis-URL oder Ziel ist ein Token erforderlich."
   draft-saved: "Setup-Daten gespeichert. Provider-Prüfung und Verbindungsaktivierung sind noch nicht implementiert."
+  healthcheck:
+    success: "Basis-URL und Token für {0} wurden erfolgreich geprüft."
+    invalid-url: "Bitte eine gültige http(s)-Basis-URL ohne Zugangsdaten, Query oder Fragment angeben und /setup erneut ausführen."
+    token-required: "Für den Verbindungstest ist ein Token erforderlich. Bitte /setup erneut ausführen und ein Token eingeben."
+    unsupported: "Der Verbindungstest für {0} ist noch nicht implementiert. Bitte /setup erneut ausführen und einen unterstützten Provider wählen."
+    unreachable: "Die Basis-URL ist nicht erreichbar oder wird aus Sicherheitsgründen blockiert. Bitte die URL prüfen und /setup erneut ausführen."
+    access: "Der Provider hat das Token abgelehnt oder dem Token fehlen Berechtigungen für den Verbindungstest. Bitte /setup erneut ausführen und das Token prüfen."
+    invalid-response: "Die Basis-URL liefert keine gültige Provider-Antwort. Bitte die URL prüfen und /setup erneut ausführen."
+    rejected: "Der Provider hat den Verbindungstest abgelehnt. Bitte URL und Token prüfen und /setup erneut ausführen."
+    failed: "Der Verbindungstest ist fehlgeschlagen. Bitte /setup erneut ausführen."
   panel:
     message: "Brauchst du Unterstützung? Klick unten, um ein Support-Ticket zu erstellen."
     button: "Support anfragen"

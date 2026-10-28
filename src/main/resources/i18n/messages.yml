@@ -7,6 +7,16 @@ setup:
   invalid-url: "Please enter a valid http(s) base URL."
   token-required: "A token is required for a new connection or a change of provider, base URL or target."
   draft-saved: "Setup data saved. Provider validation and connection activation are not implemented yet."
+  healthcheck:
+    success: "Base URL and token for {0} were checked successfully."
+    invalid-url: "Enter a valid http(s) base URL without credentials, query or fragment and run /setup again."
+    token-required: "A token is required for the connection test. Run /setup again and enter a token."
+    unsupported: "The connection test for {0} is not implemented yet. Run /setup again and select a supported provider."
+    unreachable: "The base URL is unreachable or blocked by the security policy. Check the URL and run /setup again."
+    access: "The provider rejected the token or the token lacks permissions for the connection test. Run /setup again and check the token."
+    invalid-response: "The base URL did not return a valid provider response. Check the URL and run /setup again."
+    rejected: "The provider rejected the connection test. Check the URL and token and run /setup again."
+    failed: "The connection test failed. Please run /setup again."
   panel:
     message: "Need help? Click below to create a support ticket."
     button: "Request support"
