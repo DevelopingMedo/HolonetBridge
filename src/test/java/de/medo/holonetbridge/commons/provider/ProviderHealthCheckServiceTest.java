@@ -12,6 +12,7 @@ import de.medo.holonetbridge.commons.provider.ProviderHealthCheckException.Reaso
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -38,6 +39,39 @@ class ProviderHealthCheckServiceTest {
     @ValueSource(strings = {"https://gitea.example.invalid:8443/gitea", "http://gitea.example.invalid:3000",
             "https://gitea.example.invalid", "http://gitea.example.invalid"})
     void preservesThePortSpecifiedInTheUrlAndAllowsSchemeDefaults(String url) {
+        service.check(TicketProvider.GITEA, url, "test-token");
+
+        verify(gitea).check(URI.create(url), "test-token");
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "gitea.example.invalid, https://gitea.example.invalid",
+            "gitea.example.invalid:80, http://gitea.example.invalid:80",
+            "gitea.example.invalid:443, https://gitea.example.invalid:443",
+            "gitea.example.invalid:30034, https://gitea.example.invalid:30034",
+            "gitea.example.invalid/gitea, https://gitea.example.invalid/gitea",
+            "gitea.example.invalid:80/gitea, http://gitea.example.invalid:80/gitea",
+            "gitea.example.invalid:443/gitea, https://gitea.example.invalid:443/gitea",
+            "gitea.example.invalid:30034/gitea, https://gitea.example.invalid:30034/gitea",
+            "gitea.example.invalid/gitea:80, https://gitea.example.invalid/gitea:80",
+            "localhost:80, http://localhost:80",
+            "127.0.0.1:443, https://127.0.0.1:443",
+            "[2001:db8::1]:80, http://[2001:db8::1]:80",
+            "[2001:db8::1]:443, https://[2001:db8::1]:443",
+            "[2001:db8::1], https://[2001:db8::1]",
+            "'  gitea.example.invalid:80  ', http://gitea.example.invalid:80"
+    })
+    void infersTheSchemeFromThePortOnlyWhenTheSchemeIsMissing(String input, String expectedUrl) {
+        service.check(TicketProvider.GITEA, input, "test-token");
+
+        verify(gitea).check(URI.create(expectedUrl), "test-token");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"http://gitea.example.invalid:443", "https://gitea.example.invalid:80",
+            "HTTP://gitea.example.invalid:30034", "HTTPS://gitea.example.invalid:80"})
+    void neverOverridesAnExplicitSchemeBasedOnThePort(String url) {
         service.check(TicketProvider.GITEA, url, "test-token");
 
         verify(gitea).check(URI.create(url), "test-token");
@@ -71,10 +105,14 @@ class ProviderHealthCheckServiceTest {
 
     @ParameterizedTest
     @NullAndEmptySource
-    @ValueSource(strings = {"gitea.example.invalid", "/gitea", "ftp://gitea.example.invalid",
+    @ValueSource(strings = {"/gitea", "ftp://gitea.example.invalid",
             "https://user:password@gitea.example.invalid", "https://gitea.example.invalid?token=test-token",
             "https://gitea.example.invalid#fragment", "https://gitea.example.invalid:0",
-            "https://gitea.example.invalid:65536", "https://", "not a url"})
+            "https://gitea.example.invalid:65536", "https://", "not a url", "https:/gitea.example.invalid",
+            "http:/gitea.example.invalid", "file:/etc", "gitea.example.invalid:", "gitea.example.invalid:0",
+            "gitea.example.invalid:65536", "gitea.example.invalid:not-a-port", "//gitea.example.invalid",
+            "user:password@gitea.example.invalid", "gitea.example.invalid?token=test-token",
+            "gitea.example.invalid#fragment"})
     void rejectsInvalidBaseUrlsBeforeCallingAProvider(String url) {
         assertThatThrownBy(() -> service.check(TicketProvider.GITEA, url, "test-token"))
                 .isInstanceOfSatisfying(ProviderHealthCheckException.class,

@@ -36,9 +36,18 @@ public class ProviderHealthCheckService {
 
     private static URI parseBaseUrl(String baseUrl) {
         try {
-            URI uri = URI.create(baseUrl);
+            String url = baseUrl.trim();
+            URI uri;
+            if (url.contains("://")) {
+                uri = URI.create(url);
+            } else {
+                URI httpsUrl = URI.create("https://" + url);
+                // Only an explicit port 80 opts into plaintext HTTP; all other omitted schemes use HTTPS.
+                uri = httpsUrl.getPort() == 80 ? URI.create("http://" + url) : httpsUrl;
+            }
             if (!("https".equalsIgnoreCase(uri.getScheme()) || "http".equalsIgnoreCase(uri.getScheme()))
                     || uri.getHost() == null
+                    || uri.getRawAuthority().endsWith(":")
                     || uri.getRawUserInfo() != null
                     || uri.getRawQuery() != null
                     || uri.getRawFragment() != null
