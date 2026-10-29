@@ -11,6 +11,9 @@ setup:
     invalid-response: "Die Basis-URL liefert keine gültige Provider-Antwort. Bitte die URL prüfen und /setup erneut ausführen."
     rejected: "Der Provider hat den Verbindungstest abgelehnt. Bitte URL und Token prüfen und /setup erneut ausführen."
     failed: "Der Verbindungstest ist fehlgeschlagen. Bitte /setup erneut ausführen."
+  panel:
+    channel-unavailable: "Der ausgewählte Support-Kanal ist nicht mehr verfügbar."
+    post-failed: "Die Verbindung wurde geprüft, aber die Support-Nachricht konnte nicht gepostet werden. Prüfe, ob ich den ausgewählten Kanal sehen und Nachrichten senden darf."
   modal:
     title: "Ticket-Verbindung einrichten"
     provider: "Ticket-Provider"
@@ -25,6 +28,8 @@ setup:
     token-keep: "Leer lassen, um das vorhandene Token zu behalten"
 support:
   guild-only: "Support-Kanäle können nur innerhalb eines Servers erstellt werden."
+  panel-message: "Du brauchst Unterstützung? Klicke unten, um eine Support-Anfrage zu erstellen."
+  open-button: "Support anfragen"
   choose-kind: "Hast du einen Bug gefunden oder hast du eine neue Idee?"
   bug: "Bug"
   feature: "Idee"

@@ -18,6 +18,7 @@ import de.medo.holonetbridge.commons.provider.ProviderHealthCheckException.Reaso
 import de.medo.holonetbridge.commons.provider.ProviderHealthCheckService;
 import de.medo.holonetbridge.commons.service.HolonetBotInteractionSessionService;
 import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.interactions.InteractionHook;
@@ -36,6 +37,7 @@ class HolonetSetupConnectionHealthCheckTest {
     private final HolonetBotInteractionSessionService sessions = mock(HolonetBotInteractionSessionService.class);
     private final EncryptionService encryption = mock(EncryptionService.class);
     private final ProviderHealthCheckService healthChecks = mock(ProviderHealthCheckService.class);
+    private final TextChannel supportChannel = mock(TextChannel.class, RETURNS_DEEP_STUBS);
     private final HolonetSetupFormData formData = new HolonetSetupFormData();
     private final MessageSource messages = new MessageSourceConfiguration().messageSource(new I18nProperties(null));
     private final HolonetSetupConnectionSubmitModalAction action =
@@ -45,6 +47,8 @@ class HolonetSetupConnectionHealthCheckTest {
     void setUp() {
         when(event.getUserLocale()).thenReturn(DiscordLocale.GERMAN);
         when(event.getGuild().getIdLong()).thenReturn(1L);
+        when(event.getGuild().getLocale()).thenReturn(DiscordLocale.GERMAN);
+        when(event.getGuild().getTextChannelById(4L)).thenReturn(supportChannel);
         when(event.getMember().getIdLong()).thenReturn(2L);
         when(event.getChannel().getIdLong()).thenReturn(3L);
         when(event.getMember().hasPermission(Permission.MANAGE_SERVER)).thenReturn(true);
@@ -77,6 +81,8 @@ class HolonetSetupConnectionHealthCheckTest {
         action.handle(event);
 
         verify(hook, timeout(3000)).editOriginal("Basis-URL und Token für Gitea wurden erfolgreich geprüft.");
+        verify(supportChannel, timeout(3000))
+                .sendMessage("Du brauchst Unterstützung? Klicke unten, um eine Support-Anfrage zu erstellen.");
         verify(healthChecks).check(TicketProvider.GITEA, "https://gitea.example.invalid", "test-token");
         verify(sessions).saveSetupFormDataSession(formData);
         assertThat(formData.getToken()).isEqualTo("encrypted-test-token");
@@ -92,6 +98,7 @@ class HolonetSetupConnectionHealthCheckTest {
         ArgumentCaptor<String> reply = ArgumentCaptor.forClass(String.class);
         verify(hook, timeout(3000)).editOriginal(reply.capture());
         assertThat(reply.getValue()).contains("/setup").doesNotContain("test-token", "erfolgreich");
+        verify(supportChannel, never()).sendMessage(anyString());
     }
 
     @Test
@@ -101,6 +108,7 @@ class HolonetSetupConnectionHealthCheckTest {
         action.handle(event);
 
         verify(hook, timeout(3000)).editOriginal("Der Verbindungstest ist fehlgeschlagen. Bitte /setup erneut ausführen.");
+        verify(supportChannel, never()).sendMessage(anyString());
     }
 
     @ParameterizedTest
@@ -113,5 +121,9 @@ class HolonetSetupConnectionHealthCheckTest {
         }
         assertThat(messages.getMessage("setup.healthcheck.success", new Object[] {"Gitea"},
                 DiscordLocale.from(language).toLocale())).contains("Gitea");
+        assertThat(messages.getMessage("support.panel-message", null, DiscordLocale.from(language).toLocale()))
+                .isNotBlank();
+        assertThat(messages.getMessage("support.open-button", null, DiscordLocale.from(language).toLocale()))
+                .isNotBlank();
     }
 }

@@ -11,6 +11,9 @@ setup:
     invalid-response: "The base URL did not return a valid provider response. Check the URL and run /setup again."
     rejected: "The provider rejected the connection test. Check the URL and token and run /setup again."
     failed: "The connection test failed. Please run /setup again."
+  panel:
+    channel-unavailable: "The selected support channel is no longer available."
+    post-failed: "The connection was checked, but I could not post the support panel. Check that I can view and send messages in the selected channel."
   modal:
     title: "Configure ticket connection"
     provider: "Ticket provider"
@@ -25,6 +28,8 @@ setup:
     token-keep: "Leave blank to keep the existing token"
 support:
   guild-only: "Support channels can only be created in a server."
+  panel-message: "Need support? Click below to open a support request."
+  open-button: "Request support"
   choose-kind: "Did you find a bug or do you have a new idea?"
   bug: "Bug"
   feature: "Idea"

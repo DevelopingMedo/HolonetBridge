@@ -11,6 +11,9 @@ setup:
     invalid-response: "Osnovna adresa nije vratila valjan odgovor pružatelja. Provjeri adresu i ponovno pokreni /setup."
     rejected: "Pružatelj je odbio provjeru veze. Provjeri adresu i token i ponovno pokreni /setup."
     failed: "Provjera veze nije uspjela. Ponovno pokreni /setup."
+  panel:
+    channel-unavailable: "Odabrani kanal podrške više nije dostupan."
+    post-failed: "Veza je provjerena, ali poruku podrške nije bilo moguće objaviti. Provjeri mogu li vidjeti odabrani kanal i slati poruke u njemu."
   modal:
     title: "Postavi vezu za prijave"
     provider: "Pružatelj prijava"
@@ -25,6 +28,8 @@ setup:
     token-keep: "Ostavi prazno za zadržavanje postojećeg tokena"
 support:
   guild-only: "Kanali za podršku mogu se otvoriti samo na poslužitelju."
+  panel-message: "Trebaš podršku? Klikni ispod za otvaranje zahtjeva za podršku."
+  open-button: "Zatraži podršku"
   choose-kind: "Jesi li pronašao grešku ili imaš novu ideju?"
   bug: "Greška"
   feature: "Ideja"

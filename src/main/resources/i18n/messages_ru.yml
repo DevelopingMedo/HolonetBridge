@@ -12,6 +12,9 @@ setup:
     invalid-response: "Bazovyy URL ne vernul korrektnyy otvet provaydera. Prover URL i zapusti /setup eshche raz."
     rejected: "Provayder otklonil proverku podklyucheniya. Prover URL i token i zapusti /setup eshche raz."
     failed: "Proverka podklyucheniya ne udalas. Zapusti /setup eshche raz."
+  panel:
+    channel-unavailable: "Vybrannyy kanal podderzhki bolshe nedostupen."
+    post-failed: "Podklyuchenie provereno, no panel podderzhki ne udalos opublikovat. Prover, chto ya mogu videt vybrannyy kanal i otpravlyat v nem soobshcheniya."
   modal:
     title: "Nastroit ticket-podklyuchenie"
     provider: "Ticket-provayder"
@@ -26,6 +29,8 @@ setup:
     token-keep: "Ostav pustym, chtoby sokhranit tekushchiy token"
 support:
   guild-only: "Kanaly podderzhki mozhno sozdavat tolko na servere."
+  panel-message: "Nuzhna podderzhka? Nazhmi knopku nizhe, chtoby otkryt obrashchenie."
+  open-button: "Zaprosit podderzhku"
   choose-kind: "Nashli oshibku ili est novaya ideya?"
   bug: "Oshibka"
   feature: "Ideya"
