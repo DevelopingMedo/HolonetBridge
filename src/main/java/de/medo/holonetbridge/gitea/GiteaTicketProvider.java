@@ -2,9 +2,14 @@ package de.medo.holonetbridge.gitea;
 
 import java.net.URI;
 import java.util.Optional;
+import java.util.Locale;
 
+import de.medo.holonetbridge.commons.domain.HolonetReportFormData;
+import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import de.medo.holonetbridge.commons.extapi.TicketDto;
 import de.medo.holonetbridge.commons.extapi.TicketProvider;
+import de.medo.holonetbridge.commons.markdown.MarkdownBuilder;
+import org.springframework.context.MessageSource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
@@ -13,7 +18,7 @@ import org.springframework.web.client.RestClient;
  * {@link TicketProvider} adapter backed by a Gitea instance's issue API, built per provider-connection by
  * {@link GiteaProviderFactory} (never as a single global/singleton instance - see that class's Javadoc).
  *
- * <p>Only {@link #create(String, String)} is implemented so far; {@link #read(String)}, {@link
+ * <p>Only ticket creation is implemented so far; {@link #read(String)}, {@link
  * #edit(String, String, String)}, and {@link #comment(String, String)} throw {@link
  * UnsupportedOperationException}.
  */
@@ -22,15 +27,46 @@ public class GiteaTicketProvider implements TicketProvider {
     private final RestClient restClient;
     private final String owner;
     private final String repository;
+    private final MessageSource messageSource;
 
     public GiteaTicketProvider(
-            RestClient.Builder restClientBuilder, URI baseUrl, String token, String owner, String repository) {
+            RestClient.Builder restClientBuilder, URI baseUrl, String token, String owner, String repository,
+            MessageSource messageSource) {
         this.restClient = restClientBuilder
                 .baseUrl(baseUrl.toString())
                 .defaultHeader(HttpHeaders.AUTHORIZATION, "token " + token)
                 .build();
         this.owner = owner;
         this.repository = repository;
+        this.messageSource = messageSource;
+    }
+
+    @Override
+    public TicketDto create(HolonetReportFormData data) {
+        Locale locale = data.getSession().getLocale();
+        MarkdownBuilder body = MarkdownBuilder.builder();
+        if (data.getDescription() != null && !data.getDescription().isBlank()) {
+            body.text(data.getDescription());
+        }
+        if (data.getKind() == HolonetTicketKind.BUG) {
+            String recurrence = switch (data.getRecurrence()) {
+                case "always", "sometimes", "once", "not-retried" -> messageSource.getMessage(
+                        "bug.recurrence-" + data.getRecurrence(), null, locale);
+                default -> data.getRecurrence();
+            };
+            body.heading2(messageSource.getMessage("bug.steps", null, locale)).text(data.getSteps())
+                    .heading2(messageSource.getMessage("bug.expected", null, locale)).text(data.getExpected())
+                    .heading2(messageSource.getMessage("bug.actual", null, locale)).text(data.getActual())
+                    .heading2(messageSource.getMessage("bug.recurrence", null, locale)).text(recurrence);
+        }
+        body.heading2("Discord")
+                .text("Server: " + data.getGuildName() + " (ID: " + data.getSession().getGuildId() + ")")
+                .text("User: " + data.getUsername() + " (ID: " + data.getSession().getMemberId() + ")");
+        String prefix = switch (data.getKind()) {
+            case BUG -> "[Bug] ";
+            case FEATURE -> "[Feature] ";
+        };
+        return create(prefix + data.getTitle(), body.build());
     }
 
     @Override

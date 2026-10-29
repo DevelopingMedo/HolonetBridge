@@ -3,6 +3,7 @@ package de.medo.holonetbridge.commons.discord.modal;
 import java.util.Locale;
 
 import de.medo.holonetbridge.commons.crypto.EncryptionService;
+import de.medo.holonetbridge.commons.domain.HolonetReportFormData;
 import de.medo.holonetbridge.commons.domain.HolonetSetupFormData;
 import de.medo.holonetbridge.commons.domain.TicketProvider;
 import net.dv8tion.jda.api.components.label.Label;
@@ -18,8 +19,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class HolonetModalFactory {
 
-    public static final String MODAL_ID_BUG_REPORT = "FKK";
-    public static final String MODAL_ID_FEATURE_REPORT = "AYYY";
     public static final String MODAL_ID_SETUP_HOLONET = "setup:modal:holonetSetup";
     public static final String ENTITYSELECTMENU_ID_CHANNEL = "channel";
     public static final String STRINGSELECTMENU_ID_PROVIDER = "ticket_provider";

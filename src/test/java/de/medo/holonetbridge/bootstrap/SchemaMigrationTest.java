@@ -7,9 +7,12 @@ import java.util.Locale;
 
 import de.medo.holonetbridge.commons.domain.HolonetBotInteractionSession;
 import de.medo.holonetbridge.commons.domain.HolonetSetupFormData;
+import de.medo.holonetbridge.commons.domain.HolonetReportFormData;
+import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import de.medo.holonetbridge.commons.domain.TicketProvider;
 import de.medo.holonetbridge.commons.repository.HolonetBotInteractionSessionRepository;
 import de.medo.holonetbridge.commons.repository.HolonetSetupFormDataRepository;
+import de.medo.holonetbridge.commons.repository.HolonetReportFormDataRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.WebApplicationType;
@@ -29,6 +32,7 @@ class SchemaMigrationTest {
     @Test
     void baselineCreatesOnlyCurrentTablesAndSurvivesRestart() {
         Long formId;
+        Long reportId;
         try (var context = start()) {
             var jdbc = context.getBean(JdbcTemplate.class);
             assertThat(jdbc.queryForList(
@@ -40,7 +44,8 @@ class SchemaMigrationTest {
                             "HOLONET_SUPPORT_CHANNEL",
                             "HOLONET_GUILD_SEQUENCE",
                             "HOLONET_BOT_INTERACTION_SESSION",
-                            "HOLONET_SETUP_FORM_DATA");
+                            "HOLONET_SETUP_FORM_DATA",
+                            "HOLONET_REPORT_FORM_DATA");
             assertThat(jdbc.queryForList(
                             "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
                                     + "WHERE TABLE_NAME = 'HOLONET_SETUP_FORM_DATA'",
@@ -59,16 +64,27 @@ class SchemaMigrationTest {
             form.setTicketProvider(TicketProvider.GITEA);
             form.setTarget("acme/support");
             formId = context.getBean(HolonetSetupFormDataRepository.class).saveAndFlush(form).getId();
+            var report = new HolonetReportFormData();
+            report.setSession(session);
+            report.setKind(HolonetTicketKind.FEATURE);
+            report.setTitle("Saved idea");
+            report.setDescription("d".repeat(4000));
+            reportId = context.getBean(HolonetReportFormDataRepository.class).saveAndFlush(report).getId();
         }
 
         try (var context = start()) {
             var jdbc = context.getBean(JdbcTemplate.class);
             assertThat(jdbc.queryForList("SELECT ID FROM DATABASECHANGELOG", String.class))
-                    .containsExactly("1-current-schema");
+                    .containsExactlyInAnyOrder("1-current-schema", "2-report-drafts");
             var form = context.getBean(HolonetSetupFormDataRepository.class).findById(formId).orElseThrow();
             assertThat(form.getTicketProvider()).isEqualTo(TicketProvider.GITEA);
             assertThat(form.getTarget()).isEqualTo("acme/support");
             assertThat(form.getSession().getLocale()).isEqualTo(Locale.GERMAN);
+            var report = context.getBean(HolonetReportFormDataRepository.class).findById(reportId).orElseThrow();
+            assertThat(report.getTitle()).isEqualTo("Saved idea");
+            assertThat(report.getDescription()).isEqualTo("d".repeat(4000));
+            assertThat(report.getKind()).isEqualTo(HolonetTicketKind.FEATURE);
+            assertThat(report.getSession().getId()).isEqualTo(form.getSession().getId());
         }
     }
 

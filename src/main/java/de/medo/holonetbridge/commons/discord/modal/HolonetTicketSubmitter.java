@@ -1,89 +1,92 @@
 package de.medo.holonetbridge.commons.discord.modal;
 
-import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannel;
-import de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannelRepository;
-import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
-import de.medo.holonetbridge.commons.domain.ticket.HolonetTicket;
-import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
-import lombok.extern.slf4j.Slf4j;
+import java.net.URI;
+import java.util.Objects;
+
+import static org.springframework.util.StringUtils.hasText;
+
+import de.medo.holonetbridge.commons.crypto.EncryptionService;
+import de.medo.holonetbridge.commons.domain.HolonetReportFormData;
+import de.medo.holonetbridge.commons.domain.HolonetSetupFormData;
+import de.medo.holonetbridge.commons.domain.TicketProvider;
+import de.medo.holonetbridge.commons.extapi.TicketDto;
+import de.medo.holonetbridge.commons.repository.HolonetSetupFormDataRepository;
+import de.medo.holonetbridge.gitea.GiteaProviderFactory;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
-import net.dv8tion.jda.api.interactions.InteractionHook;
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
 
-import java.util.Optional;
-
-@Slf4j
 @Component
 public class HolonetTicketSubmitter {
 
+    private final HolonetSetupFormDataRepository setupRepository;
+    private final GiteaProviderFactory giteaProviderFactory;
+    private final EncryptionService encryptionService;
     private final MessageSource messageSource;
 
-    private final HolonetTicketCreationSessionStore sessionStore;
-    private final HolonetSupportChannelRepository supportChannelRepository;
-
-    public HolonetTicketSubmitter(
-            MessageSource messageSource,
-            HolonetTicketCreationSessionStore sessionStore,
-            HolonetSupportChannelRepository supportChannelRepository) {
+    public HolonetTicketSubmitter(HolonetSetupFormDataRepository setupRepository,
+            GiteaProviderFactory giteaProviderFactory, EncryptionService encryptionService,
+            MessageSource messageSource) {
+        this.setupRepository = setupRepository;
+        this.giteaProviderFactory = giteaProviderFactory;
+        this.encryptionService = encryptionService;
         this.messageSource = messageSource;
-        this.sessionStore = sessionStore;
-        this.supportChannelRepository = supportChannelRepository;
     }
 
-    public void submit(ModalInteractionEvent event, long userId, HolonetTicketKind kind, HolonetTicket ticket) {
-        long channelId = event.getChannel().getIdLong();
-        Optional<HolonetSupportChannel> channel = supportChannelRepository.findById(channelId);
-//        if (channel.isEmpty()) {
-//            replyNotATrackedSupportChannel(event);
-//            return;
-//        }
-//        if (channel.get().ticketId() != null) {
-//            replyTicketAlreadyExists(event);
-//            return;
-//        }
-//        createTicket(
-//                event, userId, titleWithKindPrefix(kind, ticket.getTitle()),
-//                ticket.getDescription());
+    public TicketDto submit(TicketProvider provider, HolonetReportFormData data) {
+        Objects.requireNonNull(provider, "Ticket provider is required");
+        validateContext(data);
+        return switch (provider) {
+            case GITEA -> {
+                HolonetSetupFormData setup = configurationFor(data);
+                if (setup.getTicketProvider() != provider) {
+                    throw new IllegalStateException("Requested provider does not match the server configuration");
+                }
+                String[] target = setup.getTarget() == null ? new String[0] : setup.getTarget().split("/", -1);
+                if (target.length != 2 || target[0].isBlank() || target[1].isBlank()) {
+                    throw new IllegalStateException("Gitea target must be owner/repository");
+                }
+                yield giteaProviderFactory.create(URI.create(setup.getBaseUrl()),
+                                encryptionService.decrypt(setup.getToken()), target[0], target[1])
+                        .create(data);
+            }
+            case JIRA, GITHUB, TRELLO -> throw new UnsupportedOperationException(
+                    "Ticket submission is not implemented for " + provider.getDisplayName());
+        };
     }
 
-    /**
-     * Acknowledges the interaction first, then runs the provider call off the acknowledging thread so a slow
-     * provider never delays the "thinking..." confirmation nor blocks other interactions. Every path below -
-     * success, a failed future, or an exception thrown while finishing up - must end by completing {@code hook},
-     * since an interaction left without a follow-up shows as permanently stuck to the user.
-     */
-    private void createTicket(ModalInteractionEvent event, long userId, String title, String description) {
-        event.deferReply(true).queue(hook -> createTicketAfterDefer(event, hook, userId, title, description));
+    public void handle(ModalInteractionEvent event, HolonetReportFormData data) {
+        // External submission remains explicit until the provider design is approved.
+        event.reply(messageSource.getMessage("ticket.draft-saved", null, event.getUserLocale().toLocale()))
+                .setEphemeral(true).queue();
     }
 
-    private void createTicketAfterDefer(
-            ModalInteractionEvent event, InteractionHook hook, long userId, String title, String description) {
-        long channelId = event.getChannel().getIdLong();
-        long guildId = event.getGuild().getIdLong();
-//        Optional<ResolvedProvider> resolved = connectionResolver.forGuild(guildId);
-//        if (resolved.isEmpty()) {
-//            markBroken(channelId);
-//            hook.sendMessage(messageSource.getMessage("ticket.no-provider", null, event.getUserLocale().toLocale()))
-//                    .queue(success -> {}, hookFailure -> log.warn(
-//                            "Hinweis auf fehlenden Ticket-Provider konnte nicht an Discord zugestellt werden.",
-//                            hookFailure));
-//            return;
-//        }
-//        ResolvedProvider provider = resolved.get();
-//        CompletableFuture.supplyAsync(() -> provider.ticketProvider().create(title, description))
-//                .whenComplete((ticket, failure) -> {
-//                    if (failure != null) {
-//                        reportCreationFailure(hook, failure);
-//                        return;
-//                    }
-//                    try {
-//                        finalizeTicket(event, hook, channelId, userId, provider.connection(), ticket);
-//                    } catch (RuntimeException exception) {
-//                        reportCreationFailure(hook, exception);
-//                    }
-//                });
+    private HolonetSetupFormData configurationFor(HolonetReportFormData data) {
+        // Setup currently has no active-connection model. Never guess between multiple destinations.
+        var configurations = setupRepository.findBySessionGuildId(data.getSession().getGuildId()).stream()
+                .filter(this::isConfigured)
+                .toList();
+        if (configurations.size() != 1) {
+            throw new IllegalStateException("Exactly one complete provider configuration is required for this server");
+        }
+        return configurations.getFirst();
     }
 
+    private boolean isConfigured(HolonetSetupFormData setup) {
+        return setup.getTicketProvider() != null
+                && hasText(setup.getBaseUrl())
+                && hasText(setup.getTarget())
+                && hasText(setup.getToken())
+                && setup.getSupportChannelId() != null;
+    }
 
+    private void validateContext(HolonetReportFormData data) {
+        Objects.requireNonNull(data, "Report form data is required");
+        if (data.getSession() == null || data.getSession().getGuildId() == null
+                || data.getSession().getMemberId() == null
+                || data.getGuildName() == null || data.getGuildName().isBlank()
+                || data.getUsername() == null || data.getUsername().isBlank()) {
+            throw new IllegalArgumentException("Discord server name, username and IDs are required");
+        }
+    }
 }

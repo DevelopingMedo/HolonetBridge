@@ -64,6 +64,9 @@ feature:
   title-hint: "Opishi ideyu odnim korotkim predlozheniem."
   description-hint: "Chto dolzhno stat vozmozhnym? Opishi kak mozhno tochnee."
 ticket:
+  draft-saved: "Forma sokhranena. Snova otkroy Oshibku ili Ideyu v etom kanale, chtoby prodolzhit. Vneshnyaya zayavka eshche ne sozdana."
+  draft-load-failed: "Ne udalos zagruzit sokhranennuyu formu. Poprobuy pozhe."
+  draft-save-failed: "Ne udalos sokhranit formu. Sokhrani kopiyu teksta i poprobuy pozhe."
   title: "Zagolovok"
   description: "Opisanie"
 commands:

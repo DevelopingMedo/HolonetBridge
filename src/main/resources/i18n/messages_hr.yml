@@ -63,6 +63,9 @@ feature:
   title-hint: "Opiši ideju jednom kratkom rečenicom."
   description-hint: "Što bi trebalo biti moguće? Opiši što preciznije."
 ticket:
+  draft-saved: "Obrazac je spremljen. Ponovno otvori Grešku ili Ideju u ovom kanalu za nastavak. Vanjska prijava još nije stvorena."
+  draft-load-failed: "Spremljeni obrazac nije moguće učitati. Pokušaj ponovno kasnije."
+  draft-save-failed: "Obrazac nije moguće spremiti. Sačuvaj kopiju teksta i pokušaj ponovno kasnije."
   title: "Naslov"
   description: "Opis"
 commands:

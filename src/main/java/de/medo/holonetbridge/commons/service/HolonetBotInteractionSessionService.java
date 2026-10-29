@@ -1,8 +1,11 @@
 package de.medo.holonetbridge.commons.service;
 
 import de.medo.holonetbridge.commons.domain.HolonetBotInteractionSession;
+import de.medo.holonetbridge.commons.domain.HolonetReportFormData;
 import de.medo.holonetbridge.commons.domain.HolonetSetupFormData;
+import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import de.medo.holonetbridge.commons.repository.HolonetBotInteractionSessionRepository;
+import de.medo.holonetbridge.commons.repository.HolonetReportFormDataRepository;
 import de.medo.holonetbridge.commons.repository.HolonetSetupFormDataRepository;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import org.jspecify.annotations.NonNull;
@@ -16,12 +19,16 @@ public class HolonetBotInteractionSessionService {
 
     private final HolonetBotInteractionSessionRepository sessionRepository;
     private final HolonetSetupFormDataRepository formDataRepository;
+    private final HolonetReportFormDataRepository reportFormDataRepository;
+
 
     public HolonetBotInteractionSessionService(
             HolonetBotInteractionSessionRepository sessionRepository,
-            HolonetSetupFormDataRepository formDataRepository) {
+            HolonetSetupFormDataRepository formDataRepository,
+        HolonetReportFormDataRepository reportFormDataRepository) {
         this.sessionRepository = sessionRepository;
         this.formDataRepository = formDataRepository;
+        this.reportFormDataRepository = reportFormDataRepository;
     }
 
     @Transactional
@@ -63,5 +70,23 @@ public class HolonetBotInteractionSessionService {
     public void saveSetupFormDataSession(HolonetSetupFormData setupFormData) {
         formDataRepository.save(setupFormData);
         sessionRepository.save(setupFormData.getSession());
+    }
+
+
+    @Transactional
+    public HolonetReportFormData getOrCreate(long guildId, long memberId, long channelId,
+                                             Locale locale, HolonetTicketKind kind) {
+        var session = getOrCreateBotInteractionSession(guildId, memberId, channelId, locale);
+        return reportFormDataRepository.findBySessionIdAndKind(session.getId(), kind).orElseGet(() -> {
+            var data = new HolonetReportFormData();
+            data.setSession(session);
+            data.setKind(kind);
+            return data;
+        });
+    }
+
+    @Transactional
+    public void save(HolonetReportFormData data) {
+        reportFormDataRepository.saveAndFlush(data);
     }
 }

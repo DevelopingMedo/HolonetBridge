@@ -63,6 +63,9 @@ feature:
   title-hint: "Beschreibe deine Idee in einem kurzen Satz."
   description-hint: "Was soll am Ende möglich sein? Bitte so konkret wie möglich beschreiben."
 ticket:
+  draft-saved: "Dein Formular wurde gespeichert. Öffne Bug oder Idee in diesem Kanal erneut, um fortzufahren. Es wurde noch kein externes Ticket erstellt."
+  draft-load-failed: "Das gespeicherte Formular konnte nicht geladen werden. Bitte versuche es später erneut."
+  draft-save-failed: "Dein Formular konnte nicht gespeichert werden. Bitte sichere deinen Text und versuche es später erneut."
   title: "Titel"
   description: "Beschreibung"
 commands:

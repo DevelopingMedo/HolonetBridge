@@ -63,6 +63,9 @@ feature:
   title-hint: "Describe your idea in one short sentence."
   description-hint: "What should be possible? Please be as specific as possible."
 ticket:
+  draft-saved: "Your form was saved. Reopen Bug or Idea in this channel to continue. No external ticket has been created yet."
+  draft-load-failed: "The saved form could not be loaded. Please try again later."
+  draft-save-failed: "Your form could not be saved. Please keep a copy of your text and try again later."
   title: "Title"
   description: "Description"
 commands:

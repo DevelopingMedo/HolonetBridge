@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="2-report-drafts" author="holonet-bridge">
+        <createSequence sequenceName="holonet_report_form_data_seq" startValue="1" incrementBy="1"/>
+        <createTable tableName="holonet_report_form_data">
+            <column name="id" type="BIGINT"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="session_id" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="kind" type="VARCHAR(32)"><constraints nullable="false"/></column>
+            <column name="title" type="VARCHAR(100)"/>
+            <column name="description" type="VARCHAR(4000)"/>
+            <column name="steps" type="VARCHAR(4000)"/>
+            <column name="expected" type="VARCHAR(4000)"/>
+            <column name="actual" type="VARCHAR(4000)"/>
+            <column name="recurrence" type="VARCHAR(100)"/>
+        </createTable>
+        <addUniqueConstraint tableName="holonet_report_form_data" columnNames="session_id,kind"
+                             constraintName="uk_holonet_report_session_kind"/>
+        <addForeignKeyConstraint baseTableName="holonet_report_form_data" baseColumnNames="session_id"
+                                 constraintName="fk_holonet_report_session"
+                                 referencedTableName="holonet_bot_interaction_session" referencedColumnNames="id"/>
+    </changeSet>
+</databaseChangeLog>

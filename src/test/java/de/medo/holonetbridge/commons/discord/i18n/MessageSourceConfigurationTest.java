@@ -1,7 +1,6 @@
 package de.medo.holonetbridge.commons.discord.i18n;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,17 +11,13 @@ import java.util.regex.Pattern;
 
 import de.medo.holonetbridge.commons.crypto.EncryptionProperties;
 import de.medo.holonetbridge.commons.crypto.EncryptionService;
-import de.medo.holonetbridge.commons.discord.button.HolonetBugReportModalButton;
-import de.medo.holonetbridge.commons.discord.button.HolonetFeatureModalButton;
 import de.medo.holonetbridge.commons.discord.modal.HolonetModalFactory;
-import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
+import de.medo.holonetbridge.commons.discord.modal.HolonetTicketReportModalFactory;
 import de.medo.holonetbridge.commons.domain.HolonetBotInteractionSession;
+import de.medo.holonetbridge.commons.domain.HolonetReportFormData;
 import de.medo.holonetbridge.commons.domain.HolonetSetupFormData;
-import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
-import net.dv8tion.jda.api.modals.Modal;
-import net.dv8tion.jda.api.requests.restaction.interactions.ModalCallbackAction;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -114,19 +109,18 @@ class MessageSourceConfigurationTest {
     @ValueSource(strings = {"en-US", "de", "hr", "ru"})
     void allLocalizedModalsCanBeBuiltWithinDiscordLimits(String language) {
         DiscordLocale locale = DiscordLocale.from(language);
-        ButtonInteractionEvent event = mock(ButtonInteractionEvent.class, RETURNS_DEEP_STUBS);
-        when(event.getUserLocale()).thenReturn(locale);
-        when(event.replyModal(any(Modal.class))).thenReturn(mock(ModalCallbackAction.class));
         HolonetBotInteractionSession session = new HolonetBotInteractionSession();
         session.setLocale(locale.toLocale());
         HolonetSetupFormData formData = new HolonetSetupFormData();
         formData.setSession(session);
         assertThat(new HolonetModalFactory(messageSource, new EncryptionService(new EncryptionProperties("WauOKK6kYn/N+mrkpsvPB2pdVBkPRhuDAyWQyLAsZeA="))).createSetupConnectionModal(formData).getId())
                 .isEqualTo(HolonetModalFactory.MODAL_ID_SETUP_HOLONET);
-        HolonetTicketCreationSessionStore sessions = new HolonetTicketCreationSessionStore();
-        new HolonetBugReportModalButton(messageSource, sessions).handle(event);
-        new HolonetFeatureModalButton(messageSource, sessions).handle(event);
-        verify(event, times(2)).replyModal(any(Modal.class));
+        var factory = new HolonetTicketReportModalFactory(messageSource);
+        var report = new HolonetReportFormData();
+        assertThat(factory.createBugReportModal(report, locale.toLocale()).getId())
+                .isEqualTo(HolonetTicketReportModalFactory.MODAL_ID_BUG_REPORT);
+        assertThat(factory.createFeatureModal(report, locale.toLocale()).getId())
+                .isEqualTo(HolonetTicketReportModalFactory.MODAL_ID_FEATURE_REPORT);
     }
 
     private static Properties catalog(String language) {

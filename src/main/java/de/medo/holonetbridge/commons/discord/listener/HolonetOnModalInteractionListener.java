@@ -1,6 +1,7 @@
 package de.medo.holonetbridge.commons.discord.listener;
 
 import de.medo.holonetbridge.commons.discord.modal.HolonetModalFactory;
+import de.medo.holonetbridge.commons.discord.modal.HolonetTicketReportModalFactory;
 import de.medo.holonetbridge.commons.discord.modal.interaction.HolonetBugReportSubmitModalAction;
 import de.medo.holonetbridge.commons.discord.modal.interaction.HolonetFeatureSubmittedModalAction;
 import de.medo.holonetbridge.commons.discord.modal.interaction.HolonetSetupConnectionSubmitModalAction;
@@ -31,8 +32,8 @@ public class HolonetOnModalInteractionListener extends ListenerAdapter {
     @Override
     public void onModalInteraction(ModalInteractionEvent event) {
         switch (event.getModalId()) {
-            case HolonetModalFactory.MODAL_ID_FEATURE_REPORT -> featureSubmitted.handle(event);
-            case HolonetModalFactory.MODAL_ID_BUG_REPORT -> bugReportSubmit.handle(event);
+            case HolonetTicketReportModalFactory.MODAL_ID_FEATURE_REPORT -> featureSubmitted.handle(event);
+            case HolonetTicketReportModalFactory.MODAL_ID_BUG_REPORT -> bugReportSubmit.handle(event);
             case HolonetModalFactory.MODAL_ID_SETUP_HOLONET -> setupConnectionSubmit.handle(event);
             default -> {
                 // Not one of ours; ignore.

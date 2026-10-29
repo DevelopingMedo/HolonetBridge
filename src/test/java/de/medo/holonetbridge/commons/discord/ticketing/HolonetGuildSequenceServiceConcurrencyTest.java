@@ -2,6 +2,7 @@ package de.medo.holonetbridge.commons.discord.ticketing;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -17,6 +18,8 @@ import net.dv8tion.jda.api.JDA;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /**
@@ -25,10 +28,22 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  * service's race-freedom actually relies on, see its Javadoc) requires a real Spring-managed bean graph, not
  * a manually constructed one.
  */
-@SpringBootTest(classes = HolonetBridgeApplication.class, properties = "holonet.discord.token=test-discord-token")
+@SpringBootTest(classes = HolonetBridgeApplication.class, properties = {
+        "holonet.discord.token=test-discord-token",
+        "holonet.ticket-providers.api-paths.GITEA=/api/v1",
+        "holonet.ticket-providers.api-paths.JIRA=/rest/api/3",
+        "holonet.ticket-providers.api-paths.GITHUB=/",
+        "holonet.ticket-providers.api-paths.TRELLO=/1"
+})
 class HolonetGuildSequenceServiceConcurrencyTest {
 
     private static final int CONCURRENT_CALLS = 20;
+
+    @DynamicPropertySource
+    static void cryptoProperties(DynamicPropertyRegistry registry) {
+        // The full application context requires an AES key; no real credentials belong in this test.
+        registry.add("holonet.crypto.master-key", () -> Base64.getEncoder().encodeToString(new byte[32]));
+    }
 
     @MockitoBean
     private JDA jda;
