@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 import de.medo.holonetbridge.commons.crypto.EncryptionService;
@@ -12,6 +14,7 @@ import de.medo.holonetbridge.commons.discord.i18n.I18nProperties;
 import de.medo.holonetbridge.commons.discord.i18n.MessageSourceConfiguration;
 import de.medo.holonetbridge.commons.discord.modal.HolonetModalFactory;
 import de.medo.holonetbridge.commons.domain.HolonetSetupFormData;
+import de.medo.holonetbridge.commons.domain.HolonetBotInteractionSession;
 import de.medo.holonetbridge.commons.domain.TicketProvider;
 import de.medo.holonetbridge.commons.provider.ProviderHealthCheckException;
 import de.medo.holonetbridge.commons.provider.HealthCheckResult;
@@ -24,6 +27,7 @@ import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
+import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -45,8 +49,20 @@ class HolonetSetupConnectionHealthCheckTest {
     private final HolonetSetupConnectionSubmitModalAction action =
             new HolonetSetupConnectionSubmitModalAction(messages, sessions, encryption, healthChecks);
 
+    private final MessageCreateAction panelAction = mock(MessageCreateAction.class, RETURNS_SELF);
+    private final CompletableFuture<net.dv8tion.jda.api.entities.Message> panelPost = new CompletableFuture<>();
+    private static final String COMPLETED = "✅ Setup abgeschlossen. Das Support-Panel wurde in <#4> veröffentlicht.";
+
     @BeforeEach
     void setUp() {
+        var session = new HolonetBotInteractionSession();
+        session.setGuildId(1L);
+        session.setMemberId(2L);
+        session.setLocale(Locale.GERMAN);
+        formData.setSession(session);
+        when(supportChannel.sendMessage(anyString())).thenReturn(panelAction);
+        when(panelAction.submit()).thenReturn(panelPost);
+        when(supportChannel.getAsMention()).thenReturn("<#4>");
         when(event.getUserLocale()).thenReturn(DiscordLocale.GERMAN);
         when(event.getGuild().getIdLong()).thenReturn(1L);
         when(event.getGuild().getLocale()).thenReturn(DiscordLocale.GERMAN);
@@ -65,7 +81,7 @@ class HolonetSetupConnectionHealthCheckTest {
         when(encryption.encrypt("test-token")).thenReturn("encrypted-test-token");
         when(sessions.getOrCreateSetupFormDataSession(anyLong(), anyLong(), any()))
                 .thenReturn(formData);
-        ReplyCallbackAction reply = event.reply("Teste Verbindungsdaten …").setEphemeral(true);
+        ReplyCallbackAction reply = event.reply(anyString()).setEphemeral(true);
         doAnswer(invocation -> {
             Consumer<InteractionHook> callback = invocation.getArgument(0);
             callback.accept(hook);
@@ -76,19 +92,23 @@ class HolonetSetupConnectionHealthCheckTest {
     @Test
     void acknowledgesPrivatelyBeforeCheckingAndRepliesWithSuccess() {
         doAnswer(invocation -> {
-            verify(event.reply("Teste Verbindungsdaten …").setEphemeral(true)).queue(any());
+            verify(event.reply("Verbindungsdaten gespeichert.\nTeste Verbindungsdaten …").setEphemeral(true)).queue(any());
             return null;
         }).when(healthChecks).check(TicketProvider.GITEA, "https://gitea.example.invalid", "test-token");
 
         action.handle(event);
 
-        verify(hook, timeout(3000)).editOriginal("Basis-URL und Token für Gitea wurden erfolgreich geprüft.");
+        verify(panelAction, timeout(3000)).submit();
+        panelPost.complete(mock(net.dv8tion.jda.api.entities.Message.class));
+        verify(hook, timeout(3000)).editOriginal(COMPLETED);
         verify(supportChannel, timeout(3000))
                 .sendMessage("Du brauchst Unterstützung? Klicke unten, um eine Support-Anfrage zu erstellen.");
         verify(healthChecks).check(TicketProvider.GITEA, "https://gitea.example.invalid", "test-token");
-        verify(sessions).saveSetupFormDataSession(formData);
-        verify(sessions, timeout(3000)).completeSetup(eq(formData), argThat(HealthCheckResult::successful));
-        assertThat(formData.getToken()).isEqualTo("encrypted-test-token");
+        ArgumentCaptor<HolonetSetupFormData> saved = ArgumentCaptor.forClass(HolonetSetupFormData.class);
+        verify(sessions).saveSetupFormDataSession(saved.capture());
+        verify(sessions, timeout(3000)).completeSetup(eq(saved.getValue()), argThat(HealthCheckResult::successful));
+        assertThat(saved.getValue().getToken()).isEqualTo("encrypted-test-token");
+        assertThat(formData.getToken()).isNull();
     }
 
     @ParameterizedTest
@@ -102,18 +122,7 @@ class HolonetSetupConnectionHealthCheckTest {
         verify(hook, timeout(3000)).editOriginal(reply.capture());
         assertThat(reply.getValue()).contains("/setup").doesNotContain("test-token", "erfolgreich");
         verify(supportChannel, never()).sendMessage(anyString());
-        verify(sessions, timeout(3000)).completeSetup(eq(formData), argThat(result -> !result.successful()));
-    }
-
-    @Test
-    void returnsAGenericErrorWithoutExposingUnexpectedExceptionDetails() {
-        doThrow(new IllegalStateException("reflected test-token")).when(healthChecks).check(any(), any(), any());
-
-        action.handle(event);
-
-        verify(hook, timeout(3000)).editOriginal("Der Verbindungstest ist fehlgeschlagen. Bitte /setup erneut ausführen.");
-        verify(supportChannel, never()).sendMessage(anyString());
-        verify(sessions, timeout(3000)).completeSetup(eq(formData), argThat(result -> !result.successful()));
+        verify(sessions, never()).completeSetup(any(), any());
     }
 
     @Test
@@ -127,7 +136,9 @@ class HolonetSetupConnectionHealthCheckTest {
 
         action.handle(event);
 
-        verify(hook, timeout(3000)).editOriginal("Basis-URL und Token für Gitea wurden erfolgreich geprüft.");
+        verify(panelAction, timeout(3000)).submit();
+        panelPost.complete(mock(net.dv8tion.jda.api.entities.Message.class));
+        verify(hook, timeout(3000)).editOriginal(COMPLETED);
         verify(encryption, never()).encrypt(anyString());
         verify(sessions, never()).saveSetupFormDataSession(any());
         verify(sessions).completeSetup(eq(formData), argThat(HealthCheckResult::successful));
@@ -144,18 +155,58 @@ class HolonetSetupConnectionHealthCheckTest {
         action.handle(event);
 
         verify(healthChecks, timeout(3000)).check(TicketProvider.GITEA, "https://gitea.example.invalid", "");
-        assertThat(formData.getToken()).isEqualTo("encrypted-empty-token");
+        ArgumentCaptor<HolonetSetupFormData> saved = ArgumentCaptor.forClass(HolonetSetupFormData.class);
+        verify(sessions).saveSetupFormDataSession(saved.capture());
+        assertThat(saved.getValue().getToken()).isEqualTo("encrypted-empty-token");
     }
 
     @Test
-    void completionFailureIsCaughtInsideTheAsynchronousCallback() {
-        doThrow(new IllegalStateException("test-token"))
-                .when(sessions).completeSetup(eq(formData), any(HealthCheckResult.class));
+    void waitsForPanelPostBeforeSavingAndConfirmingSetup() {
+        action.handle(event);
+
+        verify(panelAction, timeout(3000)).submit();
+        verify(sessions, never()).completeSetup(any(), any());
+        verify(hook, never()).editOriginal(anyString());
+
+        panelPost.complete(mock(net.dv8tion.jda.api.entities.Message.class));
+
+        verify(hook, timeout(3000)).editOriginal(COMPLETED);
+        verify(sessions).completeSetup(any(), argThat(HealthCheckResult::successful));
+    }
+
+    @Test
+    void failedPanelPostDoesNotCompleteSetup() {
+        action.handle(event);
+        verify(panelAction, timeout(3000)).submit();
+
+        panelPost.completeExceptionally(new IllegalStateException("Discord unavailable"));
+
+        verify(hook, timeout(3000)).editOriginal(messages.getMessage("setup.panel.post-failed", null, Locale.GERMAN));
+        verify(sessions, never()).completeSetup(any(), any());
+    }
+
+    @Test
+    void missingChannelDoesNotCompleteSetup() {
+        when(event.getGuild().getTextChannelById(4L)).thenReturn(null);
 
         action.handle(event);
 
-        verify(hook, timeout(3000)).editOriginal("Der Verbindungstest ist fehlgeschlagen. Bitte /setup erneut ausführen.");
-        verify(supportChannel, never()).sendMessage(anyString());
+        verify(hook, timeout(3000)).editOriginal(messages.getMessage("setup.panel.channel-unavailable", null, Locale.GERMAN));
+        verify(sessions, never()).completeSetup(any(), any());
+        verify(panelAction, never()).submit();
+    }
+
+    @Test
+    void failedPersistenceDoesNotConfirmSetup() {
+        doThrow(new IllegalStateException("Database unavailable"))
+                .when(sessions).completeSetup(any(), any());
+        action.handle(event);
+        verify(panelAction, timeout(3000)).submit();
+
+        panelPost.complete(mock(net.dv8tion.jda.api.entities.Message.class));
+
+        verify(sessions, timeout(3000)).completeSetup(any(), any());
+        verify(hook, never()).editOriginal(anyString());
     }
 
     @ParameterizedTest
@@ -168,6 +219,8 @@ class HolonetSetupConnectionHealthCheckTest {
         }
         assertThat(messages.getMessage("setup.healthcheck.success", new Object[] {"Gitea"},
                 DiscordLocale.from(language).toLocale())).contains("Gitea");
+        assertThat(messages.getMessage("setup.completed", new Object[] {"<#4>"},
+                DiscordLocale.from(language).toLocale())).contains("<#4>");
         assertThat(messages.getMessage("support.panel-message", null, DiscordLocale.from(language).toLocale()))
                 .isNotBlank();
         assertThat(messages.getMessage("support.open-button", null, DiscordLocale.from(language).toLocale()))

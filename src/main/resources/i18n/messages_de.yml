@@ -1,6 +1,9 @@
 setup:
   guild-only: "/setup kann nur innerhalb eines Servers ausgeführt werden."
   manage-server: "Dazu fehlt dir die Berechtigung \"Server verwalten\"."
+  form-saved: "Verbindungsdaten gespeichert."
+  form-unchanged: "Verbindungsdaten unverändert."
+  completed: "✅ Setup abgeschlossen. Das Support-Panel wurde in {0} veröffentlicht."
   healthcheck:
     checking: "Teste Verbindungsdaten …"
     success: "Basis-URL und Token für {0} wurden erfolgreich geprüft."
@@ -13,6 +16,7 @@ setup:
     rejected: "Der Provider hat den Verbindungstest abgelehnt. Bitte URL und Token prüfen und /setup erneut ausführen."
     failed: "Der Verbindungstest ist fehlgeschlagen. Bitte /setup erneut ausführen."
   panel:
+    posted: "Support-Panel in {0} veröffentlicht."
     channel-unavailable: "Der ausgewählte Support-Kanal ist nicht mehr verfügbar."
     post-failed: "Die Verbindung wurde geprüft, aber die Support-Nachricht konnte nicht gepostet werden. Prüfe, ob ich den ausgewählten Kanal sehen und Nachrichten senden darf."
   modal:

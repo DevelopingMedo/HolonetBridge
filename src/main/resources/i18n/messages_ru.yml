@@ -2,6 +2,9 @@
 setup:
   guild-only: "/setup mozhno ispolzovat tolko na servere."
   manage-server: "Nuzhno razreshenie \"Upravlenie serverom\"."
+  form-saved: "Dannye podklyucheniya sokhraneny."
+  form-unchanged: "Dannye podklyucheniya ne izmenilis."
+  completed: "✅ Nastroyka zavershena. Panel podderzhki opublikovana v {0}."
   healthcheck:
     checking: "Proverka dannykh podklyucheniya …"
     success: "Bazovyy URL i token dlya {0} uspeshno provereny."
@@ -14,6 +17,7 @@ setup:
     rejected: "Provayder otklonil proverku podklyucheniya. Prover URL i token i zapusti /setup eshche raz."
     failed: "Proverka podklyucheniya ne udalas. Zapusti /setup eshche raz."
   panel:
+    posted: "Panel podderzhki opublikovana v {0}."
     channel-unavailable: "Vybrannyy kanal podderzhki bolshe nedostupen."
     post-failed: "Podklyuchenie provereno, no panel podderzhki ne udalos opublikovat. Prover, chto ya mogu videt vybrannyy kanal i otpravlyat v nem soobshcheniya."
   modal:
