@@ -4,6 +4,7 @@ setup:
   form-saved: "Connection details saved."
   form-unchanged: "Connection details unchanged."
   completed: "✅ Setup completed. The support panel was published in {0}."
+  failed: "Setup could not be completed. The previous connection is unchanged. Check the connection details and repository target, then run /setup again."
   healthcheck:
     checking: "Testing connection details …"
     success: "Base URL and token for {0} were checked successfully."
@@ -69,6 +70,9 @@ feature:
   title-hint: "Describe your idea in one short sentence."
   description-hint: "What should be possible? Please be as specific as possible."
 ticket:
+  created: "✅ Your ticket was created."
+  create-failed: "Ticket creation could not be confirmed. Your form is saved. Check the provider before trying again to avoid a duplicate."
+  not-configured: "No active ticket connection is available for this server. Your form is saved. Ask an administrator to run /setup."
   draft-saved: "Your form was saved. Reopen Bug or Idea in this channel to continue. No external ticket has been created yet."
   draft-load-failed: "The saved form could not be loaded. Please try again later."
   draft-save-failed: "Your form could not be saved. Please keep a copy of your text and try again later."

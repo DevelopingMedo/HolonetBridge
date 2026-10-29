@@ -1,5 +1,6 @@
 # Russian is intentionally transliterated into Latin script.
 setup:
+  failed: "Ne udalos zavershit nastroyku. Prezhnee podklyuchenie ne izmeneno. Prover dannye podklyucheniya i tselevoy repozitoriy, zatem zapusti /setup eshche raz."
   guild-only: "/setup mozhno ispolzovat tolko na servere."
   manage-server: "Nuzhno razreshenie \"Upravlenie serverom\"."
   form-saved: "Dannye podklyucheniya sokhraneny."
@@ -70,6 +71,9 @@ feature:
   title-hint: "Opishi ideyu odnim korotkim predlozheniem."
   description-hint: "Chto dolzhno stat vozmozhnym? Opishi kak mozhno tochnee."
 ticket:
+  created: "✅ Tvoya zayavka sozdana."
+  create-failed: "Ne udalos podtverdit sozdanie zayavki. Forma sokhranena. Pered povtornoy popytkoy prover provaydera, chtoby izbezhat duplikatov."
+  not-configured: "Dlya etogo servera net aktivnogo ticket-podklyucheniya. Forma sokhranena. Poprosi administratora zapustit /setup."
   draft-saved: "Forma sokhranena. Snova otkroy Oshibku ili Ideyu v etom kanale, chtoby prodolzhit. Vneshnyaya zayavka eshche ne sozdana."
   draft-load-failed: "Ne udalos zagruzit sokhranennuyu formu. Poprobuy pozhe."
   draft-save-failed: "Ne udalos sokhranit formu. Sokhrani kopiyu teksta i poprobuy pozhe."

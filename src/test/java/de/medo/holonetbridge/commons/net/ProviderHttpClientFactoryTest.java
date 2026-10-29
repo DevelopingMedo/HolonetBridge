@@ -36,8 +36,9 @@ class ProviderHttpClientFactoryTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws IOException {
         server.stop(0);
+        factory.close();
     }
 
     @ParameterizedTest
@@ -81,6 +82,76 @@ class ProviderHttpClientFactoryTest {
 
         assertThat(response.getStatusCode().value()).isEqualTo(302);
         assertThat(redirectedRequests.get()).isZero();
+    }
+
+    @Test
+    void doesNotRetryPostAfterTheServerDropsTheConnection() {
+        AtomicInteger requests = new AtomicInteger();
+        server.createContext("/issues", exchange -> {
+            requests.incrementAndGet();
+            exchange.close();
+        });
+        var client = factory.restClientBuilderFor(baseUrl("127.0.0.1", ""), Duration.ofSeconds(2)).build();
+
+        assertThatThrownBy(() -> client.post().uri("/issues").body("issue").retrieve().toBodilessEntity())
+                .isInstanceOf(ResourceAccessException.class);
+        assertThat(requests.get()).isEqualTo(1);
+    }
+
+    @Test
+    void doesNotRetryPostAfterAServiceUnavailableResponse() {
+        AtomicInteger requests = new AtomicInteger();
+        server.createContext("/issues", exchange -> {
+            requests.incrementAndGet();
+            exchange.getResponseHeaders().set("Retry-After", "0");
+            respond(exchange, 503, "unavailable");
+        });
+        var client = factory.restClientBuilderFor(baseUrl("127.0.0.1", ""), Duration.ofSeconds(2)).build();
+
+        assertThatThrownBy(() -> client.post().uri("/issues").body("issue").retrieve().toBodilessEntity())
+                .isInstanceOf(org.springframework.web.client.HttpServerErrorException.class);
+        assertThat(requests.get()).isEqualTo(1);
+    }
+
+    @Test
+    void closingFactoryShutsDownTheSharedBackend() throws IOException {
+        server.createContext("/ok", exchange -> respond(exchange, 200, "{}"));
+        var first = factory.restClientBuilderFor(baseUrl("127.0.0.1", "")).build();
+        var second = factory.restClientBuilderFor(baseUrl("127.0.0.1", "")).build();
+        first.get().uri("/ok").retrieve().toBodilessEntity();
+        second.get().uri("/ok").retrieve().toBodilessEntity();
+
+        factory.close();
+
+        assertThatThrownBy(() -> first.get().uri("/ok").retrieve().toBodilessEntity())
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> second.get().uri("/ok").retrieve().toBodilessEntity())
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void sharedBackendDoesNotCarryCookiesBetweenGuildClients() {
+        AtomicReference<String> cookie = new AtomicReference<>();
+        AtomicReference<String> authorization = new AtomicReference<>();
+        server.createContext("/first", exchange -> {
+            exchange.getResponseHeaders().set("Set-Cookie", "session=first-guild; Path=/");
+            respond(exchange, 200, "{}");
+        });
+        server.createContext("/second", exchange -> {
+            cookie.set(exchange.getRequestHeaders().getFirst("Cookie"));
+            authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
+            respond(exchange, 200, "{}");
+        });
+        var first = factory.restClientBuilderFor(baseUrl("127.0.0.1", ""))
+                .defaultHeader("Authorization", "token first-guild").build();
+        var second = factory.restClientBuilderFor(baseUrl("127.0.0.1", ""))
+                .defaultHeader("Authorization", "token second-guild").build();
+
+        first.get().uri("/first").retrieve().toBodilessEntity();
+        second.get().uri("/second").retrieve().toBodilessEntity();
+
+        assertThat(cookie.get()).isNull();
+        assertThat(authorization.get()).isEqualTo("token second-guild");
     }
 
     @Test

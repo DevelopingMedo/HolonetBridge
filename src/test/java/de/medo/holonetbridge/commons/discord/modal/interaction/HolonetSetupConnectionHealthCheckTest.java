@@ -20,6 +20,9 @@ import de.medo.holonetbridge.commons.provider.ProviderHealthCheckException;
 import de.medo.holonetbridge.commons.provider.HealthCheckResult;
 import de.medo.holonetbridge.commons.provider.ProviderHealthCheckException.Reason;
 import de.medo.holonetbridge.commons.provider.ProviderHealthCheckService;
+import de.medo.holonetbridge.commons.provider.HolonetTicketProviderService;
+import de.medo.holonetbridge.commons.repository.HolonetDiscordConfigRepository;
+import de.medo.holonetbridge.gitea.GiteaProviderFactory;
 import de.medo.holonetbridge.commons.service.HolonetBotInteractionSessionService;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
@@ -46,8 +49,13 @@ class HolonetSetupConnectionHealthCheckTest {
     private final TextChannel supportChannel = mock(TextChannel.class, RETURNS_DEEP_STUBS);
     private final HolonetSetupFormData formData = new HolonetSetupFormData();
     private final MessageSource messages = new MessageSourceConfiguration().messageSource(new I18nProperties(null));
+    private final GiteaProviderFactory factory = mock(GiteaProviderFactory.class);
+    private final de.medo.holonetbridge.commons.extapi.TicketProvider candidate =
+            mock(de.medo.holonetbridge.commons.extapi.TicketProvider.class);
+    private final HolonetTicketProviderService providers = new HolonetTicketProviderService(
+            mock(HolonetDiscordConfigRepository.class), sessions, encryption, factory);
     private final HolonetSetupConnectionSubmitModalAction action =
-            new HolonetSetupConnectionSubmitModalAction(messages, sessions, encryption, healthChecks);
+            new HolonetSetupConnectionSubmitModalAction(messages, sessions, encryption, healthChecks, providers);
 
     private final MessageCreateAction panelAction = mock(MessageCreateAction.class, RETURNS_SELF);
     private final CompletableFuture<net.dv8tion.jda.api.entities.Message> panelPost = new CompletableFuture<>();
@@ -79,9 +87,11 @@ class HolonetSetupConnectionHealthCheckTest {
         when(event.getValue(HolonetModalFactory.TEXTINPUT_ID_TARGET).getAsString()).thenReturn("acme/support");
         when(event.getValue(HolonetModalFactory.TEXTINPUT_ID_TOKEN).getAsString()).thenReturn("test-token");
         when(encryption.encrypt("test-token")).thenReturn("encrypted-test-token");
+        when(encryption.decrypt("encrypted-test-token")).thenReturn("test-token");
+        when(factory.create(anyString(), any(), anyString())).thenReturn(candidate);
         when(sessions.getOrCreateSetupFormDataSession(anyLong(), anyLong(), any()))
                 .thenReturn(formData);
-        ReplyCallbackAction reply = event.reply(anyString()).setEphemeral(true);
+        ReplyCallbackAction reply = event.deferReply(true);
         doAnswer(invocation -> {
             Consumer<InteractionHook> callback = invocation.getArgument(0);
             callback.accept(hook);
@@ -92,7 +102,8 @@ class HolonetSetupConnectionHealthCheckTest {
     @Test
     void acknowledgesPrivatelyBeforeCheckingAndRepliesWithSuccess() {
         doAnswer(invocation -> {
-            verify(event.reply("Verbindungsdaten gespeichert.\nTeste Verbindungsdaten …").setEphemeral(true)).queue(any());
+            verify(event.deferReply(true)).queue(any());
+            verify(hook).editOriginal("Verbindungsdaten gespeichert.\nTeste Verbindungsdaten …");
             return null;
         }).when(healthChecks).check(TicketProvider.GITEA, "https://gitea.example.invalid", "test-token");
 
@@ -109,6 +120,7 @@ class HolonetSetupConnectionHealthCheckTest {
         verify(sessions, timeout(3000)).completeSetup(eq(saved.getValue()), argThat(HealthCheckResult::successful));
         assertThat(saved.getValue().getToken()).isEqualTo("encrypted-test-token");
         assertThat(formData.getToken()).isNull();
+        assertThat(providers.providerFor(1L)).containsSame(candidate);
     }
 
     @ParameterizedTest
@@ -119,10 +131,12 @@ class HolonetSetupConnectionHealthCheckTest {
         action.handle(event);
 
         ArgumentCaptor<String> reply = ArgumentCaptor.forClass(String.class);
-        verify(hook, timeout(3000)).editOriginal(reply.capture());
-        assertThat(reply.getValue()).contains("/setup").doesNotContain("test-token", "erfolgreich");
+        verify(hook, timeout(3000)).editOriginal(argThat((String text) -> text.contains("/setup")));
+        verify(hook, atLeastOnce()).editOriginal(reply.capture());
+        assertThat(reply.getAllValues().getLast()).contains("/setup").doesNotContain("test-token", "erfolgreich");
         verify(supportChannel, never()).sendMessage(anyString());
         verify(sessions, never()).completeSetup(any(), any());
+        verifyNoInteractions(factory);
     }
 
     @Test
@@ -166,7 +180,9 @@ class HolonetSetupConnectionHealthCheckTest {
 
         verify(panelAction, timeout(3000)).submit();
         verify(sessions, never()).completeSetup(any(), any());
-        verify(hook, never()).editOriginal(anyString());
+        verify(hook, never()).editOriginal(COMPLETED);
+        assertThat(providers.providerFor(1L)).isEmpty();
+        verify(factory).create("https://gitea.example.invalid", "test-token", "acme/support");
 
         panelPost.complete(mock(net.dv8tion.jda.api.entities.Message.class));
 
@@ -183,6 +199,7 @@ class HolonetSetupConnectionHealthCheckTest {
 
         verify(hook, timeout(3000)).editOriginal(messages.getMessage("setup.panel.post-failed", null, Locale.GERMAN));
         verify(sessions, never()).completeSetup(any(), any());
+        assertThat(providers.providerFor(1L)).isEmpty();
     }
 
     @Test
@@ -206,7 +223,74 @@ class HolonetSetupConnectionHealthCheckTest {
         panelPost.complete(mock(net.dv8tion.jda.api.entities.Message.class));
 
         verify(sessions, timeout(3000)).completeSetup(any(), any());
-        verify(hook, never()).editOriginal(anyString());
+        verify(hook, timeout(3000)).editOriginal(messages.getMessage("setup.failed", null, Locale.GERMAN));
+        verify(hook, never()).editOriginal(COMPLETED);
+        assertThat(providers.providerFor(1L)).isEmpty();
+    }
+
+    @Test
+    void candidateFailureDoesNotPostPanelOrChangeTheActiveProvider() {
+        when(factory.create(anyString(), any(), anyString()))
+                .thenThrow(new IllegalArgumentException("test-token reflected"));
+
+        action.handle(event);
+
+        verify(hook, timeout(3000)).editOriginal(messages.getMessage("setup.failed", null, Locale.GERMAN));
+        verify(panelAction, never()).submit();
+        verify(sessions, never()).completeSetup(any(), any());
+        assertThat(providers.providerFor(1L)).isEmpty();
+    }
+
+    @Test
+    void persistenceRunsOffThePanelCallbackThread() {
+        var callbackThread = Thread.currentThread();
+        var persistenceThread = new java.util.concurrent.atomic.AtomicReference<Thread>();
+        doAnswer(invocation -> {
+            persistenceThread.set(Thread.currentThread());
+            return null;
+        }).when(sessions).completeSetup(any(), any());
+        action.handle(event);
+        verify(panelAction, timeout(3000)).submit();
+
+        panelPost.complete(mock(net.dv8tion.jda.api.entities.Message.class));
+
+        verify(hook, timeout(3000)).editOriginal(COMPLETED);
+        assertThat(persistenceThread.get()).isNotNull().isNotSameAs(callbackThread);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"healthcheck", "candidate", "panel", "persistence", "draft"})
+    void failedSetupKeepsThePreviousActiveConnection(String stage) {
+        var previous = mock(de.medo.holonetbridge.commons.extapi.TicketProvider.class);
+        providers.completeSetup(formData, new HealthCheckResult("ok", true), previous);
+        clearInvocations(sessions);
+        switch (stage) {
+            case "healthcheck" -> doThrow(new ProviderHealthCheckException(Reason.ACCESS))
+                    .when(healthChecks).check(any(), any(), any());
+            case "candidate" -> when(factory.create(anyString(), any(), anyString()))
+                    .thenThrow(new IllegalArgumentException("invalid target"));
+            case "panel" -> panelPost.completeExceptionally(new IllegalStateException("post failed"));
+            case "persistence" -> doThrow(new IllegalStateException("commit failed"))
+                    .when(sessions).completeSetup(any(), any());
+            case "draft" -> doThrow(new IllegalStateException("save failed"))
+                    .when(sessions).saveSetupFormDataSession(any());
+            default -> throw new AssertionError(stage);
+        }
+
+        action.handle(event);
+        if (stage.equals("persistence")) {
+            verify(panelAction, timeout(3000)).submit();
+            panelPost.complete(mock(net.dv8tion.jda.api.entities.Message.class));
+        }
+
+        String key = switch (stage) {
+            case "healthcheck" -> "setup.healthcheck.access";
+            case "panel" -> "setup.panel.post-failed";
+            default -> "setup.failed";
+        };
+        verify(hook, timeout(3000)).editOriginal(messages.getMessage(key, new Object[] {"Gitea"}, Locale.GERMAN));
+        assertThat(providers.providerFor(1L)).containsSame(previous);
+        verify(hook, never()).editOriginal(COMPLETED);
     }
 
     @ParameterizedTest
@@ -225,5 +309,7 @@ class HolonetSetupConnectionHealthCheckTest {
                 .isNotBlank();
         assertThat(messages.getMessage("support.open-button", null, DiscordLocale.from(language).toLocale()))
                 .isNotBlank();
+        assertThat(messages.getMessage("setup.failed", null, DiscordLocale.from(language).toLocale()))
+                .contains("/setup");
     }
 }

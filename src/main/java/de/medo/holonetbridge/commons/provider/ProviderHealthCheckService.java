@@ -34,7 +34,7 @@ public class ProviderHealthCheckService {
         healthCheck.check(uri, token);
     }
 
-    private static URI parseBaseUrl(String baseUrl) {
+    public static URI parseBaseUrl(String baseUrl) {
         try {
             String url = baseUrl.trim();
             URI uri;
