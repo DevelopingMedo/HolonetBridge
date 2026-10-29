@@ -44,7 +44,8 @@ class HolonetSetupPersistenceTest {
         HolonetSetupFormData opened = service.getOrCreateSetupFormDataSession(1, 3, Locale.GERMAN);
         assertThat(opened.getBaseUrl()).isEqualTo("https://saved.example");
         assertThat(opened.getToken()).isEqualTo("encrypted-token");
-        assertThat(opened.getSession()).isNotNull();
+        assertThat(opened.getId()).isNull();
+        assertThat(opened.getSession().getId()).isNull();
         assertThat(service.getOrCreateSetupFormDataSession(9, 3, Locale.GERMAN).getBaseUrl()).isNull();
         opened.setBaseUrl("https://failed-check.example");
         service.saveSetupFormDataSession(opened);
@@ -52,6 +53,10 @@ class HolonetSetupPersistenceTest {
         entityManager.clear();
         assertThat(configs.findById(1L).orElseThrow().getBaseUrl()).isEqualTo("https://saved.example");
         assertThat(service.getOrCreateSetupFormDataSession(1, 3, Locale.GERMAN).getBaseUrl()).isEqualTo("https://saved.example");
+        service.completeSetup(opened);
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(configs.findById(1L).orElseThrow().getBaseUrl()).isEqualTo("https://failed-check.example");
     }
 
     @Test

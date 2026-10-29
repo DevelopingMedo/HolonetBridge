@@ -43,36 +43,39 @@ public class HolonetBotInteractionSessionService {
     @Transactional
     public HolonetSetupFormData getOrCreateSetupFormDataSession(long guildId, long memberId, Locale locale) {
         Optional<HolonetDiscordConfig> config = configRepository.findById(guildId);
+        if (config.isPresent()) {
+            return createSetupFormData(config.get(), memberId, locale);
+        }
         Optional<HolonetSetupFormData> existing = formDataRepository
-                .findLatestOpenDraft(guildId, memberId, Limit.of(1));
-        HolonetSetupFormData form = null;
+                .findLatestOpenSetupFormData(guildId, memberId, Limit.of(1));
         if (existing.isPresent()) {
-            HolonetBotInteractionSession session = existing.get().getSession();
+            HolonetSetupFormData form = existing.get();
+            HolonetBotInteractionSession session = form.getSession();
             if (session.getUpdatedAt().isAfter(Instant.now().minus(SETUP_IDLE_TIMEOUT))) {
                 session.setLocale(locale);
                 session.update();
-                form = existing.get();
-            } else {
-                session.setClosedAt(Instant.now());
+                return form;
             }
+            session.setClosedAt(Instant.now());
         }
-        if (form == null) {
-            HolonetBotInteractionSession session = createAndSaveSession(guildId, memberId, null, locale);
-            form = createAndSaveSetupFormData(session);
-        }
-        if (config.isPresent()) {
-            // Saved server settings take precedence over the personal draft when populating the form.
-            copyToForm(config.get(), form);
-        }
-        return form;
+        HolonetBotInteractionSession session = createAndSaveSession(guildId, memberId, null, locale);
+        return createAndSaveSetupFormData(session);
     }
 
-    private void copyToForm(HolonetDiscordConfig config, HolonetSetupFormData form) {
+    private HolonetSetupFormData createSetupFormData(HolonetDiscordConfig config, long memberId, Locale locale) {
+        var session = new HolonetBotInteractionSession();
+        session.setGuildId(config.getGuildId());
+        session.setMemberId(memberId);
+        session.setLocale(locale);
+        var form = new HolonetSetupFormData();
+        // Loading a config creates no database records; the transient session carries the interaction context.
+        form.setSession(session);
         form.setTicketProvider(config.getTicketProvider());
         form.setBaseUrl(config.getBaseUrl());
         form.setTarget(config.getTarget());
         form.setToken(config.getToken());
         form.setSupportChannelId(config.getSupportChannelId());
+        return form;
     }
 
     @Transactional
@@ -87,7 +90,9 @@ public class HolonetBotInteractionSessionService {
         config.setSupportChannelId(form.getSupportChannelId());
         configRepository.save(config);
         form.getSession().setClosedAt(Instant.now());
-        sessionRepository.save(form.getSession());
+        if (form.getSession().getId() != null) {
+            sessionRepository.save(form.getSession());
+        }
     }
 
     @Transactional
@@ -115,9 +120,9 @@ public class HolonetBotInteractionSessionService {
 
     @Transactional
     public void saveSetupFormDataSession(HolonetSetupFormData setupFormData) {
-        formDataRepository.save(setupFormData);
         setupFormData.getSession().update();
-        sessionRepository.save(setupFormData.getSession());
+        setupFormData.setSession(sessionRepository.save(setupFormData.getSession()));
+        formDataRepository.save(setupFormData);
     }
 
 
