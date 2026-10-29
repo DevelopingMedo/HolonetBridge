@@ -16,7 +16,7 @@ setup:
     channel-unavailable: "Odabrani kanal podrške više nije dostupan."
     post-failed: "Veza je provjerena, ali poruku podrške nije bilo moguće objaviti. Provjeri mogu li vidjeti odabrani kanal i slati poruke u njemu."
   modal:
-    config-found: "Učitana je spremljena konfiguracija za {0}."
+    provider-loaded: "Učitan je pružatelj {0}."
     title: "Postavi vezu za prijave"
     provider: "Pružatelj prijava"
     channel: "Kanal podrške"

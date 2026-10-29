@@ -17,7 +17,7 @@ setup:
     channel-unavailable: "Vybrannyy kanal podderzhki bolshe nedostupen."
     post-failed: "Podklyuchenie provereno, no panel podderzhki ne udalos opublikovat. Prover, chto ya mogu videt vybrannyy kanal i otpravlyat v nem soobshcheniya."
   modal:
-    config-found: "Zagruzhena sokhranennaya konfiguratsiya {0}."
+    provider-loaded: "Zagruzhen provayder {0}."
     title: "Nastroit ticket-podklyuchenie"
     provider: "Ticket-provayder"
     channel: "Kanal podderzhki"

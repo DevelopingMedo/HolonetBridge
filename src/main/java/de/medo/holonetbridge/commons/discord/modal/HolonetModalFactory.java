@@ -35,11 +35,7 @@ public class HolonetModalFactory {
     }
 
     public Modal createSetupConnectionModal(HolonetSetupFormData setupFormData) {
-        return createSetupConnectionModal(setupFormData, setupFormData.getSession().getLocale(), null);
-    }
-
-    public Modal createSetupConnectionModal(
-            HolonetSetupFormData setupFormData, Locale locale, TicketProvider configuredProvider) {
+        Locale locale = setupFormData.getSession().getLocale();
         EntitySelectMenu.Builder channelBuilder = EntitySelectMenu.create(
                         ENTITYSELECTMENU_ID_CHANNEL,
                         EntitySelectMenu.SelectTarget.CHANNEL)
@@ -73,7 +69,7 @@ public class HolonetModalFactory {
                 .build();
         String encryptedToken = setupFormData.getToken();
         boolean isTokenRequired = encryptedToken == null;
-        var tokenBuilder = TextInput.create(TEXTINPUT_ID_TOKEN, TextInputStyle.SHORT)
+        TextInput.Builder tokenBuilder = TextInput.create(TEXTINPUT_ID_TOKEN, TextInputStyle.SHORT)
                 .setRequired(isTokenRequired)
                 .setRequiredRange(isTokenRequired ? 1 : 0, 200)
                 .setPlaceholder(isTokenRequired
@@ -87,9 +83,9 @@ public class HolonetModalFactory {
         return Modal.create(MODAL_ID_SETUP_HOLONET, messageSource.getMessage("setup.modal.title", null, locale))
                 .addComponents(
                         Label.of(messageSource.getMessage("setup.modal.provider", null, locale),
-                                configuredProvider != null
-                                        ? messageSource.getMessage("setup.modal.config-found",
-                                                new Object[] {configuredProvider.getDisplayName()}, locale) : null,
+                                setupFormData.getTicketProvider() != null
+                                        ? messageSource.getMessage("setup.modal.provider-loaded",
+                                                new Object[] {setupFormData.getTicketProvider().getDisplayName()}, locale) : null,
                                 stringSelectMenu),
                         Label.of(messageSource.getMessage("setup.modal.channel", null, locale),
                                 messageSource.getMessage("setup.modal.channel-hint", null, locale), channel),

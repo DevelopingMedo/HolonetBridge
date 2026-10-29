@@ -4,7 +4,6 @@ import de.medo.holonetbridge.commons.domain.HolonetBotInteractionSession;
 import de.medo.holonetbridge.commons.domain.HolonetDiscordConfig;
 import de.medo.holonetbridge.commons.domain.HolonetReportFormData;
 import de.medo.holonetbridge.commons.domain.HolonetSetupFormData;
-import de.medo.holonetbridge.commons.domain.TicketProvider;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import de.medo.holonetbridge.commons.repository.HolonetBotInteractionSessionRepository;
 import de.medo.holonetbridge.commons.repository.HolonetDiscordConfigRepository;
@@ -18,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
+import java.util.Optional;
 
 @Service
 public class HolonetBotInteractionSessionService {
@@ -41,37 +41,29 @@ public class HolonetBotInteractionSessionService {
     }
 
     @Transactional
-    public SetupForm openSetup(long guildId, long memberId, Locale locale) {
-        var config = configRepository.findById(guildId);
-        if (config.isPresent()) {
-            // Existing server settings always populate a fresh form, without creating a draft session.
-            var form = new HolonetSetupFormData();
-            copyToForm(config.get(), form);
-            return new SetupForm(form, config.get().getTicketProvider());
-        }
-        return new SetupForm(getOrCreateSetupFormDataSession(guildId, memberId, locale), null);
-    }
-
-    public record SetupForm(HolonetSetupFormData formData, TicketProvider configuredProvider) {}
-
-    @Transactional
     public HolonetSetupFormData getOrCreateSetupFormDataSession(long guildId, long memberId, Locale locale) {
-        var existing = formDataRepository
+        Optional<HolonetDiscordConfig> config = configRepository.findById(guildId);
+        Optional<HolonetSetupFormData> existing = formDataRepository
                 .findLatestOpenDraft(guildId, memberId, Limit.of(1));
+        HolonetSetupFormData form = null;
         if (existing.isPresent()) {
-            var form = existing.get();
-            var session = form.getSession();
+            HolonetBotInteractionSession session = existing.get().getSession();
             if (session.getUpdatedAt().isAfter(Instant.now().minus(SETUP_IDLE_TIMEOUT))) {
                 session.setLocale(locale);
                 session.update();
-                return form;
+                form = existing.get();
+            } else {
+                session.setClosedAt(Instant.now());
             }
-            session.setClosedAt(Instant.now());
         }
-        // Setup ist server- und mitgliedsbezogen; der Aufrufkanal gehört nicht zur Identität.
-        var session = createAndSaveSession(guildId, memberId, null, locale);
-        var form = createAndSaveSetupFormData(session);
-        configRepository.findById(guildId).ifPresent(config -> copyToForm(config, form));
+        if (form == null) {
+            HolonetBotInteractionSession session = createAndSaveSession(guildId, memberId, null, locale);
+            form = createAndSaveSetupFormData(session);
+        }
+        if (config.isPresent()) {
+            // Saved server settings take precedence over the personal draft when populating the form.
+            copyToForm(config.get(), form);
+        }
         return form;
     }
 
@@ -85,7 +77,7 @@ public class HolonetBotInteractionSessionService {
 
     @Transactional
     public void completeSetup(HolonetSetupFormData form) {
-        var config = configRepository.findById(form.getSession().getGuildId())
+        HolonetDiscordConfig config = configRepository.findById(form.getSession().getGuildId())
                 .orElseGet(HolonetDiscordConfig::new);
         config.setGuildId(form.getSession().getGuildId());
         config.setTicketProvider(form.getTicketProvider());
@@ -132,7 +124,7 @@ public class HolonetBotInteractionSessionService {
     @Transactional
     public HolonetReportFormData getOrCreate(long guildId, long memberId, long channelId,
                                              Locale locale, HolonetTicketKind kind) {
-        var session = getOrCreateBotInteractionSession(guildId, memberId, channelId, locale);
+        HolonetBotInteractionSession session = getOrCreateBotInteractionSession(guildId, memberId, channelId, locale);
         return reportFormDataRepository.findBySessionIdAndKind(session.getId(), kind).orElseGet(() -> {
             var data = new HolonetReportFormData();
             data.setSession(session);
