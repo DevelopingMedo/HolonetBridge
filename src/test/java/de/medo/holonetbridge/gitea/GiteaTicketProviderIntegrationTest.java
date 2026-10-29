@@ -1,6 +1,7 @@
 package de.medo.holonetbridge.gitea;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 import de.medo.holonetbridge.commons.extapi.TicketDto;
 import java.net.URI;
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.context.MessageSource;
 import org.springframework.web.client.RestClient;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -45,7 +47,8 @@ class GiteaTicketProviderIntegrationTest {
         String token = generateAccessToken();
         createRepository(token);
         URI baseUrl = URI.create("http://" + GITEA.getHost() + ":" + GITEA.getMappedPort(3000));
-        provider = new GiteaTicketProvider(RestClient.builder(), baseUrl, token, ADMIN_USERNAME, REPOSITORY);
+        provider = new GiteaTicketProvider(RestClient.builder(), baseUrl, token, ADMIN_USERNAME, REPOSITORY,
+                mock(MessageSource.class));
     }
 
     @Test

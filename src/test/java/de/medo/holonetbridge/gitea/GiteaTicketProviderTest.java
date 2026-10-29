@@ -2,6 +2,7 @@ package de.medo.holonetbridge.gitea;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.context.MessageSource;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestClient;
@@ -32,7 +34,8 @@ class GiteaTicketProviderTest {
     void setUp() {
         restClientBuilder = RestClient.builder();
         server = MockRestServiceServer.bindTo(restClientBuilder).build();
-        provider = new GiteaTicketProvider(restClientBuilder, BASE_URL, "secret-test-token", "acme", "support");
+        provider = new GiteaTicketProvider(restClientBuilder, BASE_URL, "secret-test-token", "acme", "support",
+                mock(MessageSource.class));
     }
 
     @Test

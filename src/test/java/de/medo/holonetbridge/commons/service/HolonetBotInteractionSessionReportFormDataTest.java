@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.Locale;
 
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
+import de.medo.holonetbridge.commons.domain.HolonetBotInteractionSession;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,46 +23,90 @@ class HolonetBotInteractionSessionReportFormDataTest {
 
     @Test
     void restoresAllFieldsAfterPersistenceContextIsClearedAndKeepsKindsSeparate() {
-        var bug = service.getOrCreate(1, 2, 3, Locale.GERMAN, HolonetTicketKind.BUG);
+        var bug = service.getOrCreate(1, 2, Locale.GERMAN, HolonetTicketKind.BUG);
         bug.setTitle("  Original title  ");
         bug.setSteps("s".repeat(4000));
         bug.setExpected("Expected");
         bug.setActual("Actual\nwith newline");
         bug.setRecurrence("sometimes");
         service.save(bug);
-        var feature = service.getOrCreate(1, 2, 3, Locale.ENGLISH, HolonetTicketKind.FEATURE);
+        var feature = service.getOrCreate(1, 2, Locale.ENGLISH, HolonetTicketKind.FEATURE);
         feature.setTitle("Idea");
         feature.setDescription("d".repeat(4000));
         service.save(feature);
         entityManager.clear();
 
-        var restored = service.getOrCreate(1, 2, 3, Locale.ENGLISH, HolonetTicketKind.BUG);
+        var restored = service.getOrCreate(1, 2, Locale.ENGLISH, HolonetTicketKind.BUG);
         assertThat(restored.getId()).isEqualTo(bug.getId());
         assertThat(restored.getTitle()).isEqualTo(bug.getTitle());
         assertThat(restored.getSteps()).isEqualTo(bug.getSteps());
         assertThat(restored.getExpected()).isEqualTo(bug.getExpected());
         assertThat(restored.getActual()).isEqualTo(bug.getActual());
         assertThat(restored.getRecurrence()).isEqualTo(bug.getRecurrence());
-        var restoredFeature = service.getOrCreate(1, 2, 3, Locale.ENGLISH, HolonetTicketKind.FEATURE);
+        var restoredFeature = service.getOrCreate(1, 2, Locale.ENGLISH, HolonetTicketKind.FEATURE);
         assertThat(restoredFeature.getDescription()).hasSize(4000);
         assertThat(restoredFeature.getTitle()).isEqualTo("Idea");
         assertThat(restoredFeature.getSession().getId()).isEqualTo(restored.getSession().getId());
     }
 
     @Test
-    void isolatesGuildMemberAndChannelAndDoesNotResumeClosedSessions() {
-        var original = service.getOrCreate(1, 2, 3, Locale.ENGLISH, HolonetTicketKind.BUG);
+    void resumesDraftByGuildAndMemberAndDoesNotResumeClosedSessions() {
+        var original = service.getOrCreate(1, 2, Locale.ENGLISH, HolonetTicketKind.BUG);
         original.setTitle("Private draft");
         service.save(original);
-        assertThat(service.getOrCreate(9, 2, 3, Locale.ENGLISH, HolonetTicketKind.BUG).getTitle()).isNull();
-        assertThat(service.getOrCreate(1, 9, 3, Locale.ENGLISH, HolonetTicketKind.BUG).getTitle()).isNull();
-        assertThat(service.getOrCreate(1, 2, 9, Locale.ENGLISH, HolonetTicketKind.BUG).getTitle()).isNull();
-
-        original.getSession().setClosedAt(Instant.now());
+        assertThat(service.getOrCreate(9, 2, Locale.ENGLISH, HolonetTicketKind.BUG).getTitle()).isNull();
+        assertThat(service.getOrCreate(1, 9, Locale.ENGLISH, HolonetTicketKind.BUG).getTitle()).isNull();
         entityManager.flush();
         entityManager.clear();
-        var reopened = service.getOrCreate(1, 2, 3, Locale.ENGLISH, HolonetTicketKind.BUG);
+        var resumed = service.getOrCreate(1, 2, Locale.GERMAN, HolonetTicketKind.BUG);
+        assertThat(resumed.getId()).isEqualTo(original.getId());
+        assertThat(resumed.getTitle()).isEqualTo("Private draft");
+
+        resumed.getSession().setClosedAt(Instant.now());
+        entityManager.flush();
+        entityManager.clear();
+        var reopened = service.getOrCreate(1, 2, Locale.ENGLISH, HolonetTicketKind.BUG);
         assertThat(reopened.getTitle()).isNull();
         assertThat(reopened.getSession().getId()).isNotEqualTo(original.getSession().getId());
+    }
+
+    @Test
+    void selectsLatestUpdatedOpenSessionAndBreaksTimestampTiesById() {
+        var first = persistedSession();
+        var second = persistedSession();
+        var closed = persistedSession();
+        closed.setClosedAt(Instant.now());
+        entityManager.flush();
+        Instant latest = Instant.parse("2026-01-02T00:00:00Z");
+        setUpdatedAt(first.getId(), latest);
+        setUpdatedAt(second.getId(), latest.minusSeconds(60));
+        setUpdatedAt(closed.getId(), latest.plusSeconds(60));
+        entityManager.clear();
+
+        assertThat(service.getOrCreateBotInteractionSession(1, 2, Locale.ENGLISH).getId())
+                .isEqualTo(first.getId());
+
+        setUpdatedAt(second.getId(), latest);
+        entityManager.clear();
+
+        assertThat(second.getId()).isGreaterThan(first.getId());
+        assertThat(service.getOrCreateBotInteractionSession(1, 2, Locale.ENGLISH).getId())
+                .isEqualTo(second.getId());
+    }
+
+    private HolonetBotInteractionSession persistedSession() {
+        var session = new HolonetBotInteractionSession();
+        session.setGuildId(1L);
+        session.setMemberId(2L);
+        session.setLocale(Locale.ENGLISH);
+        entityManager.persist(session);
+        return session;
+    }
+
+    private void setUpdatedAt(Long id, Instant updatedAt) {
+        entityManager.createNativeQuery("update holonet_bot_interaction_session set updated_at = :updatedAt where id = :id")
+                .setParameter("updatedAt", updatedAt)
+                .setParameter("id", id)
+                .executeUpdate();
     }
 }
