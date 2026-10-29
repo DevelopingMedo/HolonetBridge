@@ -49,7 +49,7 @@ class HolonetReportFormInteractionTest {
         data.setExpected("Saved expected");
         data.setActual("Saved actual");
         data.setRecurrence("Jedes Mal");
-        when(dataService.getOrCreate(1, 2, 3, Locale.GERMAN, kind)).thenReturn(data);
+        when(dataService.getOrCreate(1, 2, Locale.GERMAN, kind)).thenReturn(data);
         var factory = new HolonetTicketReportModalFactory(messages);
         var sessions = new HolonetTicketCreationSessionStore();
 
@@ -80,16 +80,16 @@ class HolonetReportFormInteractionTest {
     void receivedFeatureIsSavedBeforeFurtherProcessingAndSurvivesItsFailure() {
         var event = featureEvent();
         var data = new HolonetReportFormData();
-        when(dataService.getOrCreate(1, 2, 3, Locale.US, HolonetTicketKind.FEATURE)).thenReturn(data);
+        when(dataService.getOrCreate(1, 2, Locale.US, HolonetTicketKind.FEATURE)).thenReturn(data);
         doThrow(new IllegalStateException("Later processing failed"))
-                .when(submitter).submit(eq(event), eq(2L), eq(HolonetTicketKind.FEATURE), any());
+                .when(submitter).handle(event, data);
 
         assertThatThrownBy(() -> new HolonetFeatureSubmittedModalAction(submitter, dataService, messages).handle(event))
                 .isInstanceOf(IllegalStateException.class);
 
         var order = inOrder(dataService, submitter);
         order.verify(dataService).save(data);
-        order.verify(submitter).submit(eq(event), eq(2L), eq(HolonetTicketKind.FEATURE), any());
+        order.verify(submitter).handle(event, data);
         assertThat(data.getTitle()).isEqualTo(" Title ");
         assertThat(data.getDescription()).isEqualTo("  Original\n**text**  ");
     }
@@ -98,7 +98,7 @@ class HolonetReportFormInteractionTest {
     void saveFailureDoesNotContinueToTicketProcessing() {
         var event = featureEvent();
         var data = new HolonetReportFormData();
-        when(dataService.getOrCreate(1, 2, 3, Locale.US, HolonetTicketKind.FEATURE)).thenReturn(data);
+        when(dataService.getOrCreate(1, 2, Locale.US, HolonetTicketKind.FEATURE)).thenReturn(data);
         doThrow(new DataAccessResourceFailureException("unavailable")).when(dataService).save(data);
 
         new HolonetFeatureSubmittedModalAction(submitter, dataService, messages).handle(event);
@@ -111,7 +111,7 @@ class HolonetReportFormInteractionTest {
     void loadingFailureDoesNotOpenAnEmptyModal() {
         var event = mock(ButtonInteractionEvent.class, RETURNS_DEEP_STUBS);
         when(event.getUserLocale()).thenReturn(DiscordLocale.ENGLISH_US);
-        when(dataService.getOrCreate(anyLong(), anyLong(), anyLong(), any(), any()))
+        when(dataService.getOrCreate(anyLong(), anyLong(), any(), any()))
                 .thenThrow(new DataAccessResourceFailureException("unavailable"));
         new HolonetFeatureModalButton(messages, new HolonetTicketCreationSessionStore(),
                 new HolonetTicketReportModalFactory(messages), dataService).handle(event);
@@ -147,13 +147,40 @@ class HolonetReportFormInteractionTest {
         }
     }
 
-    @Test
-    void currentlyDisabledProviderOnlyAcknowledgesSavedDraft() {
+    @ParameterizedTest
+    @CsvSource({"BUG", "FEATURE"})
+    void bothModalsSaveDraftAndCreateExactlyOneExternalTicket(HolonetTicketKind kind) {
         var event = featureEvent();
-        new HolonetTicketSubmitter(messages, mock(HolonetTicketCreationSessionStore.class),
-                mock(de.medo.holonetbridge.commons.discord.ticketing.HolonetSupportChannelRepository.class))
-                .submit(event, 2, HolonetTicketKind.FEATURE, null);
-        verify(event).reply(messages.getMessage("ticket.draft-saved", null, Locale.US));
+        when(event.getModalId()).thenReturn(kind == HolonetTicketKind.BUG
+                ? HolonetTicketReportModalFactory.MODAL_ID_BUG_REPORT
+                : HolonetTicketReportModalFactory.MODAL_ID_FEATURE_REPORT);
+        when(event.getValue("recurrence").getAsStringList()).thenReturn(java.util.List.of("always"));
+        var data = new HolonetReportFormData();
+        when(dataService.getOrCreate(1, 2, Locale.US, kind)).thenReturn(data);
+        var providers = mock(de.medo.holonetbridge.commons.provider.HolonetTicketProviderService.class);
+        var provider = mock(de.medo.holonetbridge.commons.extapi.TicketProvider.class);
+        when(providers.providerFor(1L)).thenReturn(java.util.Optional.of(provider));
+        var hook = mock(net.dv8tion.jda.api.interactions.InteractionHook.class, RETURNS_DEEP_STUBS);
+        var reply = event.deferReply(true);
+        doAnswer(invocation -> {
+            java.util.function.Consumer<net.dv8tion.jda.api.interactions.InteractionHook> callback = invocation.getArgument(0);
+            callback.accept(hook);
+            return null;
+        }).when(reply).queue(any());
+        var realSubmitter = new HolonetTicketSubmitter(providers, messages);
+        var listener = new HolonetOnModalInteractionListener(
+                new HolonetFeatureSubmittedModalAction(realSubmitter, dataService, messages),
+                new HolonetBugReportSubmitModalAction(realSubmitter, messages, dataService),
+                mock(HolonetSetupConnectionSubmitModalAction.class));
+
+        listener.onModalInteraction(event);
+
+        verify(hook, timeout(3000)).editOriginal(messages.getMessage("ticket.created", null, Locale.US));
+        verify(provider, times(1)).create(data);
+        var order = inOrder(dataService, event, provider);
+        order.verify(dataService).save(data);
+        order.verify(event).deferReply(true);
+        order.verify(provider).create(data);
     }
 
     private ModalInteractionEvent featureEvent() {

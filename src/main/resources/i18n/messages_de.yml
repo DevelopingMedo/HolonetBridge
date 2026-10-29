@@ -1,7 +1,12 @@
 setup:
   guild-only: "/setup kann nur innerhalb eines Servers ausgeführt werden."
   manage-server: "Dazu fehlt dir die Berechtigung \"Server verwalten\"."
+  form-saved: "Verbindungsdaten gespeichert."
+  form-unchanged: "Verbindungsdaten unverändert."
+  completed: "✅ Setup abgeschlossen. Das Support-Panel wurde in {0} veröffentlicht."
+  failed: "Das Setup konnte nicht abgeschlossen werden. Die bisherige Verbindung bleibt unverändert. Prüfe Verbindungsdaten und Repository-Ziel und führe /setup erneut aus."
   healthcheck:
+    checking: "Teste Verbindungsdaten …"
     success: "Basis-URL und Token für {0} wurden erfolgreich geprüft."
     invalid-url: "Bitte eine gültige http(s)-Basis-URL ohne Zugangsdaten, Query oder Fragment angeben und /setup erneut ausführen."
     token-required: "Für den Verbindungstest ist ein Token erforderlich. Bitte /setup erneut ausführen und ein Token eingeben."
@@ -12,9 +17,11 @@ setup:
     rejected: "Der Provider hat den Verbindungstest abgelehnt. Bitte URL und Token prüfen und /setup erneut ausführen."
     failed: "Der Verbindungstest ist fehlgeschlagen. Bitte /setup erneut ausführen."
   panel:
+    posted: "Support-Panel in {0} veröffentlicht."
     channel-unavailable: "Der ausgewählte Support-Kanal ist nicht mehr verfügbar."
     post-failed: "Die Verbindung wurde geprüft, aber die Support-Nachricht konnte nicht gepostet werden. Prüfe, ob ich den ausgewählten Kanal sehen und Nachrichten senden darf."
   modal:
+    provider-loaded: "Provider {0} geladen."
     title: "Ticket-Verbindung einrichten"
     provider: "Ticket-Provider"
     channel: "Support-Kanal"
@@ -63,6 +70,9 @@ feature:
   title-hint: "Beschreibe deine Idee in einem kurzen Satz."
   description-hint: "Was soll am Ende möglich sein? Bitte so konkret wie möglich beschreiben."
 ticket:
+  created: "✅ Dein Ticket wurde erstellt."
+  create-failed: "Die Ticketerstellung konnte nicht bestätigt werden. Dein Formular ist gespeichert. Prüfe vor einem erneuten Versuch den Provider, um Duplikate zu vermeiden."
+  not-configured: "Für diesen Server ist keine aktive Ticket-Verbindung verfügbar. Dein Formular ist gespeichert. Bitte einen Administrator, /setup auszuführen."
   draft-saved: "Dein Formular wurde gespeichert. Öffne Bug oder Idee in diesem Kanal erneut, um fortzufahren. Es wurde noch kein externes Ticket erstellt."
   draft-load-failed: "Das gespeicherte Formular konnte nicht geladen werden. Bitte versuche es später erneut."
   draft-save-failed: "Dein Formular konnte nicht gespeichert werden. Bitte sichere deinen Text und versuche es später erneut."

@@ -34,7 +34,7 @@ public class HolonetBugReportModalButton {
         }
         try {
             var data = formDataService.getOrCreate(event.getGuild().getIdLong(), event.getUser().getIdLong(),
-                    event.getChannel().getIdLong(), locale, HolonetTicketKind.BUG);
+                    locale, HolonetTicketKind.BUG);
             sessionStore.get(event.getGuild().getIdLong(), event.getChannel().getIdLong(), event.getUser().getIdLong())
                     .ifPresent(session -> session.kind(HolonetTicketKind.BUG));
             event.replyModal(modalFactory.createBugReportModal(data, locale)).queue();

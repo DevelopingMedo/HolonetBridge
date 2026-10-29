@@ -1,17 +1,15 @@
 package de.medo.holonetbridge.commons.discord.modal.interaction;
 
-import java.util.Locale;
-import java.util.concurrent.CompletableFuture;
-
 import de.medo.holonetbridge.commons.crypto.EncryptionService;
 import de.medo.holonetbridge.commons.discord.button.HolonetOpenSupportButton;
 import de.medo.holonetbridge.commons.discord.modal.HolonetModalFactory;
 import de.medo.holonetbridge.commons.domain.HolonetSetupFormData;
 import de.medo.holonetbridge.commons.domain.TicketProvider;
+import de.medo.holonetbridge.commons.provider.HealthCheckResult;
+import de.medo.holonetbridge.commons.provider.HolonetTicketProviderService;
 import de.medo.holonetbridge.commons.provider.ProviderHealthCheckException;
 import de.medo.holonetbridge.commons.provider.ProviderHealthCheckService;
 import de.medo.holonetbridge.commons.service.HolonetBotInteractionSessionService;
-import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
@@ -20,10 +18,14 @@ import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.interactions.InteractionHook;
+import org.springframework.binding.message.Message;
+import org.springframework.binding.message.Severity;
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
 
-@Slf4j
+import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
+
 @Component
 public class HolonetSetupConnectionSubmitModalAction {
 
@@ -31,16 +33,19 @@ public class HolonetSetupConnectionSubmitModalAction {
     private final HolonetBotInteractionSessionService botInteractionSessionService;
     private final EncryptionService encryptionService;
     private final ProviderHealthCheckService providerHealthCheckService;
+    private final HolonetTicketProviderService ticketProviders;
 
     public HolonetSetupConnectionSubmitModalAction(
             MessageSource messageSource,
             HolonetBotInteractionSessionService botInteractionSessionService,
             EncryptionService encryptionService,
-            ProviderHealthCheckService providerHealthCheckService) {
+            ProviderHealthCheckService providerHealthCheckService,
+            HolonetTicketProviderService ticketProviders) {
         this.messageSource = messageSource;
         this.botInteractionSessionService = botInteractionSessionService;
         this.encryptionService = encryptionService;
         this.providerHealthCheckService = providerHealthCheckService;
+        this.ticketProviders = ticketProviders;
     }
 
     public void handle(ModalInteractionEvent event) {
@@ -55,71 +60,110 @@ public class HolonetSetupConnectionSubmitModalAction {
             event.reply(messageSource.getMessage("setup.manage-server", null, locale)).setEphemeral(true).queue();
             return;
         }
-        TicketProvider ticketProvider = TicketProvider.fromId(event
-                .getValue(HolonetModalFactory.STRINGSELECTMENU_ID_PROVIDER)
-                .getAsStringList()
-                .getFirst());
-        Long supportChannelId = event.getValue(HolonetModalFactory.ENTITYSELECTMENU_ID_CHANNEL)
-                .getAsLongList()
-                .getFirst();
-        String baseUrl = event.getValue(HolonetModalFactory.TEXTINPUT_ID_BASE_URL).getAsString().trim();
-        String target = event.getValue(HolonetModalFactory.TEXTINPUT_ID_TARGET).getAsString().trim();
-        String rawToken = event.getValue(HolonetModalFactory.TEXTINPUT_ID_TOKEN).getAsString();
-        HolonetSetupFormData setupFormData = botInteractionSessionService.getOrCreateSetupFormDataSession(
-                guild.getIdLong(), member.getIdLong(), event.getChannel().getIdLong(), locale);
+        String unencryptedToken = event.getValue(HolonetModalFactory.TEXTINPUT_ID_TOKEN).getAsString();
+        HolonetSetupFormData oldForm = botInteractionSessionService.getOrCreateSetupFormDataSession(
+                guild.getIdLong(), member.getIdLong(), locale);
+        HolonetSetupFormData newForm = createSetupFormData(event, oldForm, unencryptedToken);
+        event.deferReply(true)
+                .queue(hook -> CompletableFuture.supplyAsync(() -> getHolonetSetupFormData(hook, oldForm, newForm, locale))
+                        .thenComposeAsync(form ->
+                                completeSetup(event, form, checkConnection(form, unencryptedToken)))
 
-        setupFormData.setToken(encryptionService.encrypt(rawToken));
-        setupFormData.setTicketProvider(ticketProvider);
-        setupFormData.setBaseUrl(baseUrl);
-        setupFormData.setSupportChannelId(supportChannelId);
-        setupFormData.setTarget(target);
-        botInteractionSessionService.saveSetupFormDataSession(setupFormData);
-
-        event.deferReply(true).queue(hook -> CompletableFuture
-                .supplyAsync(() -> checkConnection(ticketProvider, baseUrl, rawToken, locale, guild.getIdLong()))
-                .thenAccept(result -> {
-                    hook.editOriginal(result.message()).queue();
-                    if (result.successful()) {
-                        postSupportPanel(hook, guild, supportChannelId, locale);
-                    }
-                }));
+                        .exceptionally(_ -> new Message(null,
+                                messageSource.getMessage("setup.failed", null, locale), Severity.ERROR))
+                        .thenAccept(message -> hook.editOriginal(message.getText()).queue()));
     }
 
-    private void postSupportPanel(InteractionHook hook, Guild guild, long channelId, Locale userLocale) {
-        TextChannel channel = guild.getTextChannelById(channelId);
+    private HolonetSetupFormData getHolonetSetupFormData(InteractionHook hook, HolonetSetupFormData oldForm, HolonetSetupFormData newForm, Locale locale) {
+        Message saveMessage = saveIfChanged(oldForm, newForm);
+        hook.editOriginal(saveMessage.getText() + "\n"
+                + messageSource.getMessage("setup.healthcheck.checking", null, locale)).queue();
+        return newForm;
+    }
+
+    private HolonetSetupFormData createSetupFormData(
+            ModalInteractionEvent event, HolonetSetupFormData oldForm, String unencryptedToken) {
+        var newForm = new HolonetSetupFormData();
+        newForm.setId(oldForm.getId());
+        newForm.setSession(oldForm.getSession());
+        newForm.setTicketProvider(TicketProvider.fromId(event
+                .getValue(HolonetModalFactory.STRINGSELECTMENU_ID_PROVIDER).getAsStringList().getFirst()));
+        newForm.setSupportChannelId(event
+                .getValue(HolonetModalFactory.ENTITYSELECTMENU_ID_CHANNEL).getAsLongList().getFirst());
+        newForm.setBaseUrl(event.getValue(HolonetModalFactory.TEXTINPUT_ID_BASE_URL).getAsString().trim());
+        newForm.setTarget(event.getValue(HolonetModalFactory.TEXTINPUT_ID_TARGET).getAsString().trim());
+        String encryptedToken = oldForm.getToken();
+        if (encryptedToken == null || !unencryptedToken.equals(encryptionService.decrypt(encryptedToken))) {
+            encryptedToken = encryptionService.encrypt(unencryptedToken);
+        }
+        newForm.setToken(encryptedToken);
+        return newForm;
+    }
+
+    private Message saveIfChanged(HolonetSetupFormData oldForm, HolonetSetupFormData newForm) {
+        String messageKey = "setup.form-unchanged";
+        if (!oldForm.equals(newForm)) {
+            botInteractionSessionService.saveSetupFormDataSession(newForm);
+            messageKey = "setup.form-saved";
+        }
+        return new Message(null,
+                messageSource.getMessage(messageKey, null, newForm.getSession().getLocale()), Severity.INFO);
+    }
+
+    private CompletableFuture<Message> completeSetup(
+            ModalInteractionEvent event, HolonetSetupFormData form, HealthCheckResult healthCheckResult) {
+        if (!healthCheckResult.successful()) {
+            return CompletableFuture.completedFuture(
+                    new Message(null, healthCheckResult.message(), Severity.ERROR));
+        }
+        var candidate = ticketProviders.candidateFor(form);
+        return postSupportPanel(event, form).thenApplyAsync(panelMessage -> {
+            if (panelMessage.getSeverity() == Severity.ERROR) {
+                return panelMessage;
+            }
+            ticketProviders.completeSetup(form, healthCheckResult, candidate);
+            return new Message(null, messageSource.getMessage(
+                    "setup.completed", new Object[]{"<#" + form.getSupportChannelId() + ">"},
+                    event.getUserLocale().toLocale()), Severity.INFO);
+        });
+    }
+
+    private CompletableFuture<Message> postSupportPanel(ModalInteractionEvent event, HolonetSetupFormData form) {
+        Guild guild = event.getGuild();
+        Locale userLocale = event.getUserLocale().toLocale();
+        TextChannel channel = guild.getTextChannelById(form.getSupportChannelId());
         if (channel == null) {
-            hook.sendMessage(messageSource.getMessage("setup.panel.channel-unavailable", null, userLocale)).queue();
-            return;
+            return CompletableFuture.completedFuture(new Message(null,
+                    messageSource.getMessage("setup.panel.channel-unavailable", null, userLocale), Severity.ERROR));
         }
 
         Locale guildLocale = guild.getLocale().toLocale();
-        channel.sendMessage(messageSource.getMessage("support.panel-message", null, guildLocale))
+        return channel.sendMessage(messageSource.getMessage("support.panel-message", null, guildLocale))
                 .addComponents(ActionRow.of(Button.success(
                         HolonetOpenSupportButton.BUTTON_ID,
                         messageSource.getMessage("support.open-button", null, guildLocale))))
-                .queue(
-                        ignored -> {},
-                        failure -> hook.sendMessage(messageSource.getMessage("setup.panel.post-failed", null, userLocale))
-                                .queue());
+                .submit()
+                .handle((postedMessage, failure) -> failure == null
+                        ? new Message(null, messageSource.getMessage(
+                        "setup.panel.posted", new Object[]{channel.getAsMention()}, userLocale), Severity.INFO)
+                        : new Message(null,
+                        messageSource.getMessage("setup.panel.post-failed", null, userLocale), Severity.ERROR));
     }
 
     private HealthCheckResult checkConnection(
-            TicketProvider provider, String baseUrl, String token, Locale locale, long guildId) {
+            HolonetSetupFormData form, String unencryptedToken) {
+        TicketProvider provider = form.getTicketProvider();
+        Locale locale = form.getSession().getLocale();
         String messageKey;
         boolean successful = false;
         try {
-            providerHealthCheckService.check(provider, baseUrl, token);
+            providerHealthCheckService.check(provider, form.getBaseUrl(), unencryptedToken);
             messageKey = "setup.healthcheck.success";
             successful = true;
         } catch (ProviderHealthCheckException e) {
             messageKey = "setup.healthcheck." + e.getReason().name().toLowerCase(Locale.ROOT).replace('_', '-');
-        } catch (RuntimeException e) {
-            log.error("Provider healthcheck failed for guild {} ({})", guildId, e.getClass().getSimpleName());
-            messageKey = "setup.healthcheck.failed";
         }
         return new HealthCheckResult(
-                messageSource.getMessage(messageKey, new Object[] {provider.getDisplayName()}, locale), successful);
+                messageSource.getMessage(messageKey, new Object[]{provider.getDisplayName()}, locale), successful);
     }
-
-    private record HealthCheckResult(String message, boolean successful) {}
 }

@@ -45,6 +45,7 @@ class SchemaMigrationTest {
                             "HOLONET_GUILD_SEQUENCE",
                             "HOLONET_BOT_INTERACTION_SESSION",
                             "HOLONET_SETUP_FORM_DATA",
+                            "HOLONET_DISCORD_CONFIG",
                             "HOLONET_REPORT_FORM_DATA");
             assertThat(jdbc.queryForList(
                             "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
@@ -75,7 +76,7 @@ class SchemaMigrationTest {
         try (var context = start()) {
             var jdbc = context.getBean(JdbcTemplate.class);
             assertThat(jdbc.queryForList("SELECT ID FROM DATABASECHANGELOG", String.class))
-                    .containsExactlyInAnyOrder("1-current-schema", "2-report-drafts");
+                    .containsExactlyInAnyOrder("1-current-schema", "2-report-drafts", "3-report-context", "4-discord-config");
             var form = context.getBean(HolonetSetupFormDataRepository.class).findById(formId).orElseThrow();
             assertThat(form.getTicketProvider()).isEqualTo(TicketProvider.GITEA);
             assertThat(form.getTarget()).isEqualTo("acme/support");

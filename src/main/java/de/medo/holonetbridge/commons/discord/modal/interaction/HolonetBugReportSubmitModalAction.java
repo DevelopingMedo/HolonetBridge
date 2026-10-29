@@ -40,7 +40,7 @@ public class HolonetBugReportSubmitModalAction {
         HolonetReportFormData data;
         try {
             data = formDataService.getOrCreate(event.getGuild().getIdLong(), userId,
-                    event.getChannel().getIdLong(), event.getUserLocale().toLocale(), HolonetTicketKind.BUG);
+                    event.getUserLocale().toLocale(), HolonetTicketKind.BUG);
             data.setTitle(title);
             data.setSteps(steps);
             data.setExpected(expected);

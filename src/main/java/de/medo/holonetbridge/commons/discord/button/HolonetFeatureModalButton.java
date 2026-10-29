@@ -34,7 +34,7 @@ public class HolonetFeatureModalButton {
         }
         try {
             var data = formDataService.getOrCreate(event.getGuild().getIdLong(), event.getUser().getIdLong(),
-                    event.getChannel().getIdLong(), locale, HolonetTicketKind.FEATURE);
+                    locale, HolonetTicketKind.FEATURE);
             sessionStore.get(event.getGuild().getIdLong(), event.getChannel().getIdLong(), event.getUser().getIdLong())
                     .ifPresent(session -> session.kind(HolonetTicketKind.FEATURE));
             event.replyModal(modalFactory.createFeatureModal(data, locale)).queue();

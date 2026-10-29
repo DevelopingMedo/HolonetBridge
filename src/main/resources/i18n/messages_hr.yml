@@ -1,7 +1,12 @@
 setup:
+  failed: "Postavljanje nije dovršeno. Prethodna veza ostaje nepromijenjena. Provjeri podatke veze i ciljni repozitorij pa ponovno pokreni /setup."
   guild-only: "/setup se može koristiti samo na poslužitelju."
   manage-server: "Potrebna ti je dozvola \"Upravljanje poslužiteljem\"."
+  form-saved: "Podaci za povezivanje su spremljeni."
+  form-unchanged: "Podaci za povezivanje nisu promijenjeni."
+  completed: "✅ Postavljanje je dovršeno. Panel podrške objavljen je u {0}."
   healthcheck:
+    checking: "Provjeravam podatke za povezivanje …"
     success: "Osnovna adresa i token za {0} uspješno su provjereni."
     invalid-url: "Unesi valjanu http(s) adresu bez pristupnih podataka, upita ili fragmenta i ponovno pokreni /setup."
     token-required: "Za provjeru veze potreban je token. Ponovno pokreni /setup i unesi token."
@@ -12,9 +17,11 @@ setup:
     rejected: "Pružatelj je odbio provjeru veze. Provjeri adresu i token i ponovno pokreni /setup."
     failed: "Provjera veze nije uspjela. Ponovno pokreni /setup."
   panel:
+    posted: "Panel podrške objavljen je u {0}."
     channel-unavailable: "Odabrani kanal podrške više nije dostupan."
     post-failed: "Veza je provjerena, ali poruku podrške nije bilo moguće objaviti. Provjeri mogu li vidjeti odabrani kanal i slati poruke u njemu."
   modal:
+    provider-loaded: "Učitan je pružatelj {0}."
     title: "Postavi vezu za prijave"
     provider: "Pružatelj prijava"
     channel: "Kanal podrške"
@@ -63,6 +70,9 @@ feature:
   title-hint: "Opiši ideju jednom kratkom rečenicom."
   description-hint: "Što bi trebalo biti moguće? Opiši što preciznije."
 ticket:
+  created: "✅ Tvoja je prijava izrađena."
+  create-failed: "Izradu prijave nije moguće potvrditi. Obrazac je spremljen. Prije ponovnog pokušaja provjeri pružatelja kako bi izbjegao duplikate."
+  not-configured: "Za ovaj poslužitelj nema aktivne veze za prijave. Obrazac je spremljen. Zamoli administratora da pokrene /setup."
   draft-saved: "Obrazac je spremljen. Ponovno otvori Grešku ili Ideju u ovom kanalu za nastavak. Vanjska prijava još nije stvorena."
   draft-load-failed: "Spremljeni obrazac nije moguće učitati. Pokušaj ponovno kasnije."
   draft-save-failed: "Obrazac nije moguće spremiti. Sačuvaj kopiju teksta i pokušaj ponovno kasnije."

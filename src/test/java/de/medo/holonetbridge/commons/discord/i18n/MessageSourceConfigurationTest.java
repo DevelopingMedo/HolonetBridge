@@ -115,6 +115,12 @@ class MessageSourceConfigurationTest {
         formData.setSession(session);
         assertThat(new HolonetModalFactory(messageSource, new EncryptionService(new EncryptionProperties("WauOKK6kYn/N+mrkpsvPB2pdVBkPRhuDAyWQyLAsZeA="))).createSetupConnectionModal(formData).getId())
                 .isEqualTo(HolonetModalFactory.MODAL_ID_SETUP_HOLONET);
+        formData.setTicketProvider(de.medo.holonetbridge.commons.domain.TicketProvider.GITEA);
+        var configuredModal = new HolonetModalFactory(messageSource,
+                new EncryptionService(new EncryptionProperties("WauOKK6kYn/N+mrkpsvPB2pdVBkPRhuDAyWQyLAsZeA=")))
+                .createSetupConnectionModal(formData);
+        assertThat(configuredModal.toData().toString())
+                .contains(messageSource.getMessage("setup.modal.provider-loaded", new Object[] {"Gitea"}, locale.toLocale()));
         var factory = new HolonetTicketReportModalFactory(messageSource);
         var report = new HolonetReportFormData();
         assertThat(factory.createBugReportModal(report, locale.toLocale()).getId())

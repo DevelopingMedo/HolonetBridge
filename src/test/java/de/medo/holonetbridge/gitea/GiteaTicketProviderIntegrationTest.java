@@ -2,13 +2,17 @@ package de.medo.holonetbridge.gitea;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import de.medo.holonetbridge.commons.extapi.TicketDto;
+import de.medo.holonetbridge.commons.discord.i18n.I18nProperties;
+import de.medo.holonetbridge.commons.discord.i18n.MessageSourceConfiguration;
+import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import java.net.URI;
+import java.util.Locale;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.context.MessageSource;
 import org.springframework.web.client.RestClient;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -38,6 +42,8 @@ class GiteaTicketProviderIntegrationTest {
             .waitingFor(Wait.forHttp("/api/healthz").forPort(3000).forStatusCode(200));
 
     private static GiteaTicketProvider provider;
+    private static RestClient verificationClient;
+    private static final MessageSource MESSAGES = new MessageSourceConfiguration().messageSource(new I18nProperties(null));
 
     @BeforeAll
     static void setUpProvider() throws Exception {
@@ -45,23 +51,55 @@ class GiteaTicketProviderIntegrationTest {
         String token = generateAccessToken();
         createRepository(token);
         URI baseUrl = URI.create("http://" + GITEA.getHost() + ":" + GITEA.getMappedPort(3000));
-        provider = new GiteaTicketProvider(RestClient.builder(), baseUrl, token, ADMIN_USERNAME, REPOSITORY);
+        verificationClient = RestClient.builder().baseUrl(baseUrl.toString())
+                .defaultHeader(HttpHeaders.AUTHORIZATION, "token " + token).build();
+        provider = new GiteaTicketProvider(RestClient.builder(), baseUrl, token, ADMIN_USERNAME, REPOSITORY,
+                MESSAGES);
     }
 
     @Test
-    void createsAnIssueInTheRunningGiteaInstance() {
-        TicketDto ticket = provider.create(
-                "[Bug] Login fails",
-                "**Was hast du vor dem Fehler gemacht?**\nEingeloggt und gewartet");
+    void createsIssuesUsingFreshAccountLanguageInTheRunningGiteaInstance() {
+        var form = GiteaTicketProviderTest.form(HolonetTicketKind.FEATURE);
+        form.setDescription("**Original**\nEingeloggt und gewartet");
+        provider.create(form);
 
-        assertThat(ticket.id()).isNotBlank();
-        assertThat(ticket.title()).isEqualTo("[Bug] Login fails");
-        assertThat(ticket.description())
-                .isEqualTo("**Was hast du vor dem Fehler gemacht?**\nEingeloggt und gewartet");
-        assertThat(ticket.url())
-                .as("Gitea's html_url must come through as the ticket's browser-facing url")
-                .isNotBlank()
-                .contains("/" + ADMIN_USERNAME + "/" + REPOSITORY + "/issues/" + ticket.id());
+        var bug = GiteaTicketProviderTest.form(HolonetTicketKind.BUG);
+        bug.getSession().setLocale(Locale.of("hr"));
+        setAccountLanguage("de-DE");
+        bug.setTitle("German account language");
+        provider.create(bug);
+        setAccountLanguage("ru-RU");
+        bug.setTitle("Russian account language");
+        provider.create(bug);
+
+        var issues = verificationClient.get().uri("/api/v1/repos/{owner}/{repo}/issues", ADMIN_USERNAME, REPOSITORY)
+                .retrieve().body(java.util.List.class);
+        assertThat(issues).hasSize(3);
+        for (Object entry : issues) {
+            var issue = (Map<?, ?>) entry;
+            switch (issue.get("title").toString()) {
+                case "[Feature] Login fails" -> assertThat(issue.get("body").toString())
+                        .startsWith("**Original**\nEingeloggt und gewartet");
+                case "[Bug] German account language" -> assertBugLabels(issue, Locale.GERMAN);
+                case "[Bug] Russian account language" -> assertBugLabels(issue, Locale.of("ru"));
+                default -> throw new AssertionError("Unexpected issue title");
+            }
+        }
+    }
+
+    private static void setAccountLanguage(String language) {
+        verificationClient.patch().uri("/api/v1/user/settings").contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("language", language)).retrieve().toBodilessEntity();
+        var user = verificationClient.get().uri("/api/v1/user").retrieve().body(Map.class);
+        assertThat(user.get("language")).isEqualTo(language);
+    }
+
+    private static void assertBugLabels(Map<?, ?> issue, Locale locale) {
+        String body = issue.get("body").toString();
+        for (String key : new String[] {"steps", "expected", "actual", "recurrence"}) {
+            assertThat(body).contains("## " + MESSAGES.getMessage("bug." + key, null, locale));
+        }
+        assertThat(body).contains(MESSAGES.getMessage("bug.recurrence-always", null, locale));
     }
 
     private static void createAdminUser() throws Exception {
@@ -96,9 +134,7 @@ class GiteaTicketProviderIntegrationTest {
 
     private static String exec(String... command) throws Exception {
         var result = GITEA.execInContainer(command);
-        assertThat(result.getExitCode())
-                .as("command failed: %s%n%s", String.join(" ", command), result.getStderr())
-                .isZero();
+        assertThat(result.getExitCode()).as("Gitea setup command failed").isZero();
         return result.getStdout();
     }
 }

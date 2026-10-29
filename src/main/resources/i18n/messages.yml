@@ -1,7 +1,12 @@
 setup:
   guild-only: "/setup can only be used in a server."
   manage-server: "You need the \"Manage Server\" permission."
+  form-saved: "Connection details saved."
+  form-unchanged: "Connection details unchanged."
+  completed: "✅ Setup completed. The support panel was published in {0}."
+  failed: "Setup could not be completed. The previous connection is unchanged. Check the connection details and repository target, then run /setup again."
   healthcheck:
+    checking: "Testing connection details …"
     success: "Base URL and token for {0} were checked successfully."
     invalid-url: "Enter a valid http(s) base URL without credentials, query or fragment and run /setup again."
     token-required: "A token is required for the connection test. Run /setup again and enter a token."
@@ -12,9 +17,11 @@ setup:
     rejected: "The provider rejected the connection test. Check the URL and token and run /setup again."
     failed: "The connection test failed. Please run /setup again."
   panel:
+    posted: "Support panel published in {0}."
     channel-unavailable: "The selected support channel is no longer available."
     post-failed: "The connection was checked, but I could not post the support panel. Check that I can view and send messages in the selected channel."
   modal:
+    provider-loaded: "Provider {0} loaded."
     title: "Configure ticket connection"
     provider: "Ticket provider"
     channel: "Support channel"
@@ -63,6 +70,9 @@ feature:
   title-hint: "Describe your idea in one short sentence."
   description-hint: "What should be possible? Please be as specific as possible."
 ticket:
+  created: "✅ Your ticket was created."
+  create-failed: "Ticket creation could not be confirmed. Your form is saved. Check the provider before trying again to avoid a duplicate."
+  not-configured: "No active ticket connection is available for this server. Your form is saved. Ask an administrator to run /setup."
   draft-saved: "Your form was saved. Reopen Bug or Idea in this channel to continue. No external ticket has been created yet."
   draft-load-failed: "The saved form could not be loaded. Please try again later."
   draft-save-failed: "Your form could not be saved. Please keep a copy of your text and try again later."
