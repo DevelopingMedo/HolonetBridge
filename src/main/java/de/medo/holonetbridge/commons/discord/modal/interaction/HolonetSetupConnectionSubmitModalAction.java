@@ -66,8 +66,11 @@ public class HolonetSetupConnectionSubmitModalAction {
         String target = event.getValue(HolonetModalFactory.TEXTINPUT_ID_TARGET).getAsString().trim();
         String rawToken = event.getValue(HolonetModalFactory.TEXTINPUT_ID_TOKEN).getAsString();
         HolonetSetupFormData setupFormData = botInteractionSessionService.getOrCreateSetupFormDataSession(
-                guild.getIdLong(), member.getIdLong(), event.getChannel().getIdLong(), locale);
+                guild.getIdLong(), member.getIdLong(), locale);
 
+        if (rawToken.isBlank() && setupFormData.getToken() != null) {
+            rawToken = encryptionService.decrypt(setupFormData.getToken());
+        }
         setupFormData.setToken(encryptionService.encrypt(rawToken));
         setupFormData.setTicketProvider(ticketProvider);
         setupFormData.setBaseUrl(baseUrl);
@@ -75,13 +78,20 @@ public class HolonetSetupConnectionSubmitModalAction {
         setupFormData.setTarget(target);
         botInteractionSessionService.saveSetupFormDataSession(setupFormData);
 
+        String tokenForCheck = rawToken;
         event.deferReply(true).queue(hook -> CompletableFuture
-                .supplyAsync(() -> checkConnection(ticketProvider, baseUrl, rawToken, locale, guild.getIdLong()))
+                .supplyAsync(() -> checkConnection(ticketProvider, baseUrl, tokenForCheck, locale, guild.getIdLong()))
                 .thenAccept(result -> {
-                    hook.editOriginal(result.message()).queue();
                     if (result.successful()) {
+                        botInteractionSessionService.completeSetup(setupFormData);
                         postSupportPanel(hook, guild, supportChannelId, locale);
                     }
+                    hook.editOriginal(result.message()).queue();
+                }).exceptionally(failure -> {
+                    log.error("Setup für Server {} konnte nicht abgeschlossen werden ({})", guild.getIdLong(),
+                            failure.getClass().getSimpleName());
+                    hook.editOriginal(messageSource.getMessage("setup.healthcheck.failed", null, locale)).queue();
+                    return null;
                 }));
     }
 

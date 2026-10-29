@@ -115,6 +115,12 @@ class MessageSourceConfigurationTest {
         formData.setSession(session);
         assertThat(new HolonetModalFactory(messageSource, new EncryptionService(new EncryptionProperties("WauOKK6kYn/N+mrkpsvPB2pdVBkPRhuDAyWQyLAsZeA="))).createSetupConnectionModal(formData).getId())
                 .isEqualTo(HolonetModalFactory.MODAL_ID_SETUP_HOLONET);
+        formData.setConfigLoaded(true);
+        var configuredModal = new HolonetModalFactory(messageSource,
+                new EncryptionService(new EncryptionProperties("WauOKK6kYn/N+mrkpsvPB2pdVBkPRhuDAyWQyLAsZeA=")))
+                .createSetupConnectionModal(formData);
+        assertThat(configuredModal.toData().toString())
+                .contains(messageSource.getMessage("setup.modal.config-found", null, locale.toLocale()));
         var factory = new HolonetTicketReportModalFactory(messageSource);
         var report = new HolonetReportFormData();
         assertThat(factory.createBugReportModal(report, locale.toLocale()).getId())

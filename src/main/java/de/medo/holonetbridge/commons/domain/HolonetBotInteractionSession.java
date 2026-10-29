@@ -33,6 +33,10 @@ public class HolonetBotInteractionSession {
     private Instant updatedAt = Instant.now();
     private Instant closedAt;
 
+    public void touch() {
+        updatedAt = Instant.now();
+    }
+
     @PreUpdate
     private void refreshUpdatedAt() {
         updatedAt = Instant.now();

@@ -82,7 +82,10 @@ public class HolonetModalFactory {
 
         return Modal.create(MODAL_ID_SETUP_HOLONET, messageSource.getMessage("setup.modal.title", null, locale))
                 .addComponents(
-                        Label.of(messageSource.getMessage("setup.modal.provider", null, locale), stringSelectMenu),
+                        Label.of(messageSource.getMessage("setup.modal.provider", null, locale),
+                                setupFormData.isConfigLoaded()
+                                        ? messageSource.getMessage("setup.modal.config-found", null, locale) : null,
+                                stringSelectMenu),
                         Label.of(messageSource.getMessage("setup.modal.channel", null, locale),
                                 messageSource.getMessage("setup.modal.channel-hint", null, locale), channel),
                         Label.of(messageSource.getMessage("setup.modal.base-url", null, locale),
