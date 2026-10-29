@@ -99,21 +99,21 @@ class HolonetSetupPersistenceTest {
         service.completeSetup(active, new HealthCheckResult("ok", true));
         entityManager.flush();
         entityManager.clear();
-        var encryption = org.mockito.Mockito.mock(de.medo.holonetbridge.commons.crypto.EncryptionService.class);
-        org.mockito.Mockito.when(encryption.decrypt("encrypted-token")).thenReturn("test-token");
-        var factory = org.mockito.Mockito.mock(de.medo.holonetbridge.gitea.GiteaProviderFactory.class);
+        var providerFactory = org.mockito.Mockito.mock(de.medo.holonetbridge.commons.provider.ProviderFactory.class);
         var provider = org.mockito.Mockito.mock(de.medo.holonetbridge.commons.extapi.TicketProvider.class);
-        org.mockito.Mockito.when(factory.create("https://saved.example", "test-token", "acme/support"))
+        org.mockito.Mockito.when(providerFactory.create(TicketProvider.GITEA,
+                "https://saved.example", "encrypted-token", "acme/support"))
                 .thenReturn(provider);
         var lifecycle = new de.medo.holonetbridge.commons.provider.HolonetTicketProviderService(
-                configs, service, encryption, factory);
+                configs, service, providerFactory);
 
         lifecycle.restoreActiveProviders();
 
         assertThat(lifecycle.providerFor(10)).isEmpty();
         assertThat(lifecycle.providerFor(11)).containsSame(provider);
         org.mockito.Mockito.verifyNoInteractions(provider);
-        org.mockito.Mockito.verify(encryption).decrypt("encrypted-token");
-        org.mockito.Mockito.verifyNoMoreInteractions(encryption);
+        org.mockito.Mockito.verify(providerFactory).create(TicketProvider.GITEA,
+                "https://saved.example", "encrypted-token", "acme/support");
+        org.mockito.Mockito.verifyNoMoreInteractions(providerFactory);
     }
 }

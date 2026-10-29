@@ -9,7 +9,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import de.medo.holonetbridge.commons.crypto.EncryptionService;
 import de.medo.holonetbridge.commons.domain.HolonetBotInteractionSession;
 import de.medo.holonetbridge.commons.domain.HolonetDiscordConfig;
 import de.medo.holonetbridge.commons.domain.HolonetReportFormData;
@@ -17,16 +16,14 @@ import de.medo.holonetbridge.commons.domain.HolonetSetupFormData;
 import de.medo.holonetbridge.commons.extapi.TicketProvider;
 import de.medo.holonetbridge.commons.repository.HolonetDiscordConfigRepository;
 import de.medo.holonetbridge.commons.service.HolonetBotInteractionSessionService;
-import de.medo.holonetbridge.gitea.GiteaProviderFactory;
 import org.junit.jupiter.api.Test;
 
 class HolonetTicketProviderServiceTest {
-    private final HolonetDiscordConfigRepository configs = mock(HolonetDiscordConfigRepository.class);
-    private final HolonetBotInteractionSessionService sessions = mock(HolonetBotInteractionSessionService.class);
-    private final EncryptionService encryption = mock(EncryptionService.class);
-    private final GiteaProviderFactory factory = mock(GiteaProviderFactory.class);
+    private final HolonetDiscordConfigRepository discordConfigRepository = mock(HolonetDiscordConfigRepository.class);
+    private final HolonetBotInteractionSessionService botInteractionSessionService = mock(HolonetBotInteractionSessionService.class);
+    private final ProviderFactory providerFactory = mock(ProviderFactory.class);
     private final HolonetTicketProviderService service =
-            new HolonetTicketProviderService(configs, sessions, encryption, factory);
+            new HolonetTicketProviderService(discordConfigRepository, botInteractionSessionService, providerFactory);
     private final HealthCheckResult success = new HealthCheckResult("ok", true);
 
     @Test
@@ -34,8 +31,8 @@ class HolonetTicketProviderServiceTest {
         var first = mock(TicketProvider.class);
         var second = mock(TicketProvider.class);
         var rotated = mock(TicketProvider.class);
-        when(encryption.decrypt("ciphertext")).thenReturn("test-token");
-        when(factory.create("gitea.example.invalid", "test-token", "acme/support"))
+        when(providerFactory.create(de.medo.holonetbridge.commons.domain.TicketProvider.GITEA,
+                "gitea.example.invalid", "ciphertext", "acme/support"))
                 .thenReturn(first, second, rotated);
         var form = form(1);
         service.completeSetup(form, success, service.candidateFor(form));
@@ -47,7 +44,7 @@ class HolonetTicketProviderServiceTest {
         service.providerFor(1).orElseThrow().create(report);
 
         verify(first, times(2)).create(report);
-        verify(factory, times(2)).create(anyString(), anyString(), anyString());
+        verify(providerFactory, times(2)).create(any(), anyString(), anyString(), anyString());
         var candidate = service.candidateFor(form);
         assertThat(service.providerFor(1)).containsSame(first);
         service.completeSetup(form, success, candidate);
@@ -65,7 +62,7 @@ class HolonetTicketProviderServiceTest {
         doAnswer(invocation -> {
             assertThat(service.providerFor(1)).containsSame(oldProvider);
             throw new IllegalStateException("commit failed");
-        }).when(sessions).completeSetup(form, success);
+        }).when(botInteractionSessionService).completeSetup(form, success);
 
         assertThatThrownBy(() -> service.completeSetup(form, success, candidate))
                 .hasMessage("commit failed");
@@ -75,18 +72,19 @@ class HolonetTicketProviderServiceTest {
 
     @Test
     void restoresOnlyActiveConfigsAndSkipsCorruptRowsWithoutNetworking() {
-        when(configs.findAllGuildIds()).thenReturn(List.of(1L, 2L, 3L, 4L));
-        when(configs.findById(1L)).thenReturn(Optional.of(config(1)));
-        when(configs.findById(2L)).thenThrow(new IllegalArgumentException("invalid stored enum"));
+        when(discordConfigRepository.findAllGuildIds()).thenReturn(List.of(1L, 2L, 3L, 4L, 5L));
+        when(discordConfigRepository.findById(1L)).thenReturn(Optional.of(config(1)));
+        when(discordConfigRepository.findById(2L)).thenThrow(new IllegalArgumentException("invalid stored enum"));
         var invalid = config(3);
         invalid.setToken("corrupt");
-        when(configs.findById(3L)).thenReturn(Optional.of(invalid));
-        when(configs.findById(4L)).thenReturn(Optional.of(config(4)));
-        when(encryption.decrypt("corrupt")).thenThrow(new IllegalArgumentException("invalid ciphertext"));
-        when(encryption.decrypt("ciphertext")).thenReturn("test-token");
+        when(discordConfigRepository.findById(3L)).thenReturn(Optional.of(invalid));
+        when(discordConfigRepository.findById(4L)).thenReturn(Optional.of(config(4)));
+        when(discordConfigRepository.findById(5L)).thenReturn(Optional.empty());
         var first = mock(TicketProvider.class);
         var last = mock(TicketProvider.class);
-        when(factory.create(anyString(), anyString(), anyString())).thenReturn(first, last);
+        when(providerFactory.create(any(), anyString(), eq("ciphertext"), anyString())).thenReturn(first, last);
+        when(providerFactory.create(any(), anyString(), eq("corrupt"), anyString()))
+                .thenThrow(new IllegalArgumentException("invalid ciphertext"));
 
         service.restoreActiveProviders();
 
@@ -94,8 +92,9 @@ class HolonetTicketProviderServiceTest {
         assertThat(service.providerFor(2)).isEmpty();
         assertThat(service.providerFor(3)).isEmpty();
         assertThat(service.providerFor(4)).containsSame(last);
-        verifyNoInteractions(sessions, first, last);
-        verify(factory, times(2)).create(anyString(), anyString(), anyString());
+        assertThat(service.providerFor(5)).isEmpty();
+        verifyNoInteractions(botInteractionSessionService, first, last);
+        verify(providerFactory, times(3)).create(any(), anyString(), anyString(), anyString());
     }
 
     @Test
@@ -112,7 +111,7 @@ class HolonetTicketProviderServiceTest {
         }).doAnswer(invocation -> {
             assertThat(service.providerFor(1)).containsSame(first);
             return null;
-        }).when(sessions).completeSetup(form, success);
+        }).when(botInteractionSessionService).completeSetup(form, success);
         var firstCompletion = CompletableFuture.runAsync(() -> service.completeSetup(form, success, first));
         assertThat(entered.await(3, TimeUnit.SECONDS)).isTrue();
         var secondStarted = new CountDownLatch(1);
