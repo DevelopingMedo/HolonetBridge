@@ -29,14 +29,13 @@ class HolonetBotInteractionSessionServiceTest {
         var form = new HolonetSetupFormData();
         form.setSession(session);
         form.setBaseUrl("https://draft.example");
-        when(forms.findLatestOpenDraft(eq(100L), eq(200L), any()))
+        when(forms.findLatestOpenSetupFormData(eq(100L), eq(200L), any()))
                 .thenReturn(Optional.of(form));
         return form;
     }
 
     @Test
     void savedConfigWinsOverAnActivePersonalDraft() {
-        HolonetSetupFormData form = draft();
         var config = new HolonetDiscordConfig();
         config.setGuildId(100L);
         config.setBaseUrl("https://saved.example");
@@ -48,7 +47,9 @@ class HolonetBotInteractionSessionServiceTest {
 
         HolonetSetupFormData opened = service.getOrCreateSetupFormDataSession(100, 200, Locale.GERMAN);
 
-        assertThat(opened).isSameAs(form);
+        assertThat(opened.getId()).isNull();
+        assertThat(opened.getSession().getId()).isNull();
+        verifyNoInteractions(forms, sessions);
         assertThat(opened.getSession().getLocale()).isEqualTo(Locale.GERMAN);
         assertThat(opened.getBaseUrl()).isEqualTo(config.getBaseUrl());
         assertThat(opened.getToken()).isEqualTo("encrypted");
@@ -87,6 +88,7 @@ class HolonetBotInteractionSessionServiceTest {
     @Test
     void savingDraftDoesNotChangeConfigAndCompletionClosesSession() {
         HolonetSetupFormData form = draft();
+        when(sessions.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         service.saveSetupFormDataSession(form);
         verify(configs, never()).save(any());
         service.completeSetup(form);

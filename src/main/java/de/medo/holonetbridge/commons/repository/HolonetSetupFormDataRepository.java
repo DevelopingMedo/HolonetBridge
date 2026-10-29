@@ -25,7 +25,7 @@ public interface HolonetSetupFormDataRepository
               and formData.session.closedAt is null
             order by formData.session.updatedAt desc
             """)
-    Optional<HolonetSetupFormData> findLatestOpenDraft(
+    Optional<HolonetSetupFormData> findLatestOpenSetupFormData(
             @Param("guildId") long guildId, @Param("memberId") long memberId,
             Limit limit);
 }
