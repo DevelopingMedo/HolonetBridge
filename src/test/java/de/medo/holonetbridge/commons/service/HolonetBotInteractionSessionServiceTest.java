@@ -12,6 +12,7 @@ import java.util.Optional;
 import de.medo.holonetbridge.commons.domain.*;
 import de.medo.holonetbridge.commons.repository.*;
 import org.junit.jupiter.api.Test;
+import de.medo.holonetbridge.commons.provider.HealthCheckResult;
 import org.springframework.test.util.ReflectionTestUtils;
 
 class HolonetBotInteractionSessionServiceTest {
@@ -91,11 +92,39 @@ class HolonetBotInteractionSessionServiceTest {
         when(sessions.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         service.saveSetupFormDataSession(form);
         verify(configs, never()).save(any());
-        service.completeSetup(form);
+        service.completeSetup(form, new HealthCheckResult("ok", true));
         org.mockito.ArgumentCaptor<HolonetDiscordConfig> capture = org.mockito.ArgumentCaptor.forClass(HolonetDiscordConfig.class);
         verify(configs).save(capture.capture());
         assertThat(capture.getValue().getGuildId()).isEqualTo(100L);
         assertThat(capture.getValue().getBaseUrl()).isEqualTo(form.getBaseUrl());
         assertThat(form.getSession().getClosedAt()).isNotNull();
     }
+    @Test
+    void failedHealthCheckDoesNotSaveConfigurationOrCloseSession() {
+        var form = new HolonetSetupFormData();
+        var session = new HolonetBotInteractionSession();
+        form.setSession(session);
+
+        service.completeSetup(form, new HealthCheckResult("failed", false));
+
+        verifyNoInteractions(configs, sessions, forms);
+        assertThat(session.getClosedAt()).isNull();
+    }
+
+    @Test
+    void unchangedConfigCanBeConfirmedWithoutSavingFormOrSession() {
+        var config = new HolonetDiscordConfig();
+        config.setGuildId(100L);
+        config.setTicketProvider(TicketProvider.GITEA);
+        config.setBaseUrl("https://saved.example");
+        when(configs.findById(100L)).thenReturn(Optional.of(config));
+        HolonetSetupFormData form = service.getOrCreateSetupFormDataSession(100, 200, Locale.GERMAN);
+
+        service.completeSetup(form, new HealthCheckResult("ok", true));
+
+        verify(configs).save(config);
+        verifyNoInteractions(forms, sessions);
+        assertThat(form.getSession().getId()).isNull();
+    }
+
 }

@@ -11,6 +11,7 @@ import de.medo.holonetbridge.commons.domain.HolonetSetupFormData;
 import de.medo.holonetbridge.commons.repository.HolonetDiscordConfigRepository;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
+import de.medo.holonetbridge.commons.provider.HealthCheckResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
@@ -37,7 +38,7 @@ class HolonetSetupPersistenceTest {
         form.setToken("encrypted-token");
         form.setSupportChannelId(4L);
         service.saveSetupFormDataSession(form);
-        service.completeSetup(form);
+        service.completeSetup(form, new HealthCheckResult("ok", true));
         entityManager.flush();
         entityManager.clear();
 
@@ -53,7 +54,7 @@ class HolonetSetupPersistenceTest {
         entityManager.clear();
         assertThat(configs.findById(1L).orElseThrow().getBaseUrl()).isEqualTo("https://saved.example");
         assertThat(service.getOrCreateSetupFormDataSession(1, 3, Locale.GERMAN).getBaseUrl()).isEqualTo("https://saved.example");
-        service.completeSetup(opened);
+        service.completeSetup(opened, new HealthCheckResult("ok", true));
         entityManager.flush();
         entityManager.clear();
         assertThat(configs.findById(1L).orElseThrow().getBaseUrl()).isEqualTo("https://failed-check.example");
