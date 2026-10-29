@@ -34,7 +34,7 @@ public class HolonetFeatureSubmittedModalAction {
         HolonetReportFormData data;
         try {
             data = formDataService.getOrCreate(event.getGuild().getIdLong(), userId,
-                    event.getChannel().getIdLong(), event.getUserLocale().toLocale(), HolonetTicketKind.FEATURE);
+                    event.getUserLocale().toLocale(), HolonetTicketKind.FEATURE);
             data.setTitle(event.getValue(HolonetTicketReportModalFactory.INPUT_TITLE).getAsString());
             data.setDescription(event.getValue(HolonetTicketReportModalFactory.INPUT_DESCRIPTION).getAsString());
             data.setGuildName(event.getGuild().getName());

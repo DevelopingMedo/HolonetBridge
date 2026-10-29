@@ -25,7 +25,6 @@ public class HolonetBotInteractionSession {
     private Long id;
     private Locale locale;
     private Long guildId;
-    private Long channelId;
     private Long memberId;
     @Setter(AccessLevel.NONE)
     private final Instant createdAt = Instant.now();

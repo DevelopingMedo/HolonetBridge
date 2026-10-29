@@ -79,6 +79,5 @@ class HolonetSetupPersistenceTest {
         HolonetSetupFormData fresh = service.getOrCreateSetupFormDataSession(1, 2, Locale.GERMAN);
         assertThat(fresh.getBaseUrl()).isNull();
         assertThat(fresh.getSession().getId()).isNotEqualTo(oldSessionId);
-        assertThat(fresh.getSession().getChannelId()).isNull();
     }
 }

@@ -59,7 +59,7 @@ public class HolonetBotInteractionSessionService {
             }
             session.setClosedAt(Instant.now());
         }
-        HolonetBotInteractionSession session = createAndSaveSession(guildId, memberId, null, locale);
+        HolonetBotInteractionSession session = createAndSaveSession(guildId, memberId, locale);
         return createAndSaveSetupFormData(session);
     }
 
@@ -100,17 +100,16 @@ public class HolonetBotInteractionSessionService {
     }
 
     @Transactional
-    public @NonNull HolonetBotInteractionSession getOrCreateBotInteractionSession(long guildId, long memberId, Long channelId, Locale locale) {
+    public @NonNull HolonetBotInteractionSession getOrCreateBotInteractionSession(long guildId, long memberId, Locale locale) {
         return sessionRepository
-                .findBy(guildId, memberId, channelId)
-                .orElseGet(() -> createAndSaveSession(guildId, memberId, channelId, locale));
+                .findLatestOpenSession(guildId, memberId, Limit.of(1))
+                .orElseGet(() -> createAndSaveSession(guildId, memberId, locale));
     }
 
-    private HolonetBotInteractionSession createAndSaveSession(long guildId, long memberId, Long channelId, Locale locale) {
+    private HolonetBotInteractionSession createAndSaveSession(long guildId, long memberId, Locale locale) {
         HolonetBotInteractionSession session = new HolonetBotInteractionSession();
         session.setGuildId(guildId);
         session.setMemberId(memberId);
-        session.setChannelId(channelId);
         session.setLocale(locale);
         return sessionRepository.save(session);
     }
@@ -131,9 +130,9 @@ public class HolonetBotInteractionSessionService {
 
 
     @Transactional
-    public HolonetReportFormData getOrCreate(long guildId, long memberId, long channelId,
-                                             Locale locale, HolonetTicketKind kind) {
-        HolonetBotInteractionSession session = getOrCreateBotInteractionSession(guildId, memberId, channelId, locale);
+    public HolonetReportFormData getOrCreate(long guildId, long memberId,
+                                              Locale locale, HolonetTicketKind kind) {
+        HolonetBotInteractionSession session = getOrCreateBotInteractionSession(guildId, memberId, locale);
         return reportFormDataRepository.findBySessionIdAndKind(session.getId(), kind).orElseGet(() -> {
             var data = new HolonetReportFormData();
             data.setSession(session);

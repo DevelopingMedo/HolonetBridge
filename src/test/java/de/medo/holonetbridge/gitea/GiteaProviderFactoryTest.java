@@ -17,6 +17,7 @@ import de.medo.holonetbridge.commons.net.ProviderHttpClientFactory;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.context.MessageSource;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
@@ -36,7 +37,7 @@ class GiteaProviderFactoryTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(restClientBuilder).build();
         ProviderHttpClientFactory httpClientFactory = mock(ProviderHttpClientFactory.class);
         when(httpClientFactory.restClientBuilderFor(BASE_URL)).thenReturn(restClientBuilder);
-        GiteaProviderFactory factory = new GiteaProviderFactory(httpClientFactory);
+        GiteaProviderFactory factory = new GiteaProviderFactory(httpClientFactory, mock(MessageSource.class));
 
         TicketProvider provider = factory.create(BASE_URL, "a-token", "acme", "support");
 
@@ -61,7 +62,7 @@ class GiteaProviderFactoryTest {
         MockRestServiceServer.bindTo(restClientBuilder).build();
         ProviderHttpClientFactory httpClientFactory = mock(ProviderHttpClientFactory.class);
         when(httpClientFactory.restClientBuilderFor(BASE_URL)).thenReturn(restClientBuilder);
-        GiteaProviderFactory factory = new GiteaProviderFactory(httpClientFactory);
+        GiteaProviderFactory factory = new GiteaProviderFactory(httpClientFactory, mock(MessageSource.class));
 
         factory.create(BASE_URL, "token-one", "acme", "support");
         factory.create(BASE_URL, "token-two", "acme", "support");
@@ -75,7 +76,7 @@ class GiteaProviderFactoryTest {
         MockRestServiceServer.bindTo(restClientBuilder).build();
         ProviderHttpClientFactory httpClientFactory = mock(ProviderHttpClientFactory.class);
         when(httpClientFactory.restClientBuilderFor(BASE_URL)).thenReturn(restClientBuilder);
-        GiteaProviderFactory factory = new GiteaProviderFactory(httpClientFactory);
+        GiteaProviderFactory factory = new GiteaProviderFactory(httpClientFactory, mock(MessageSource.class));
 
         TicketProvider first = factory.create(BASE_URL, "token-one", "acme", "support");
         TicketProvider second = factory.create(BASE_URL, "token-two", "acme", "support");

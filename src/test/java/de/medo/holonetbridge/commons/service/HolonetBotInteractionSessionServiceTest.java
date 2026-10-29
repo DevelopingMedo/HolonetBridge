@@ -70,7 +70,7 @@ class HolonetBotInteractionSessionServiceTest {
     }
 
     @Test
-    void expiredDraftIsClosedAndNewDraftHasNoInvocationChannel() {
+    void expiredDraftIsClosedAndNewDraftHasNoFormValues() {
         HolonetSetupFormData old = draft();
         ReflectionTestUtils.setField(old.getSession(), "updatedAt", Instant.now().minus(Duration.ofHours(2)));
         when(sessions.save(any())).thenAnswer(i -> i.getArgument(0));
@@ -80,7 +80,6 @@ class HolonetBotInteractionSessionServiceTest {
 
         assertThat(old.getSession().getClosedAt()).isNotNull();
         assertThat(opened.getSession()).isNotSameAs(old.getSession());
-        assertThat(opened.getSession().getChannelId()).isNull();
         assertThat(opened.getSession().getGuildId()).isEqualTo(100L);
         assertThat(opened.getSession().getMemberId()).isEqualTo(200L);
         assertThat(opened.getBaseUrl()).isNull();
