@@ -1,101 +1,107 @@
 package de.medo.holonetbridge.gitea;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 import java.net.URI;
+import java.util.Locale;
 
-import de.medo.holonetbridge.commons.extapi.TicketDto;
+import de.medo.holonetbridge.commons.discord.i18n.I18nProperties;
+import de.medo.holonetbridge.commons.discord.i18n.MessageSourceConfiguration;
+import de.medo.holonetbridge.commons.domain.HolonetBotInteractionSession;
+import de.medo.holonetbridge.commons.domain.HolonetReportFormData;
+import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.context.MessageSource;
 import org.springframework.test.web.client.MockRestServiceServer;
-import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestClient;
 
 class GiteaTicketProviderTest {
 
-    private static final URI BASE_URL = URI.create("https://tickets.example.invalid");
-
-    private RestClient.Builder restClientBuilder;
     private MockRestServiceServer server;
     private GiteaTicketProvider provider;
 
     @BeforeEach
     void setUp() {
-        restClientBuilder = RestClient.builder();
-        server = MockRestServiceServer.bindTo(restClientBuilder).build();
-        provider = new GiteaTicketProvider(restClientBuilder, BASE_URL, "secret-test-token", "acme", "support",
-                mock(MessageSource.class));
+        var builder = RestClient.builder();
+        server = MockRestServiceServer.bindTo(builder).build();
+        provider = new GiteaTicketProvider(builder, URI.create("https://tickets.example.invalid/gitea"),
+                "secret-test-token", "acme", "support",
+                new MessageSourceConfiguration().messageSource(new I18nProperties(null)));
     }
 
     @Test
-    void createsAnIssueAndMapsItsIssueNumberAndFieldsToATicketDto() {
-        server.expect(requestTo("https://tickets.example.invalid/api/v1/repos/acme/support/issues"))
+    void postsBugWithAuthenticationLocalizedMarkdownAndDiscordContext() {
+        var data = form(HolonetTicketKind.BUG);
+        data.setSteps("1. **Log in**\n2. Wait");
+        data.setExpected("A dashboard");
+        data.setActual("An error");
+        data.setRecurrence("always");
+        data.getSession().setLocale(Locale.GERMAN);
+        server.expect(requestTo("https://tickets.example.invalid/gitea/api/v1/repos/acme/support/issues"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("Authorization", "token secret-test-token"))
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(content().json("""
-                        {"title":"[Bug] Login fails","body":"Steps to reproduce..."}
+                        {"title":"[Bug] Login fails","body":"## Was hast du vor dem Fehler gemacht?\\n\\n1. **Log in**\\n2. Wait\\n\\n## Was hättest du erwartet?\\n\\nA dashboard\\n\\n## Was ist stattdessen passiert?\\n\\nAn error\\n\\n## Tritt der Fehler erneut auf?\\n\\nJedes Mal\\n\\n## Discord\\n\\nServer: Test server (ID: 1)\\n\\nUser: Tester (ID: 2)"}
                         """))
-                .andRespond(withSuccess(
-                        """
-                        {"number":42,"id":999,"title":"[Bug] Login fails","body":"Steps to reproduce...",
-                        "html_url":"https://tickets.example.invalid/acme/support/issues/42"}
-                        """,
-                        MediaType.APPLICATION_JSON));
+                .andRespond(withStatus(HttpStatus.CREATED));
 
-        TicketDto ticket = provider.create("[Bug] Login fails", "Steps to reproduce...");
+        provider.create(data);
 
-        assertThat(ticket.id()).isEqualTo("42");
-        assertThat(ticket.title()).isEqualTo("[Bug] Login fails");
-        assertThat(ticket.description()).isEqualTo("Steps to reproduce...");
-        assertThat(ticket.url()).isEqualTo("https://tickets.example.invalid/acme/support/issues/42");
         server.verify();
     }
 
     @Test
-    void createsAnIssueWithAMissingHtmlUrlLeavesTicketUrlNull() {
-        server.expect(requestTo("https://tickets.example.invalid/api/v1/repos/acme/support/issues"))
-                .andExpect(method(HttpMethod.POST))
-                .andRespond(withSuccess(
-                        """
-                        {"number":43,"id":1000,"title":"[Bug] Login fails","body":"Steps to reproduce..."}
-                        """,
-                        MediaType.APPLICATION_JSON));
+    void postsFeatureWithoutNormalizingUserMarkdownAndReusesTheClient() {
+        var data = form(HolonetTicketKind.FEATURE);
+        data.setDescription("  Original\n**text**  ");
+        server.expect(org.springframework.test.web.client.ExpectedCount.twice(),
+                        requestTo("https://tickets.example.invalid/gitea/api/v1/repos/acme/support/issues"))
+                .andExpect(content().json("""
+                        {"title":"[Feature] Login fails","body":"  Original\\n**text**  \\n\\n## Discord\\n\\nServer: Test server (ID: 1)\\n\\nUser: Tester (ID: 2)"}
+                        """))
+                .andRespond(withStatus(HttpStatus.CREATED));
 
-        TicketDto ticket = provider.create("[Bug] Login fails", "Steps to reproduce...");
+        provider.create(data);
+        provider.create(data);
 
-        assertThat(ticket.url()).isNull();
         server.verify();
     }
 
-    @Test
-    void createPropagatesAServerErrorFromGiteaAsAnException() {
-        server.expect(requestTo("https://tickets.example.invalid/api/v1/repos/acme/support/issues"))
-                .andExpect(method(HttpMethod.POST))
-                .andRespond(withServerError());
+    @ParameterizedTest
+    @ValueSource(ints = {301, 302, 307, 308, 401, 403, 404, 429, 500, 503})
+    void rejectsNonSuccessWithoutExposingReflectedSecrets(int status) {
+        server.expect(requestTo("https://tickets.example.invalid/gitea/api/v1/repos/acme/support/issues"))
+                .andRespond(withStatus(HttpStatus.valueOf(status))
+                        .header("Location", "https://secret-test-token.invalid")
+                        .body("secret-test-token").contentType(MediaType.TEXT_PLAIN));
 
-        assertThatThrownBy(() -> provider.create("[Bug] Login fails", "Steps to reproduce..."))
-                .isInstanceOf(HttpServerErrorException.class);
+        assertThatThrownBy(() -> provider.create(form(HolonetTicketKind.FEATURE)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("HTTP " + status)
+                .hasMessageNotContaining("secret-test-token")
+                .hasNoCause();
         server.verify();
     }
 
-    @Test
-    void readEditAndCommentAreNotYetImplemented() {
-        assertThatThrownBy(() -> provider.read("42")).isInstanceOf(UnsupportedOperationException.class);
-        assertThatThrownBy(() -> provider.edit("42", "title", "description"))
-                .isInstanceOf(UnsupportedOperationException.class);
-        assertThatThrownBy(() -> provider.comment("42", "a comment"))
-                .isInstanceOf(UnsupportedOperationException.class);
+    static HolonetReportFormData form(HolonetTicketKind kind) {
+        var session = new HolonetBotInteractionSession();
+        session.setGuildId(1L);
+        session.setMemberId(2L);
+        session.setLocale(Locale.US);
+        var data = new HolonetReportFormData();
+        data.setSession(session);
+        data.setKind(kind);
+        data.setTitle("Login fails");
+        data.setGuildName("Test server");
+        data.setUsername("Tester");
+        return data;
     }
 }

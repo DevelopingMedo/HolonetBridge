@@ -11,7 +11,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 import java.net.URI;
 
-import de.medo.holonetbridge.commons.extapi.TicketDto;
+import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import de.medo.holonetbridge.commons.extapi.TicketProvider;
 import de.medo.holonetbridge.commons.net.ProviderHttpClientFactory;
 import org.junit.jupiter.api.Test;
@@ -39,7 +39,7 @@ class GiteaProviderFactoryTest {
         when(httpClientFactory.restClientBuilderFor(BASE_URL)).thenReturn(restClientBuilder);
         GiteaProviderFactory factory = new GiteaProviderFactory(httpClientFactory, mock(MessageSource.class));
 
-        TicketProvider provider = factory.create(BASE_URL, "a-token", "acme", "support");
+        TicketProvider provider = factory.create("gitea.example.invalid", "a-token", "acme/support");
 
         server.expect(requestTo("https://gitea.example.invalid/api/v1/repos/acme/support/issues"))
                 .andExpect(method(HttpMethod.POST))
@@ -50,9 +50,7 @@ class GiteaProviderFactoryTest {
                         """,
                         MediaType.APPLICATION_JSON));
 
-        TicketDto ticket = provider.create("t", "d");
-
-        assertThat(ticket.id()).isEqualTo("1");
+        provider.create(GiteaTicketProviderTest.form(HolonetTicketKind.FEATURE));
         server.verify();
     }
 
@@ -64,8 +62,8 @@ class GiteaProviderFactoryTest {
         when(httpClientFactory.restClientBuilderFor(BASE_URL)).thenReturn(restClientBuilder);
         GiteaProviderFactory factory = new GiteaProviderFactory(httpClientFactory, mock(MessageSource.class));
 
-        factory.create(BASE_URL, "token-one", "acme", "support");
-        factory.create(BASE_URL, "token-two", "acme", "support");
+        factory.create(BASE_URL.toString(), "token-one", "acme/support");
+        factory.create(BASE_URL.toString(), "token-two", "acme/support");
 
         verify(httpClientFactory, org.mockito.Mockito.times(2)).restClientBuilderFor(BASE_URL);
     }
@@ -78,9 +76,20 @@ class GiteaProviderFactoryTest {
         when(httpClientFactory.restClientBuilderFor(BASE_URL)).thenReturn(restClientBuilder);
         GiteaProviderFactory factory = new GiteaProviderFactory(httpClientFactory, mock(MessageSource.class));
 
-        TicketProvider first = factory.create(BASE_URL, "token-one", "acme", "support");
-        TicketProvider second = factory.create(BASE_URL, "token-two", "acme", "support");
+        TicketProvider first = factory.create(BASE_URL.toString(), "token-one", "acme/support");
+        TicketProvider second = factory.create(BASE_URL.toString(), "token-two", "acme/support");
 
         assertThat(first).isNotSameAs(second);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", "acme", "/support", "acme/", "a/b/c", "../support", "a/b?token=x", "a/b#fragment", "a/b%2fother"})
+    void rejectsInvalidTargetsBeforeCreatingAClient(String target) {
+        var http = mock(ProviderHttpClientFactory.class);
+        var factory = new GiteaProviderFactory(http, mock(MessageSource.class));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                factory.create(BASE_URL.toString(), "a-token", target)).isInstanceOf(IllegalArgumentException.class);
+        org.mockito.Mockito.verifyNoInteractions(http);
     }
 }

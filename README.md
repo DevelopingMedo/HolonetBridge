@@ -4,11 +4,11 @@ Holonet Bridge is a self-hosted Java application that connects Discord to one co
 
 ## Current foundation
 
-- A provider-neutral ticket port with create, read, edit, and comment operations. There is deliberately no delete operation.
-- A Gitea adapter (`GiteaTicketProvider`) that implements `create` against a Gitea instance's issue API. `read`, `edit`, and `comment` are not implemented yet and throw `UnsupportedOperationException`.
-- JDA (Java Discord API) as the Discord integration SDK, wired up and running an interactive `/ticket` creation flow end to end (see "The `/ticket` flow" below). Editing an existing ticket from Discord is not implemented yet.
+- A provider-neutral `TicketProvider` interface with one operation: `void create(HolonetReportFormData)`.
+- A Gitea adapter that posts reports to the repository's issue API. No response DTO or unused CRUD methods are needed.
+- Guild-specific connections configured through `/setup`; Bug and Idea modals save their draft and submit an external ticket asynchronously. See [the current setup and submission lifecycle](docs/ticket-submission.md). The older configuration and `/ticket` examples below are historical and do not describe this current flow.
 
-The provider identifier is a string rather than a fixed enum so that future adapters are not constrained to a compile-time list. Only the Gitea adapter exists so far; other providers (Jira, ...) would plug into the same `TicketProvider` port.
+The domain `TicketProvider` enum selects a provider during setup/restoration; the `commons.extapi.TicketProvider` interface performs ticket creation. Only Gitea is implemented.
 
 Internally, created/edited tickets are still called "tickets" everywhere in this codebase and towards Discord users, even for the Gitea adapter, where they map onto Gitea's "issues". This keeps the user-facing and cross-provider vocabulary provider-agnostic.
 
@@ -18,15 +18,15 @@ The base package is `de.medo.holonetbridge`, with `HolonetBridgeApplication` kep
 
 | Package | Contains |
 | --- | --- |
-| `commons` | Everything that is valid across providers: application-level configuration binding (`ProviderConnectionProperties`) directly in the package, `commons.extapi` for the external ticket-system boundary (`TicketProvider` and `TicketDto`), `commons.domain.ticket` for provider- and Discord-independent ticket values (`HolonetTicket`, `HolonetTicketBug`, and `HolonetTicketKind`), `commons.markdown` for raw Markdown construction, `commons.crypto` for `TokenCryptoService` (AES-256-GCM provider-token encryption, see "Provider-token encryption" below), and `commons.discord` for the Discord-facing integration. The Discord packages contain `DiscordProperties`, `DiscordGatewayConfiguration`, and the interactive flow, including `HolonetTicketCreationSession`/`HolonetTicketCreationSessionStore` for a user's in-progress Discord session. |
-| `gitea` | The Gitea provider adapter, as its own top-level package next to `commons`: `GiteaTicketProvider`, its request/response DTOs, `GiteaProperties` (the Gitea-specific owner/repository configuration, composed alongside `ProviderConnectionProperties` rather than extending it — see the Javadoc on `GiteaProperties` for why), and `GiteaConfiguration` (the conditional wiring that creates the two beans above only when Gitea is actually selected). Other providers (Jira, ...) would get their own top-level package the same way. |
+| `commons` | Shared domain/persistence, encryption, Markdown, Discord interactions/localization, the ticket interface in `extapi`, and the guild-specific provider lifecycle in `provider`. |
+| `gitea` | `GiteaProviderFactory` validates connection details and constructs `GiteaTicketProvider`; `GiteaHealthCheck` tests authentication. |
 | `bootstrap` (tests) | Startup/smoke tests wiring the whole application context. |
 
-### Provider-conditional wiring
+### Provider lifecycle
 
-`GiteaProperties` and `GiteaTicketProvider` are not created unconditionally at every startup. `GiteaConfiguration` is a plain `@Configuration` class gated with `@ConditionalOnProperty(prefix = "holonet.provider", name = "id", havingValue = "gitea")`; it registers `GiteaProperties` via `@EnableConfigurationProperties` and builds `GiteaTicketProvider` explicitly with `new` in a `@Bean` method, rather than relying on `GiteaTicketProvider` being an auto-registered `@Component` or `GiteaProperties` being picked up by a blanket configuration-properties scan. `HolonetBridgeApplication`'s `@ConfigurationPropertiesScan` is narrowed to `commons` accordingly, since it is only meant to cover configuration that is relevant regardless of which provider is selected. Adding a second provider adapter means following the same pattern: its own `@Configuration` class, gated on its own `holonet.provider.id` value.
+`HolonetTicketProviderService` holds a ready-to-use provider per guild. It builds a candidate after a successful setup healthcheck, activates it only after the support panel was posted and the configuration transaction committed, and restores active configurations before the interaction listener can be used. Drafts are never active connections. Invalid stored connections are skipped individually so `/setup` remains available.
 
-`TicketProvider` deliberately uses plain `String` parameters (id, title, description, comment body) instead of dedicated wrapper/DTO types for single or paired values; `TicketDto` remains a small record only because it is a genuine multi-field result (id, title, description) returned from create/read/edit.
+Each Gitea provider retains its own authenticated API client across tickets. Clients share one managed HTTP backend, with redirects and automatic retries disabled; shutdown closes its connection pool.
 
 ## Configuration
 

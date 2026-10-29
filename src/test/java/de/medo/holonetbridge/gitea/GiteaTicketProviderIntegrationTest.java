@@ -3,7 +3,7 @@ package de.medo.holonetbridge.gitea;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
-import de.medo.holonetbridge.commons.extapi.TicketDto;
+import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import java.net.URI;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeAll;
@@ -40,6 +40,7 @@ class GiteaTicketProviderIntegrationTest {
             .waitingFor(Wait.forHttp("/api/healthz").forPort(3000).forStatusCode(200));
 
     private static GiteaTicketProvider provider;
+    private static RestClient verificationClient;
 
     @BeforeAll
     static void setUpProvider() throws Exception {
@@ -47,24 +48,24 @@ class GiteaTicketProviderIntegrationTest {
         String token = generateAccessToken();
         createRepository(token);
         URI baseUrl = URI.create("http://" + GITEA.getHost() + ":" + GITEA.getMappedPort(3000));
+        verificationClient = RestClient.builder().baseUrl(baseUrl.toString())
+                .defaultHeader(HttpHeaders.AUTHORIZATION, "token " + token).build();
         provider = new GiteaTicketProvider(RestClient.builder(), baseUrl, token, ADMIN_USERNAME, REPOSITORY,
                 mock(MessageSource.class));
     }
 
     @Test
     void createsAnIssueInTheRunningGiteaInstance() {
-        TicketDto ticket = provider.create(
-                "[Bug] Login fails",
-                "**Was hast du vor dem Fehler gemacht?**\nEingeloggt und gewartet");
+        var form = GiteaTicketProviderTest.form(HolonetTicketKind.FEATURE);
+        form.setDescription("**Original**\nEingeloggt und gewartet");
+        provider.create(form);
 
-        assertThat(ticket.id()).isNotBlank();
-        assertThat(ticket.title()).isEqualTo("[Bug] Login fails");
-        assertThat(ticket.description())
-                .isEqualTo("**Was hast du vor dem Fehler gemacht?**\nEingeloggt und gewartet");
-        assertThat(ticket.url())
-                .as("Gitea's html_url must come through as the ticket's browser-facing url")
-                .isNotBlank()
-                .contains("/" + ADMIN_USERNAME + "/" + REPOSITORY + "/issues/" + ticket.id());
+        var issues = verificationClient.get().uri("/api/v1/repos/{owner}/{repo}/issues", ADMIN_USERNAME, REPOSITORY)
+                .retrieve().body(java.util.List.class);
+        assertThat(issues).hasSize(1);
+        var issue = (Map<?, ?>) issues.getFirst();
+        assertThat(issue.get("title")).isEqualTo("[Feature] Login fails");
+        assertThat(issue.get("body").toString()).startsWith("**Original**\nEingeloggt und gewartet");
     }
 
     private static void createAdminUser() throws Exception {
@@ -99,9 +100,7 @@ class GiteaTicketProviderIntegrationTest {
 
     private static String exec(String... command) throws Exception {
         var result = GITEA.execInContainer(command);
-        assertThat(result.getExitCode())
-                .as("command failed: %s%n%s", String.join(" ", command), result.getStderr())
-                .isZero();
+        assertThat(result.getExitCode()).as("Gitea setup command failed").isZero();
         return result.getStdout();
     }
 }

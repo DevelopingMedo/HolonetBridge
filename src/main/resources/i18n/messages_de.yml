@@ -4,6 +4,7 @@ setup:
   form-saved: "Verbindungsdaten gespeichert."
   form-unchanged: "Verbindungsdaten unverändert."
   completed: "✅ Setup abgeschlossen. Das Support-Panel wurde in {0} veröffentlicht."
+  failed: "Das Setup konnte nicht abgeschlossen werden. Die bisherige Verbindung bleibt unverändert. Prüfe Verbindungsdaten und Repository-Ziel und führe /setup erneut aus."
   healthcheck:
     checking: "Teste Verbindungsdaten …"
     success: "Basis-URL und Token für {0} wurden erfolgreich geprüft."
@@ -69,6 +70,9 @@ feature:
   title-hint: "Beschreibe deine Idee in einem kurzen Satz."
   description-hint: "Was soll am Ende möglich sein? Bitte so konkret wie möglich beschreiben."
 ticket:
+  created: "✅ Dein Ticket wurde erstellt."
+  create-failed: "Die Ticketerstellung konnte nicht bestätigt werden. Dein Formular ist gespeichert. Prüfe vor einem erneuten Versuch den Provider, um Duplikate zu vermeiden."
+  not-configured: "Für diesen Server ist keine aktive Ticket-Verbindung verfügbar. Dein Formular ist gespeichert. Bitte einen Administrator, /setup auszuführen."
   draft-saved: "Dein Formular wurde gespeichert. Öffne Bug oder Idee in diesem Kanal erneut, um fortzufahren. Es wurde noch kein externes Ticket erstellt."
   draft-load-failed: "Das gespeicherte Formular konnte nicht geladen werden. Bitte versuche es später erneut."
   draft-save-failed: "Dein Formular konnte nicht gespeichert werden. Bitte sichere deinen Text und versuche es später erneut."

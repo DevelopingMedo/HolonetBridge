@@ -80,4 +80,40 @@ class HolonetSetupPersistenceTest {
         assertThat(fresh.getBaseUrl()).isNull();
         assertThat(fresh.getSession().getId()).isNotEqualTo(oldSessionId);
     }
+
+    @Test
+    void startupReconstructsActiveConfigButNotUnfinishedSetupDrafts() {
+        var draft = service.getOrCreateSetupFormDataSession(10, 2, Locale.ENGLISH);
+        draft.setTicketProvider(TicketProvider.GITEA);
+        draft.setBaseUrl("https://unfinished.example");
+        draft.setToken("unfinished-token");
+        draft.setTarget("acme/support");
+        service.saveSetupFormDataSession(draft);
+        var active = service.getOrCreateSetupFormDataSession(11, 2, Locale.ENGLISH);
+        active.setTicketProvider(TicketProvider.GITEA);
+        active.setBaseUrl("https://saved.example");
+        active.setToken("encrypted-token");
+        active.setTarget("acme/support");
+        active.setSupportChannelId(4L);
+        service.saveSetupFormDataSession(active);
+        service.completeSetup(active, new HealthCheckResult("ok", true));
+        entityManager.flush();
+        entityManager.clear();
+        var encryption = org.mockito.Mockito.mock(de.medo.holonetbridge.commons.crypto.EncryptionService.class);
+        org.mockito.Mockito.when(encryption.decrypt("encrypted-token")).thenReturn("test-token");
+        var factory = org.mockito.Mockito.mock(de.medo.holonetbridge.gitea.GiteaProviderFactory.class);
+        var provider = org.mockito.Mockito.mock(de.medo.holonetbridge.commons.extapi.TicketProvider.class);
+        org.mockito.Mockito.when(factory.create("https://saved.example", "test-token", "acme/support"))
+                .thenReturn(provider);
+        var lifecycle = new de.medo.holonetbridge.commons.provider.HolonetTicketProviderService(
+                configs, service, encryption, factory);
+
+        lifecycle.restoreActiveProviders();
+
+        assertThat(lifecycle.providerFor(10)).isEmpty();
+        assertThat(lifecycle.providerFor(11)).containsSame(provider);
+        org.mockito.Mockito.verifyNoInteractions(provider);
+        org.mockito.Mockito.verify(encryption).decrypt("encrypted-token");
+        org.mockito.Mockito.verifyNoMoreInteractions(encryption);
+    }
 }
