@@ -22,7 +22,7 @@ import de.medo.holonetbridge.commons.provider.ProviderHealthCheckException.Reaso
 import de.medo.holonetbridge.commons.provider.ProviderHealthCheckService;
 import de.medo.holonetbridge.commons.provider.HolonetTicketProviderService;
 import de.medo.holonetbridge.commons.repository.HolonetDiscordConfigRepository;
-import de.medo.holonetbridge.gitea.GiteaProviderFactory;
+import de.medo.holonetbridge.commons.provider.ProviderFactory;
 import de.medo.holonetbridge.commons.service.HolonetBotInteractionSessionService;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
@@ -49,11 +49,11 @@ class HolonetSetupConnectionHealthCheckTest {
     private final TextChannel supportChannel = mock(TextChannel.class, RETURNS_DEEP_STUBS);
     private final HolonetSetupFormData formData = new HolonetSetupFormData();
     private final MessageSource messages = new MessageSourceConfiguration().messageSource(new I18nProperties(null));
-    private final GiteaProviderFactory factory = mock(GiteaProviderFactory.class);
+    private final ProviderFactory providerFactory = mock(ProviderFactory.class);
     private final de.medo.holonetbridge.commons.extapi.TicketProvider candidate =
             mock(de.medo.holonetbridge.commons.extapi.TicketProvider.class);
     private final HolonetTicketProviderService providers = new HolonetTicketProviderService(
-            mock(HolonetDiscordConfigRepository.class), sessions, encryption, factory);
+            mock(HolonetDiscordConfigRepository.class), sessions, providerFactory);
     private final HolonetSetupConnectionSubmitModalAction action =
             new HolonetSetupConnectionSubmitModalAction(messages, sessions, encryption, healthChecks, providers);
 
@@ -88,7 +88,7 @@ class HolonetSetupConnectionHealthCheckTest {
         when(event.getValue(HolonetModalFactory.TEXTINPUT_ID_TOKEN).getAsString()).thenReturn("test-token");
         when(encryption.encrypt("test-token")).thenReturn("encrypted-test-token");
         when(encryption.decrypt("encrypted-test-token")).thenReturn("test-token");
-        when(factory.create(anyString(), any(), anyString())).thenReturn(candidate);
+        when(providerFactory.create(any(), anyString(), any(), anyString())).thenReturn(candidate);
         when(sessions.getOrCreateSetupFormDataSession(anyLong(), anyLong(), any()))
                 .thenReturn(formData);
         ReplyCallbackAction reply = event.deferReply(true);
@@ -136,7 +136,7 @@ class HolonetSetupConnectionHealthCheckTest {
         assertThat(reply.getAllValues().getLast()).contains("/setup").doesNotContain("test-token", "erfolgreich");
         verify(supportChannel, never()).sendMessage(anyString());
         verify(sessions, never()).completeSetup(any(), any());
-        verifyNoInteractions(factory);
+        verifyNoInteractions(providerFactory);
     }
 
     @Test
@@ -182,7 +182,8 @@ class HolonetSetupConnectionHealthCheckTest {
         verify(sessions, never()).completeSetup(any(), any());
         verify(hook, never()).editOriginal(COMPLETED);
         assertThat(providers.providerFor(1L)).isEmpty();
-        verify(factory).create("https://gitea.example.invalid", "test-token", "acme/support");
+        verify(providerFactory).create(TicketProvider.GITEA,
+                "https://gitea.example.invalid", "encrypted-test-token", "acme/support");
 
         panelPost.complete(mock(net.dv8tion.jda.api.entities.Message.class));
 
@@ -230,7 +231,7 @@ class HolonetSetupConnectionHealthCheckTest {
 
     @Test
     void candidateFailureDoesNotPostPanelOrChangeTheActiveProvider() {
-        when(factory.create(anyString(), any(), anyString()))
+        when(providerFactory.create(any(), anyString(), any(), anyString()))
                 .thenThrow(new IllegalArgumentException("test-token reflected"));
 
         action.handle(event);
@@ -267,7 +268,7 @@ class HolonetSetupConnectionHealthCheckTest {
         switch (stage) {
             case "healthcheck" -> doThrow(new ProviderHealthCheckException(Reason.ACCESS))
                     .when(healthChecks).check(any(), any(), any());
-            case "candidate" -> when(factory.create(anyString(), any(), anyString()))
+            case "candidate" -> when(providerFactory.create(any(), anyString(), any(), anyString()))
                     .thenThrow(new IllegalArgumentException("invalid target"));
             case "panel" -> panelPost.completeExceptionally(new IllegalStateException("post failed"));
             case "persistence" -> doThrow(new IllegalStateException("commit failed"))

@@ -4,13 +4,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-import de.medo.holonetbridge.commons.crypto.EncryptionService;
 import de.medo.holonetbridge.commons.domain.HolonetDiscordConfig;
 import de.medo.holonetbridge.commons.domain.HolonetSetupFormData;
 import de.medo.holonetbridge.commons.extapi.TicketProvider;
 import de.medo.holonetbridge.commons.repository.HolonetDiscordConfigRepository;
 import de.medo.holonetbridge.commons.service.HolonetBotInteractionSessionService;
-import de.medo.holonetbridge.gitea.GiteaProviderFactory;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,26 +18,24 @@ import org.springframework.stereotype.Service;
 public class HolonetTicketProviderService {
 
     private final Map<Long, TicketProvider> providers = new ConcurrentHashMap<>();
-    private final HolonetDiscordConfigRepository configs;
-    private final HolonetBotInteractionSessionService sessions;
-    private final EncryptionService encryption;
-    private final GiteaProviderFactory gitea;
+    private final HolonetDiscordConfigRepository discordConfigRepository;
+    private final HolonetBotInteractionSessionService botInteractionSessionService;
+    private final ProviderFactory providerFactory;
 
-    public HolonetTicketProviderService(HolonetDiscordConfigRepository configs,
-            HolonetBotInteractionSessionService sessions, EncryptionService encryption, GiteaProviderFactory gitea) {
-        this.configs = configs;
-        this.sessions = sessions;
-        this.encryption = encryption;
-        this.gitea = gitea;
+    public HolonetTicketProviderService(HolonetDiscordConfigRepository discordConfigRepository,
+            HolonetBotInteractionSessionService botInteractionSessionService, ProviderFactory providerFactory) {
+        this.discordConfigRepository = discordConfigRepository;
+        this.botInteractionSessionService = botInteractionSessionService;
+        this.providerFactory = providerFactory;
     }
 
     @PostConstruct
     public void restoreActiveProviders() {
         // Load separately so even a corrupt provider enum in one row cannot prevent other guilds starting.
-        for (Long guildId : configs.findAllGuildIds()) {
+        for (Long guildId : discordConfigRepository.findAllGuildIds()) {
             try {
-                HolonetDiscordConfig config = configs.findById(guildId).orElseThrow();
-                providers.put(guildId, create(config.getTicketProvider(), config.getBaseUrl(),
+                HolonetDiscordConfig config = discordConfigRepository.findById(guildId).orElseThrow();
+                providers.put(guildId, providerFactory.create(config.getTicketProvider(), config.getBaseUrl(),
                         config.getToken(), config.getTarget()));
             } catch (RuntimeException failure) {
                 log.warn("Could not restore ticket provider for guildId={}; check the saved configuration", guildId);
@@ -52,7 +48,7 @@ public class HolonetTicketProviderService {
     }
 
     public TicketProvider candidateFor(HolonetSetupFormData form) {
-        return create(form.getTicketProvider(), form.getBaseUrl(), form.getToken(), form.getTarget());
+        return providerFactory.create(form.getTicketProvider(), form.getBaseUrl(), form.getToken(), form.getTarget());
     }
 
     public synchronized void completeSetup(HolonetSetupFormData form, HealthCheckResult healthCheck,
@@ -63,15 +59,7 @@ public class HolonetTicketProviderService {
         java.util.Objects.requireNonNull(candidate, "Provider candidate is required");
         long guildId = form.getSession().getGuildId();
         // The transactional service proxy returns only after commit. Serialize that commit and the swap.
-        sessions.completeSetup(form, healthCheck);
+        botInteractionSessionService.completeSetup(form, healthCheck);
         providers.put(guildId, candidate);
-    }
-
-    private TicketProvider create(de.medo.holonetbridge.commons.domain.TicketProvider provider,
-            String baseUrl, String encryptedToken, String target) {
-        return switch (provider) {
-            case GITEA -> gitea.create(baseUrl, encryption.decrypt(encryptedToken), target);
-            case JIRA, GITHUB, TRELLO -> throw new UnsupportedOperationException("Provider is not implemented");
-        };
     }
 }
