@@ -1,0 +1,91 @@
+package de.medo.holonetbridge.commons.discord.modal.interaction;
+
+import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
+
+import de.medo.holonetbridge.commons.crypto.EncryptionService;
+import de.medo.holonetbridge.commons.discord.modal.HolonetModalFactory;
+import de.medo.holonetbridge.commons.domain.HolonetSetupFormData;
+import de.medo.holonetbridge.commons.domain.TicketProvider;
+import de.medo.holonetbridge.commons.provider.ProviderHealthCheckException;
+import de.medo.holonetbridge.commons.provider.ProviderHealthCheckService;
+import de.medo.holonetbridge.commons.service.HolonetBotInteractionSessionService;
+import lombok.extern.slf4j.Slf4j;
+import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
+import org.springframework.context.MessageSource;
+import org.springframework.stereotype.Component;
+
+@Slf4j
+@Component
+public class HolonetSetupConnectionSubmitModalAction {
+
+    private final MessageSource messageSource;
+    private final HolonetBotInteractionSessionService botInteractionSessionService;
+    private final EncryptionService encryptionService;
+    private final ProviderHealthCheckService providerHealthCheckService;
+
+    public HolonetSetupConnectionSubmitModalAction(
+            MessageSource messageSource,
+            HolonetBotInteractionSessionService botInteractionSessionService,
+            EncryptionService encryptionService,
+            ProviderHealthCheckService providerHealthCheckService) {
+        this.messageSource = messageSource;
+        this.botInteractionSessionService = botInteractionSessionService;
+        this.encryptionService = encryptionService;
+        this.providerHealthCheckService = providerHealthCheckService;
+    }
+
+    public void handle(ModalInteractionEvent event) {
+        Locale locale = event.getUserLocale().toLocale();
+        Guild guild = event.getGuild();
+        Member member = event.getMember();
+        if (guild == null || member == null) {
+            event.reply(messageSource.getMessage("setup.guild-only", null, locale)).setEphemeral(true).queue();
+            return;
+        }
+        if (!member.hasPermission(Permission.MANAGE_SERVER)) {
+            event.reply(messageSource.getMessage("setup.manage-server", null, locale)).setEphemeral(true).queue();
+            return;
+        }
+        TicketProvider ticketProvider = TicketProvider.fromId(event
+                .getValue(HolonetModalFactory.STRINGSELECTMENU_ID_PROVIDER)
+                .getAsStringList()
+                .getFirst());
+        Long supportChannelId = event.getValue(HolonetModalFactory.ENTITYSELECTMENU_ID_CHANNEL)
+                .getAsLongList()
+                .getFirst();
+        String baseUrl = event.getValue(HolonetModalFactory.TEXTINPUT_ID_BASE_URL).getAsString().trim();
+        String target = event.getValue(HolonetModalFactory.TEXTINPUT_ID_TARGET).getAsString().trim();
+        String rawToken = event.getValue(HolonetModalFactory.TEXTINPUT_ID_TOKEN).getAsString();
+        HolonetSetupFormData setupFormData = botInteractionSessionService.getOrCreateSetupFormDataSession(
+                guild.getIdLong(), member.getIdLong(), event.getChannel().getIdLong(), locale);
+
+        setupFormData.setToken(encryptionService.encrypt(rawToken));
+        setupFormData.setTicketProvider(ticketProvider);
+        setupFormData.setBaseUrl(baseUrl);
+        setupFormData.setSupportChannelId(supportChannelId);
+        setupFormData.setTarget(target);
+        botInteractionSessionService.saveSetupFormDataSession(setupFormData);
+
+        event.deferReply(true).queue(hook -> CompletableFuture
+                .supplyAsync(() -> checkConnection(ticketProvider, baseUrl, rawToken, locale, guild.getIdLong()))
+                .thenAccept(message -> hook.editOriginal(message).queue()));
+    }
+
+    private String checkConnection(TicketProvider provider, String baseUrl, String token, Locale locale, long guildId) {
+        String messageKey;
+        try {
+            providerHealthCheckService.check(provider, baseUrl, token);
+            messageKey = "setup.healthcheck.success";
+        } catch (ProviderHealthCheckException e) {
+            messageKey = "setup.healthcheck." + e.getReason().name().toLowerCase(Locale.ROOT).replace('_', '-');
+        } catch (RuntimeException e) {
+            log.error("Provider healthcheck failed for guild {} ({})", guildId, e.getClass().getSimpleName());
+            messageKey = "setup.healthcheck.failed";
+        }
+        return messageSource.getMessage(messageKey, new Object[] {provider.getDisplayName()}, locale);
+    }
+}

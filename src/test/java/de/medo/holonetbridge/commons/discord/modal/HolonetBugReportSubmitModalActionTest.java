@@ -8,6 +8,7 @@ import java.util.List;
 
 import de.medo.holonetbridge.commons.discord.i18n.I18nProperties;
 import de.medo.holonetbridge.commons.discord.i18n.MessageSourceConfiguration;
+import de.medo.holonetbridge.commons.discord.modal.interaction.HolonetBugReportSubmitModalAction;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicket;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;

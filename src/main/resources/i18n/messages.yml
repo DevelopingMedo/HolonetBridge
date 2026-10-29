@@ -1,29 +1,16 @@
 setup:
   guild-only: "/setup can only be used in a server."
   manage-server: "You need the \"Manage Server\" permission."
-  cannot-post: "I cannot post the support panel in {0}."
-  expired: "The session has expired. Please run /setup again."
-  channel-unavailable: "The selected channel is no longer accessible or I lack permission."
-  invalid-url: "Please enter a valid http(s) base URL."
-  token-required: "A token is required for a new connection or a change of provider, base URL or target."
-  draft-saved: "Setup data saved. Provider validation and connection activation are not implemented yet."
   healthcheck:
     success: "Base URL and token for {0} were checked successfully."
     invalid-url: "Enter a valid http(s) base URL without credentials, query or fragment and run /setup again."
     token-required: "A token is required for the connection test. Run /setup again and enter a token."
     unsupported: "The connection test for {0} is not implemented yet. Run /setup again and select a supported provider."
-    unreachable: "The base URL is unreachable or blocked by the security policy. Check the URL and run /setup again."
+    unreachable: "The base URL is unreachable. Check the URL and run /setup again."
     access: "The provider rejected the token or the token lacks permissions for the connection test. Run /setup again and check the token."
     invalid-response: "The base URL did not return a valid provider response. Check the URL and run /setup again."
     rejected: "The provider rejected the connection test. Check the URL and token and run /setup again."
     failed: "The connection test failed. Please run /setup again."
-  panel:
-    message: "Need help? Click below to create a support ticket."
-    button: "Request support"
-    failed: "Connection configured, but the support panel could not be posted."
-  saved: "Connection configured. The support panel is now in {0}."
-  failed: "The connection could not be configured. Please try again (reference: {0})."
-  retry: "Try again"
   modal:
     title: "Configure ticket connection"
     provider: "Ticket provider"
@@ -73,22 +60,6 @@ feature:
 ticket:
   title: "Title"
   description: "Description"
-  no-provider: "No ticket provider is configured for this server. A server admin must run /setup first."
-  created: "Ticket #{0} created: {1}"
-  open: "Open ticket: {0}"
-  no-link: "(Link currently unavailable.)"
-  failed: "The ticket could not be created. Please try again (reference: {0})."
-  untracked: "This is not a tracked support channel. Please start a new request using the support button."
-  exists: "A ticket already exists for this channel."
-validation:
-  blocked: "This base URL is blocked by the security policy."
-  unreachable: "The base URL is unreachable or blocked by the security policy."
-  access: "The token is invalid or has no read access to this repository."
-  not-found: "Repository not found. Check the owner and repository name."
-  rejected: "The provider rejected the request (HTTP {0})."
 commands:
   setup:
     description: "Set up the support ticket panel in a channel"
-    options:
-      channel:
-        description: "Channel for the support panel"

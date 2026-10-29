@@ -4,8 +4,7 @@ import java.net.URI;
 import java.time.Duration;
 
 import de.medo.holonetbridge.commons.domain.TicketProvider;
-import de.medo.holonetbridge.commons.net.SsrfBlockedTargetException;
-import de.medo.holonetbridge.commons.net.SsrfSafeHttpClientFactory;
+import de.medo.holonetbridge.commons.net.ProviderHttpClientFactory;
 import de.medo.holonetbridge.commons.provider.ProviderHealthCheck;
 import de.medo.holonetbridge.commons.provider.ProviderHealthCheckException;
 import de.medo.holonetbridge.commons.provider.ProviderHealthCheckException.Reason;
@@ -25,9 +24,9 @@ public class GiteaHealthCheck implements ProviderHealthCheck {
 
     private static final Duration TIMEOUT = Duration.ofSeconds(10);
 
-    private final SsrfSafeHttpClientFactory httpClientFactory;
+    private final ProviderHttpClientFactory httpClientFactory;
 
-    public GiteaHealthCheck(SsrfSafeHttpClientFactory httpClientFactory) {
+    public GiteaHealthCheck(ProviderHttpClientFactory httpClientFactory) {
         this.httpClientFactory = httpClientFactory;
     }
 
@@ -59,9 +58,6 @@ public class GiteaHealthCheck implements ProviderHealthCheck {
             throw failure(baseUrl, status == 401 || status == 403 ? Reason.ACCESS : Reason.REJECTED, "HTTP " + status);
         } catch (ResourceAccessException e) {
             throw failure(baseUrl, Reason.UNREACHABLE, e.getMostSpecificCause().getClass().getSimpleName());
-        } catch (SsrfBlockedTargetException e) {
-            throw failure(baseUrl, Reason.UNREACHABLE,
-                    e.getCause() == null ? e.getClass().getSimpleName() : e.getCause().getClass().getSimpleName());
         } catch (RestClientException e) {
             throw failure(baseUrl, Reason.INVALID_RESPONSE, e.getClass().getSimpleName());
         }

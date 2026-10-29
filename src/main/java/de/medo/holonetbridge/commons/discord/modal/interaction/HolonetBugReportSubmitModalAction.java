@@ -1,8 +1,9 @@
-package de.medo.holonetbridge.commons.discord.modal;
+package de.medo.holonetbridge.commons.discord.modal.interaction;
 
 import java.util.Locale;
 
 import de.medo.holonetbridge.commons.discord.button.HolonetBugReportModalButton;
+import de.medo.holonetbridge.commons.discord.modal.HolonetTicketSubmitter;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketBug;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import de.medo.holonetbridge.commons.markdown.MarkdownBuilder;

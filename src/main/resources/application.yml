@@ -13,6 +13,8 @@ spring:
     change-log: classpath:db/changelog/db.changelog-master.xml
 
 holonet:
+  crypto:
+    master-key: "WauOKK6kYn/N+mrkpsvPB2pdVBkPRhuDAyWQyLAsZeA="
   ticket-providers:
     api-paths:
       GITEA: /api/v1

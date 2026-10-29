@@ -14,9 +14,7 @@ import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
 
 /**
- * Handles the "Bug" choice in the support channel (custom id {@code ticket:kind:bug}): records
- * {@link HolonetTicketKind#BUG} on the user's session and opens the bug report modal
- * (id {@code ticket:modal:bug-report}) with a title and four report fields.
+ * Pressing this button creates a Modal for creating Bugs to the selected Ticketing Provider.
  */
 @Component
 public class HolonetBugReportModalButton {

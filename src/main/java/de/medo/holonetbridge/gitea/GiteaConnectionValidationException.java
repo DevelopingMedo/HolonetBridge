@@ -2,7 +2,7 @@ package de.medo.holonetbridge.gitea;
 
 public class GiteaConnectionValidationException extends RuntimeException {
 
-    public enum Reason { BLOCKED, UNREACHABLE, ACCESS, NOT_FOUND, REJECTED }
+    public enum Reason { UNREACHABLE, ACCESS, NOT_FOUND, REJECTED }
 
     private final Reason reason;
     private final int status;

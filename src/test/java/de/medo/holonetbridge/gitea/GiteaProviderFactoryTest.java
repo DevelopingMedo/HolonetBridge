@@ -13,7 +13,7 @@ import java.net.URI;
 
 import de.medo.holonetbridge.commons.extapi.TicketDto;
 import de.medo.holonetbridge.commons.extapi.TicketProvider;
-import de.medo.holonetbridge.commons.net.SsrfSafeHttpClientFactory;
+import de.medo.holonetbridge.commons.net.ProviderHttpClientFactory;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -23,7 +23,7 @@ import org.springframework.web.client.RestClient;
 /**
  * Verifies {@link GiteaProviderFactory} builds a brand-new {@link GiteaTicketProvider} per call, wired with
  * the exact {@code baseUrl}/token/owner/repository given to it and routed through {@link
- * SsrfSafeHttpClientFactory} - never a single shared instance reused across guilds or token rotations (see
+ * ProviderHttpClientFactory} - never a single shared instance reused across guilds or token rotations (see
  * that class's Javadoc for why that matters).
  */
 class GiteaProviderFactoryTest {
@@ -34,7 +34,7 @@ class GiteaProviderFactoryTest {
     void createsAProviderWiredWithTheGivenTargetAndToken() {
         RestClient.Builder restClientBuilder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(restClientBuilder).build();
-        SsrfSafeHttpClientFactory httpClientFactory = mock(SsrfSafeHttpClientFactory.class);
+        ProviderHttpClientFactory httpClientFactory = mock(ProviderHttpClientFactory.class);
         when(httpClientFactory.restClientBuilderFor(BASE_URL)).thenReturn(restClientBuilder);
         GiteaProviderFactory factory = new GiteaProviderFactory(httpClientFactory);
 
@@ -56,10 +56,10 @@ class GiteaProviderFactoryTest {
     }
 
     @Test
-    void everyCallGoesThroughTheSsrfSafeHttpClientFactoryForTheGivenBaseUrl() {
+    void everyCallUsesTheHttpClientFactoryForTheGivenBaseUrl() {
         RestClient.Builder restClientBuilder = RestClient.builder();
         MockRestServiceServer.bindTo(restClientBuilder).build();
-        SsrfSafeHttpClientFactory httpClientFactory = mock(SsrfSafeHttpClientFactory.class);
+        ProviderHttpClientFactory httpClientFactory = mock(ProviderHttpClientFactory.class);
         when(httpClientFactory.restClientBuilderFor(BASE_URL)).thenReturn(restClientBuilder);
         GiteaProviderFactory factory = new GiteaProviderFactory(httpClientFactory);
 
@@ -73,7 +73,7 @@ class GiteaProviderFactoryTest {
     void twoCallsProduceTwoIndependentProviderInstances() {
         RestClient.Builder restClientBuilder = RestClient.builder();
         MockRestServiceServer.bindTo(restClientBuilder).build();
-        SsrfSafeHttpClientFactory httpClientFactory = mock(SsrfSafeHttpClientFactory.class);
+        ProviderHttpClientFactory httpClientFactory = mock(ProviderHttpClientFactory.class);
         when(httpClientFactory.restClientBuilderFor(BASE_URL)).thenReturn(restClientBuilder);
         GiteaProviderFactory factory = new GiteaProviderFactory(httpClientFactory);
 

@@ -2,29 +2,16 @@
 setup:
   guild-only: "/setup mozhno ispolzovat tolko na servere."
   manage-server: "Nuzhno razreshenie \"Upravlenie serverom\"."
-  cannot-post: "U menya net razresheniya otpravit panel podderzhki v {0}."
-  expired: "Vremya seansa isteklo. Zapusti /setup eshche raz."
-  channel-unavailable: "Vybrannyy kanal bolshe nedostupen ili u menya net razresheniya."
-  invalid-url: "Ukazhi korrektnyy bazovyy URL http(s)."
-  token-required: "Dlya novogo podklyucheniya ili izmeneniya provaydera, URL ili tseli nuzhen token."
-  draft-saved: "Dannye sokhraneny. Proverka provaydera i aktivatsiya podklyucheniya poka ne realizovany."
   healthcheck:
     success: "Bazovyy URL i token dlya {0} uspeshno provereny."
     invalid-url: "Ukazhi korrektnyy URL http(s) bez dannykh avtorizatsii, zaprosa ili fragmenta i zapusti /setup eshche raz."
     token-required: "Dlya proverki podklyucheniya nuzhen token. Zapusti /setup eshche raz i vvedi token."
     unsupported: "Proverka podklyucheniya dlya {0} poka ne realizovana. Zapusti /setup eshche raz i vyberi podderzhivaemogo provaydera."
-    unreachable: "Bazovyy URL nedostupen ili zablokirovan politikoy bezopasnosti. Prover URL i zapusti /setup eshche raz."
+    unreachable: "Bazovyy URL nedostupen. Prover URL i zapusti /setup eshche raz."
     access: "Provayder otklonil token ili u tokena net prav dlya proverki podklyucheniya. Zapusti /setup eshche raz i prover token."
     invalid-response: "Bazovyy URL ne vernul korrektnyy otvet provaydera. Prover URL i zapusti /setup eshche raz."
     rejected: "Provayder otklonil proverku podklyucheniya. Prover URL i token i zapusti /setup eshche raz."
     failed: "Proverka podklyucheniya ne udalas. Zapusti /setup eshche raz."
-  panel:
-    message: "Nuzhna pomoshch? Nazhmi vnizu, chtoby sozdat obrashchenie."
-    button: "Zaprosit podderzhku"
-    failed: "Podklyuchenie nastroeno, no panel podderzhki ne udalos otpravit."
-  saved: "Podklyuchenie nastroeno. Panel podderzhki teper v {0}."
-  failed: "Ne udalos nastroit podklyuchenie. Poprobuy eshche raz (kod: {0})."
-  retry: "Poprobovat snova"
   modal:
     title: "Nastroit ticket-podklyuchenie"
     provider: "Ticket-provayder"
@@ -74,22 +61,6 @@ feature:
 ticket:
   title: "Zagolovok"
   description: "Opisanie"
-  no-provider: "Dlya servera ne nastroena sistema obrashcheniy. Administrator dolzhen snachala zapustit /setup."
-  created: "Obrashchenie #{0} sozdano: {1}"
-  open: "Otkryt obrashchenie: {0}"
-  no-link: "(Ssylka poka nedostupna.)"
-  failed: "Ne udalos sozdat obrashchenie. Poprobuy eshche raz (kod: {0})."
-  untracked: "Eto ne kanal podderzhki. Nachni novoe obrashchenie knopkoy podderzhki."
-  exists: "Dlya etogo kanala uzhe est obrashchenie."
-validation:
-  blocked: "Etot bazovyy URL zablokirovan pravilami bezopasnosti."
-  unreachable: "Bazovyy URL nedostupen ili zablokirovan pravilami bezopasnosti."
-  access: "Token nedeystvitelen ili ne imeet prav chteniya repozitoriya."
-  not-found: "Repozitoriy ne nayden. Prover vladeltsa i nazvanie repozitoriya."
-  rejected: "Sistema otklonila zapros (HTTP {0})."
 commands:
   setup:
     description: "Nastroit panel obrashcheniy v kanale"
-    options:
-      channel:
-        description: "Kanal dlya paneli podderzhki"

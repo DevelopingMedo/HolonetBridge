@@ -12,13 +12,9 @@ import net.dv8tion.jda.api.modals.Modal;
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
 
+
 /**
- * Handles the "Idee" choice in the support channel (custom id {@code ticket:kind:feature}): records
- * {@link HolonetTicketKind#FEATURE} on the user's session and opens the idea modal
- * (id {@code ticket:modal:feature}) collecting a title and description.
- *
- * <p>The Discord-visible wording says "Idee" while the backend keeps "Feature" (see
- * {@link HolonetTicketKind}); internal ids and constant names therefore use {@code feature}.
+ * Pressing this button creates a Modal for creating Features to the selected Ticketing Provider.
  */
 @Component
 public class HolonetFeatureModalButton {

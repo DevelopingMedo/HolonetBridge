@@ -1,29 +1,16 @@
 setup:
   guild-only: "/setup se može koristiti samo na poslužitelju."
   manage-server: "Potrebna ti je dozvola \"Upravljanje poslužiteljem\"."
-  cannot-post: "Nemam dozvolu za objavu poruke podrške u {0}."
-  expired: "Sesija je istekla. Ponovno pokreni /setup."
-  channel-unavailable: "Odabrani kanal više nije dostupan ili nemam dozvolu."
-  invalid-url: "Unesi valjanu osnovnu http(s) adresu."
-  token-required: "Token je potreban za novu vezu ili promjenu pružatelja, osnovne adrese ili odredišta."
-  draft-saved: "Podaci su spremljeni. Provjera pružatelja i aktivacija veze još nisu implementirane."
   healthcheck:
     success: "Osnovna adresa i token za {0} uspješno su provjereni."
     invalid-url: "Unesi valjanu http(s) adresu bez pristupnih podataka, upita ili fragmenta i ponovno pokreni /setup."
     token-required: "Za provjeru veze potreban je token. Ponovno pokreni /setup i unesi token."
     unsupported: "Provjera veze za {0} još nije implementirana. Ponovno pokreni /setup i odaberi podržanog pružatelja."
-    unreachable: "Osnovna adresa nije dostupna ili je blokirana iz sigurnosnih razloga. Provjeri adresu i ponovno pokreni /setup."
+    unreachable: "Osnovna adresa nije dostupna. Provjeri adresu i ponovno pokreni /setup."
     access: "Pružatelj je odbio token ili token nema dozvole za provjeru veze. Ponovno pokreni /setup i provjeri token."
     invalid-response: "Osnovna adresa nije vratila valjan odgovor pružatelja. Provjeri adresu i ponovno pokreni /setup."
     rejected: "Pružatelj je odbio provjeru veze. Provjeri adresu i token i ponovno pokreni /setup."
     failed: "Provjera veze nije uspjela. Ponovno pokreni /setup."
-  panel:
-    message: "Trebaš pomoć? Klikni ispod za otvaranje zahtjeva za podršku."
-    button: "Zatraži podršku"
-    failed: "Veza je postavljena, ali poruka podrške nije objavljena."
-  saved: "Veza je postavljena. Poruka podrške sada je u {0}."
-  failed: "Veza nije postavljena. Pokušaj ponovno (referenca: {0})."
-  retry: "Pokušaj ponovno"
   modal:
     title: "Postavi vezu za prijave"
     provider: "Pružatelj prijava"
@@ -73,22 +60,6 @@ feature:
 ticket:
   title: "Naslov"
   description: "Opis"
-  no-provider: "Za ovaj poslužitelj nije postavljen sustav za prijave. Administrator prvo mora pokrenuti /setup."
-  created: "Prijava #{0} je otvorena: {1}"
-  open: "Otvori prijavu: {0}"
-  no-link: "(Poveznica trenutačno nije dostupna.)"
-  failed: "Prijava nije otvorena. Pokušaj ponovno (referenca: {0})."
-  untracked: "Ovaj kanal nije evidentiran za podršku. Pokreni novi zahtjev gumbom za podršku."
-  exists: "Za ovaj kanal već postoji prijava."
-validation:
-  blocked: "Ova osnovna adresa blokirana je sigurnosnim pravilima."
-  unreachable: "Osnovna adresa nije dostupna ili je blokirana sigurnosnim pravilima."
-  access: "Token nije valjan ili nema pristup čitanju ovog repozitorija."
-  not-found: "Repozitorij nije pronađen. Provjeri vlasnika i naziv repozitorija."
-  rejected: "Sustav je odbio zahtjev (HTTP {0})."
 commands:
   setup:
     description: "Postavi poruku za podršku u kanalu"
-    options:
-      channel:
-        description: "Kanal za poruku podrške"

@@ -1,11 +1,9 @@
 package de.medo.holonetbridge.commons.discord.listener;
 
-import de.medo.holonetbridge.commons.discord.button.HolonetBugReportModalButton;
-import de.medo.holonetbridge.commons.discord.button.HolonetFeatureModalButton;
-import de.medo.holonetbridge.commons.discord.modal.HolonetBugReportSubmitModalAction;
-import de.medo.holonetbridge.commons.discord.modal.HolonetFeatureSubmittedModalAction;
-import de.medo.holonetbridge.commons.discord.modal.HolonetProviderConnectionModal;
-import de.medo.holonetbridge.commons.discord.modal.HolonetSetupConnectionSubmitModalAction;
+import de.medo.holonetbridge.commons.discord.modal.HolonetModalFactory;
+import de.medo.holonetbridge.commons.discord.modal.interaction.HolonetBugReportSubmitModalAction;
+import de.medo.holonetbridge.commons.discord.modal.interaction.HolonetFeatureSubmittedModalAction;
+import de.medo.holonetbridge.commons.discord.modal.interaction.HolonetSetupConnectionSubmitModalAction;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.springframework.stereotype.Component;
@@ -33,9 +31,9 @@ public class HolonetOnModalInteractionListener extends ListenerAdapter {
     @Override
     public void onModalInteraction(ModalInteractionEvent event) {
         switch (event.getModalId()) {
-            case HolonetFeatureModalButton.MODAL_ID -> featureSubmitted.handle(event);
-            case HolonetBugReportModalButton.MODAL_ID -> bugReportSubmit.handle(event);
-            case HolonetProviderConnectionModal.MODAL_ID -> setupConnectionSubmit.handle(event);
+            case HolonetModalFactory.MODAL_ID_FEATURE_REPORT -> featureSubmitted.handle(event);
+            case HolonetModalFactory.MODAL_ID_BUG_REPORT -> bugReportSubmit.handle(event);
+            case HolonetModalFactory.MODAL_ID_SETUP_HOLONET -> setupConnectionSubmit.handle(event);
             default -> {
                 // Not one of ours; ignore.
             }

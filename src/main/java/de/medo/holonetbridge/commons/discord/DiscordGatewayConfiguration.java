@@ -53,14 +53,8 @@ public class DiscordGatewayConfiguration {
                 .addCommands(
                         Commands.slash(
                                         COMMAND_SETUP,
-                                        messageSource.getMessage("commands.setup.description", null, Locale.ROOT))
+                                        messageSource.getMessage("commands.setup.description", null, Locale.ENGLISH))
                                 .setLocalizationFunction(commandLocalization)
-                                .addOptions(new OptionData(
-                                                OptionType.CHANNEL,
-                                                OPTION_CHANNEL,
-                                                messageSource.getMessage("commands.setup.options.channel.description", null, Locale.ROOT),
-                                                true)
-                                        .setChannelTypes(ChannelType.TEXT))
                                 .setDefaultPermissions(
                                         DefaultMemberPermissions.enabledFor(Permission.MANAGE_SERVER))
                                 .setContexts(InteractionContextType.GUILD))

@@ -40,12 +40,6 @@
             <artifactId>spring-boot-starter-restclient</artifactId>
         </dependency>
 
-        <!--
-            Pulled in explicitly (rather than relying on RestClient's JDK-HttpClient fallback) because its
-            PoolingHttpClientConnectionManager accepts a custom DnsResolver: that is the hook SsrfSafeHttpClientFactory
-            needs to make the addresses it already validated the only ones the connection is actually opened to,
-            instead of letting the HTTP client re-resolve the hostname itself right before connecting (DNS rebinding).
-        -->
         <dependency>
             <groupId>org.apache.httpcomponents.client5</groupId>
             <artifactId>httpclient5</artifactId>

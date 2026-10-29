@@ -1,6 +1,7 @@
-package de.medo.holonetbridge.commons.discord.modal;
+package de.medo.holonetbridge.commons.discord.modal.interaction;
 
 import de.medo.holonetbridge.commons.discord.button.HolonetFeatureModalButton;
+import de.medo.holonetbridge.commons.discord.modal.HolonetTicketSubmitter;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicket;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;

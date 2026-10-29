@@ -15,8 +15,7 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import de.medo.holonetbridge.commons.domain.TicketProvider;
-import de.medo.holonetbridge.commons.net.SsrfBlockedTargetException;
-import de.medo.holonetbridge.commons.net.SsrfSafeHttpClientFactory;
+import de.medo.holonetbridge.commons.net.ProviderHttpClientFactory;
 import de.medo.holonetbridge.commons.provider.ProviderHealthCheckException;
 import de.medo.holonetbridge.commons.provider.ProviderHealthCheckException.Reason;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,7 +35,7 @@ class GiteaHealthCheckTest {
 
     private static final URI BASE_URL = URI.create("https://gitea.example.invalid/gitea");
     private static final String USER_URL = "https://gitea.example.invalid/gitea/api/v1/user";
-    private final SsrfSafeHttpClientFactory factory = mock(SsrfSafeHttpClientFactory.class);
+    private final ProviderHttpClientFactory factory = mock(ProviderHttpClientFactory.class);
     private final GiteaHealthCheck healthCheck = new GiteaHealthCheck(factory);
     private final Logger logger = (Logger) LoggerFactory.getLogger(GiteaHealthCheck.class);
     private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
@@ -122,22 +121,13 @@ class GiteaHealthCheckTest {
     }
 
     @Test
-    void mapsSecurityPolicyBlocksToUnreachable() {
-        when(factory.restClientBuilderFor(BASE_URL, Duration.ofSeconds(10)))
-                .thenThrow(new SsrfBlockedTargetException("blocked test target"));
-
-        assertFailure(Reason.UNREACHABLE);
-        assertThat(logs.list.getFirst().getFormattedMessage()).contains("diagnostic=SsrfBlockedTargetException");
-    }
-
-    @Test
-    void logsDnsFailuresDistinctlyFromSecurityPolicyBlocks() {
-        when(factory.restClientBuilderFor(BASE_URL, Duration.ofSeconds(10)))
-                .thenThrow(new SsrfBlockedTargetException("reflected test-token", new UnknownHostException("test-token")));
+    void logsDnsFailuresWithoutExposingExceptionMessages() {
+        server.expect(requestTo(USER_URL)).andRespond(withException(new UnknownHostException("reflected test-token")));
 
         assertFailure(Reason.UNREACHABLE);
 
         assertThat(logs.list.getFirst().getFormattedMessage()).contains("diagnostic=UnknownHostException");
+        server.verify();
     }
 
     @Test

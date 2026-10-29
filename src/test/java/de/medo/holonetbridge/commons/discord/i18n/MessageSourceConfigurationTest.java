@@ -10,15 +10,17 @@ import java.util.Locale;
 import java.util.Properties;
 import java.util.regex.Pattern;
 
+import de.medo.holonetbridge.commons.crypto.EncryptionProperties;
+import de.medo.holonetbridge.commons.crypto.EncryptionService;
 import de.medo.holonetbridge.commons.discord.button.HolonetBugReportModalButton;
 import de.medo.holonetbridge.commons.discord.button.HolonetFeatureModalButton;
-import de.medo.holonetbridge.commons.discord.modal.HolonetProviderConnectionModal;
+import de.medo.holonetbridge.commons.discord.modal.HolonetModalFactory;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketCreationSessionStore;
+import de.medo.holonetbridge.commons.domain.HolonetBotInteractionSession;
+import de.medo.holonetbridge.commons.domain.HolonetSetupFormData;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.DiscordLocale;
-import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
-import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.modals.Modal;
 import net.dv8tion.jda.api.requests.restaction.interactions.ModalCallbackAction;
 import org.junit.jupiter.api.Test;
@@ -94,16 +96,12 @@ class MessageSourceConfigurationTest {
     @Test
     void jdaSerializesLocalizedCommandAndOptionDescriptions() {
         var command = Commands.slash("setup", messageSource.getMessage("commands.setup.description", null, Locale.ROOT))
-                .addOptions(new OptionData(OptionType.CHANNEL, "channel",
-                        messageSource.getMessage("commands.setup.options.channel.description", null, Locale.ROOT), true))
                 .setLocalizationFunction(new DiscordCommandLocalization(messageSource));
         var data = command.toData();
 
         assertThat(data.getString("name")).isEqualTo("setup");
         assertThat(data.getObject("description_localizations").getString("hr"))
                 .isEqualTo("Postavi poruku za podršku u kanalu");
-        assertThat(data.getArray("options").getObject(0).getObject("description_localizations").getString("de"))
-                .isEqualTo("Kanal für die Support-Nachricht");
         assertThat(new DiscordCommandLocalization(messageSource).apply("setup.name")).isEmpty();
         // Languages without a dedicated bundle receive English; adding a bundle needs no Java change.
         assertThat(data.getObject("description_localizations").getString("fr"))
@@ -116,12 +114,15 @@ class MessageSourceConfigurationTest {
     @ValueSource(strings = {"en-US", "de", "hr", "ru"})
     void allLocalizedModalsCanBeBuiltWithinDiscordLimits(String language) {
         DiscordLocale locale = DiscordLocale.from(language);
-        assertThat(HolonetProviderConnectionModal.build(true, null, messageSource, locale.toLocale()).getId())
-                .isEqualTo(HolonetProviderConnectionModal.MODAL_ID);
-        HolonetProviderConnectionModal.build(false, null, messageSource, locale.toLocale());
         ButtonInteractionEvent event = mock(ButtonInteractionEvent.class, RETURNS_DEEP_STUBS);
         when(event.getUserLocale()).thenReturn(locale);
         when(event.replyModal(any(Modal.class))).thenReturn(mock(ModalCallbackAction.class));
+        HolonetBotInteractionSession session = new HolonetBotInteractionSession();
+        session.setLocale(locale.toLocale());
+        HolonetSetupFormData formData = new HolonetSetupFormData();
+        formData.setSession(session);
+        assertThat(new HolonetModalFactory(messageSource, new EncryptionService(new EncryptionProperties("WauOKK6kYn/N+mrkpsvPB2pdVBkPRhuDAyWQyLAsZeA="))).createSetupConnectionModal(formData).getId())
+                .isEqualTo(HolonetModalFactory.MODAL_ID_SETUP_HOLONET);
         HolonetTicketCreationSessionStore sessions = new HolonetTicketCreationSessionStore();
         new HolonetBugReportModalButton(messageSource, sessions).handle(event);
         new HolonetFeatureModalButton(messageSource, sessions).handle(event);
