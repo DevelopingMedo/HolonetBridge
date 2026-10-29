@@ -3,6 +3,7 @@ package de.medo.holonetbridge.commons.discord.command;
 import java.util.Locale;
 
 import de.medo.holonetbridge.commons.discord.modal.HolonetModalFactory;
+import de.medo.holonetbridge.commons.domain.HolonetSetupFormData;
 import de.medo.holonetbridge.commons.service.HolonetBotInteractionSessionService;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
@@ -54,10 +55,9 @@ public class HolonetSetupCommandAction {
             replyError(event, messageSource.getMessage("setup.manage-server", null, locale));
             return;
         }
-        var setupFormData = holonetBotInteractionSessionService.openSetup(guild.getIdLong(), member.getIdLong(), locale);
+        HolonetSetupFormData setupFormData = holonetBotInteractionSessionService.getOrCreateSetupFormDataSession(guild.getIdLong(), member.getIdLong(), locale);
 
-        event.replyModal(holonetModalFactory.createSetupConnectionModal(
-                        setupFormData.formData(), locale, setupFormData.configuredProvider()))
+        event.replyModal(holonetModalFactory.createSetupConnectionModal(setupFormData))
                 .queue();
     }
 

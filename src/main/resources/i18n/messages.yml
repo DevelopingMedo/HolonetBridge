@@ -16,7 +16,7 @@ setup:
     channel-unavailable: "The selected support channel is no longer available."
     post-failed: "The connection was checked, but I could not post the support panel. Check that I can view and send messages in the selected channel."
   modal:
-    config-found: "Saved {0} configuration loaded."
+    provider-loaded: "Provider {0} loaded."
     title: "Configure ticket connection"
     provider: "Ticket provider"
     channel: "Support channel"

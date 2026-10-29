@@ -7,6 +7,7 @@ import java.time.Duration;
 import java.util.Locale;
 
 import de.medo.holonetbridge.commons.domain.TicketProvider;
+import de.medo.holonetbridge.commons.domain.HolonetSetupFormData;
 import de.medo.holonetbridge.commons.repository.HolonetDiscordConfigRepository;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
@@ -26,10 +27,10 @@ class HolonetSetupPersistenceTest {
 
     @Test
     void completedConfigIsSharedAcrossMembersAndWinsOverTheirDrafts() {
-        var otherDraft = service.openSetup(1, 3, Locale.ENGLISH).formData();
+        HolonetSetupFormData otherDraft = service.getOrCreateSetupFormDataSession(1, 3, Locale.ENGLISH);
         otherDraft.setBaseUrl("https://unfinished.example");
         service.saveSetupFormDataSession(otherDraft);
-        var form = service.openSetup(1, 2, Locale.GERMAN).formData();
+        HolonetSetupFormData form = service.getOrCreateSetupFormDataSession(1, 2, Locale.GERMAN);
         form.setTicketProvider(TicketProvider.GITEA);
         form.setBaseUrl("https://saved.example");
         form.setTarget("acme/support");
@@ -40,38 +41,36 @@ class HolonetSetupPersistenceTest {
         entityManager.flush();
         entityManager.clear();
 
-        var opened = service.openSetup(1, 3, Locale.GERMAN).formData();
+        HolonetSetupFormData opened = service.getOrCreateSetupFormDataSession(1, 3, Locale.GERMAN);
         assertThat(opened.getBaseUrl()).isEqualTo("https://saved.example");
         assertThat(opened.getToken()).isEqualTo("encrypted-token");
-        assertThat(opened.getSession()).isNull();
-        assertThat(service.openSetup(9, 3, Locale.GERMAN).formData().getBaseUrl()).isNull();
+        assertThat(opened.getSession()).isNotNull();
+        assertThat(service.getOrCreateSetupFormDataSession(9, 3, Locale.GERMAN).getBaseUrl()).isNull();
         opened.setBaseUrl("https://failed-check.example");
-        var submitted = service.getOrCreateSetupFormDataSession(1, 3, Locale.GERMAN);
-        submitted.setBaseUrl(opened.getBaseUrl());
-        service.saveSetupFormDataSession(submitted);
+        service.saveSetupFormDataSession(opened);
         entityManager.flush();
         entityManager.clear();
         assertThat(configs.findById(1L).orElseThrow().getBaseUrl()).isEqualTo("https://saved.example");
-        assertThat(service.openSetup(1, 3, Locale.GERMAN).formData().getBaseUrl()).isEqualTo("https://saved.example");
+        assertThat(service.getOrCreateSetupFormDataSession(1, 3, Locale.GERMAN).getBaseUrl()).isEqualTo("https://saved.example");
     }
 
     @Test
     void draftSurvivesReopeningButExpiresAfterOneHourWithoutActivity() {
-        var form = service.openSetup(1, 2, Locale.GERMAN).formData();
+        HolonetSetupFormData form = service.getOrCreateSetupFormDataSession(1, 2, Locale.GERMAN);
         form.setBaseUrl("https://unfinished.example");
         service.saveSetupFormDataSession(form);
         entityManager.flush();
-        var oldSessionId = form.getSession().getId();
+        Long oldSessionId = form.getSession().getId();
         entityManager.clear();
-        assertThat(service.openSetup(1, 2, Locale.ENGLISH).formData().getBaseUrl()).isEqualTo("https://unfinished.example");
-        assertThat(service.openSetup(1, 3, Locale.ENGLISH).formData().getBaseUrl()).isNull();
+        assertThat(service.getOrCreateSetupFormDataSession(1, 2, Locale.ENGLISH).getBaseUrl()).isEqualTo("https://unfinished.example");
+        assertThat(service.getOrCreateSetupFormDataSession(1, 3, Locale.ENGLISH).getBaseUrl()).isNull();
         entityManager.flush();
         entityManager.createNativeQuery("update holonet_bot_interaction_session set updated_at = :old where id = :id")
                 .setParameter("old", Instant.now().minus(Duration.ofHours(2)))
                 .setParameter("id", oldSessionId).executeUpdate();
         entityManager.clear();
 
-        var fresh = service.openSetup(1, 2, Locale.GERMAN).formData();
+        HolonetSetupFormData fresh = service.getOrCreateSetupFormDataSession(1, 2, Locale.GERMAN);
         assertThat(fresh.getBaseUrl()).isNull();
         assertThat(fresh.getSession().getId()).isNotEqualTo(oldSessionId);
         assertThat(fresh.getSession().getChannelId()).isNull();

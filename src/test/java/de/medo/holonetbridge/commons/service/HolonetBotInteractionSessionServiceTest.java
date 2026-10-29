@@ -36,6 +36,7 @@ class HolonetBotInteractionSessionServiceTest {
 
     @Test
     void savedConfigWinsOverAnActivePersonalDraft() {
+        HolonetSetupFormData form = draft();
         var config = new HolonetDiscordConfig();
         config.setGuildId(100L);
         config.setBaseUrl("https://saved.example");
@@ -45,12 +46,10 @@ class HolonetBotInteractionSessionServiceTest {
         config.setSupportChannelId(99L);
         when(configs.findById(100L)).thenReturn(Optional.of(config));
 
-        var result = service.openSetup(100, 200, Locale.GERMAN);
-        var opened = result.formData();
+        HolonetSetupFormData opened = service.getOrCreateSetupFormDataSession(100, 200, Locale.GERMAN);
 
-        assertThat(opened.getSession()).isNull();
-        assertThat(result.configuredProvider()).isEqualTo(TicketProvider.GITEA);
-        verifyNoInteractions(forms, sessions);
+        assertThat(opened).isSameAs(form);
+        assertThat(opened.getSession().getLocale()).isEqualTo(Locale.GERMAN);
         assertThat(opened.getBaseUrl()).isEqualTo(config.getBaseUrl());
         assertThat(opened.getToken()).isEqualTo("encrypted");
         assertThat(opened.getTicketProvider()).isEqualTo(TicketProvider.GITEA);
@@ -60,22 +59,22 @@ class HolonetBotInteractionSessionServiceTest {
 
     @Test
     void withoutConfigResumesDraftAndRefreshesActivity() {
-        var form = draft();
-        var previous = Instant.now().minusSeconds(600);
+        HolonetSetupFormData form = draft();
+        Instant previous = Instant.now().minusSeconds(600);
         ReflectionTestUtils.setField(form.getSession(), "updatedAt", previous);
-        assertThat(service.openSetup(100, 200, Locale.ENGLISH).formData()).isSameAs(form);
+        assertThat(service.getOrCreateSetupFormDataSession(100, 200, Locale.ENGLISH)).isSameAs(form);
         assertThat(form.getBaseUrl()).isEqualTo("https://draft.example");
         assertThat(form.getSession().getUpdatedAt()).isAfter(previous);
     }
 
     @Test
     void expiredDraftIsClosedAndNewDraftHasNoInvocationChannel() {
-        var old = draft();
+        HolonetSetupFormData old = draft();
         ReflectionTestUtils.setField(old.getSession(), "updatedAt", Instant.now().minus(Duration.ofHours(2)));
         when(sessions.save(any())).thenAnswer(i -> i.getArgument(0));
         when(forms.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        var opened = service.getOrCreateSetupFormDataSession(100, 200, Locale.GERMAN);
+        HolonetSetupFormData opened = service.getOrCreateSetupFormDataSession(100, 200, Locale.GERMAN);
 
         assertThat(old.getSession().getClosedAt()).isNotNull();
         assertThat(opened.getSession()).isNotSameAs(old.getSession());
@@ -87,11 +86,11 @@ class HolonetBotInteractionSessionServiceTest {
 
     @Test
     void savingDraftDoesNotChangeConfigAndCompletionClosesSession() {
-        var form = draft();
+        HolonetSetupFormData form = draft();
         service.saveSetupFormDataSession(form);
-        verifyNoInteractions(configs);
+        verify(configs, never()).save(any());
         service.completeSetup(form);
-        var capture = org.mockito.ArgumentCaptor.forClass(HolonetDiscordConfig.class);
+        org.mockito.ArgumentCaptor<HolonetDiscordConfig> capture = org.mockito.ArgumentCaptor.forClass(HolonetDiscordConfig.class);
         verify(configs).save(capture.capture());
         assertThat(capture.getValue().getGuildId()).isEqualTo(100L);
         assertThat(capture.getValue().getBaseUrl()).isEqualTo(form.getBaseUrl());
