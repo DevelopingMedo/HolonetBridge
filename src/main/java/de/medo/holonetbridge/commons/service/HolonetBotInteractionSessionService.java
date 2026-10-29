@@ -6,6 +6,7 @@ import de.medo.holonetbridge.commons.domain.HolonetReportFormData;
 import de.medo.holonetbridge.commons.domain.HolonetSetupFormData;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import de.medo.holonetbridge.commons.repository.HolonetBotInteractionSessionRepository;
+import de.medo.holonetbridge.commons.provider.HealthCheckResult;
 import de.medo.holonetbridge.commons.repository.HolonetDiscordConfigRepository;
 import de.medo.holonetbridge.commons.repository.HolonetReportFormDataRepository;
 import de.medo.holonetbridge.commons.repository.HolonetSetupFormDataRepository;
@@ -79,7 +80,10 @@ public class HolonetBotInteractionSessionService {
     }
 
     @Transactional
-    public void completeSetup(HolonetSetupFormData form) {
+    public void completeSetup(HolonetSetupFormData form, HealthCheckResult healthCheckResult) {
+        if (!healthCheckResult.successful()) {
+            return;
+        }
         HolonetDiscordConfig config = configRepository.findById(form.getSession().getGuildId())
                 .orElseGet(HolonetDiscordConfig::new);
         config.setGuildId(form.getSession().getGuildId());

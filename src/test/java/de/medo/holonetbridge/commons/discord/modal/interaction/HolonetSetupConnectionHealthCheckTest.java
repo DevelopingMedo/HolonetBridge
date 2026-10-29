@@ -14,6 +14,7 @@ import de.medo.holonetbridge.commons.discord.modal.HolonetModalFactory;
 import de.medo.holonetbridge.commons.domain.HolonetSetupFormData;
 import de.medo.holonetbridge.commons.domain.TicketProvider;
 import de.medo.holonetbridge.commons.provider.ProviderHealthCheckException;
+import de.medo.holonetbridge.commons.provider.HealthCheckResult;
 import de.medo.holonetbridge.commons.provider.ProviderHealthCheckException.Reason;
 import de.medo.holonetbridge.commons.provider.ProviderHealthCheckService;
 import de.medo.holonetbridge.commons.service.HolonetBotInteractionSessionService;
@@ -22,6 +23,7 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.interactions.InteractionHook;
+import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -63,24 +65,18 @@ class HolonetSetupConnectionHealthCheckTest {
         when(encryption.encrypt("test-token")).thenReturn("encrypted-test-token");
         when(sessions.getOrCreateSetupFormDataSession(anyLong(), anyLong(), any()))
                 .thenReturn(formData);
-        doAnswer(invocation -> {
-            Consumer<net.dv8tion.jda.api.entities.Message> callback = invocation.getArgument(0);
-            callback.accept(null);
-            return null;
-        }).when(hook.editOriginal("Teste Verbindungsdaten …")).queue(any());
-        var deferredReply = event.deferReply(true);
+        ReplyCallbackAction reply = event.reply("Teste Verbindungsdaten …").setEphemeral(true);
         doAnswer(invocation -> {
             Consumer<InteractionHook> callback = invocation.getArgument(0);
             callback.accept(hook);
             return null;
-        }).when(deferredReply).queue(any());
+        }).when(reply).queue(any());
     }
 
     @Test
     void acknowledgesPrivatelyBeforeCheckingAndRepliesWithSuccess() {
         doAnswer(invocation -> {
-            verify(event.deferReply(true)).queue(any());
-            verify(hook).editOriginal("Teste Verbindungsdaten …");
+            verify(event.reply("Teste Verbindungsdaten …").setEphemeral(true)).queue(any());
             return null;
         }).when(healthChecks).check(TicketProvider.GITEA, "https://gitea.example.invalid", "test-token");
 
@@ -91,7 +87,7 @@ class HolonetSetupConnectionHealthCheckTest {
                 .sendMessage("Du brauchst Unterstützung? Klicke unten, um eine Support-Anfrage zu erstellen.");
         verify(healthChecks).check(TicketProvider.GITEA, "https://gitea.example.invalid", "test-token");
         verify(sessions).saveSetupFormDataSession(formData);
-        verify(sessions, timeout(3000)).completeSetup(formData);
+        verify(sessions, timeout(3000)).completeSetup(eq(formData), argThat(HealthCheckResult::successful));
         assertThat(formData.getToken()).isEqualTo("encrypted-test-token");
     }
 
@@ -103,10 +99,10 @@ class HolonetSetupConnectionHealthCheckTest {
         action.handle(event);
 
         ArgumentCaptor<String> reply = ArgumentCaptor.forClass(String.class);
-        verify(hook, timeout(3000).times(2)).editOriginal(reply.capture());
+        verify(hook, timeout(3000)).editOriginal(reply.capture());
         assertThat(reply.getValue()).contains("/setup").doesNotContain("test-token", "erfolgreich");
         verify(supportChannel, never()).sendMessage(anyString());
-        verify(sessions, never()).completeSetup(any());
+        verify(sessions, timeout(3000)).completeSetup(eq(formData), argThat(result -> !result.successful()));
     }
 
     @Test
@@ -117,7 +113,49 @@ class HolonetSetupConnectionHealthCheckTest {
 
         verify(hook, timeout(3000)).editOriginal("Der Verbindungstest ist fehlgeschlagen. Bitte /setup erneut ausführen.");
         verify(supportChannel, never()).sendMessage(anyString());
-        verify(sessions, never()).completeSetup(any());
+        verify(sessions, timeout(3000)).completeSetup(eq(formData), argThat(result -> !result.successful()));
+    }
+
+    @Test
+    void unchangedValuesAreNotEncryptedOrSavedAgain() {
+        formData.setTicketProvider(TicketProvider.GITEA);
+        formData.setBaseUrl("https://gitea.example.invalid");
+        formData.setTarget("acme/support");
+        formData.setSupportChannelId(4L);
+        formData.setToken("existing-ciphertext");
+        when(encryption.decrypt("existing-ciphertext")).thenReturn("test-token");
+
+        action.handle(event);
+
+        verify(hook, timeout(3000)).editOriginal("Basis-URL und Token für Gitea wurden erfolgreich geprüft.");
+        verify(encryption, never()).encrypt(anyString());
+        verify(sessions, never()).saveSetupFormDataSession(any());
+        verify(sessions).completeSetup(eq(formData), argThat(HealthCheckResult::successful));
+        assertThat(formData.getToken()).isEqualTo("existing-ciphertext");
+    }
+
+    @Test
+    void emptyModalTokenIsUsedInsteadOfThePreviouslySavedToken() {
+        formData.setToken("existing-ciphertext");
+        when(encryption.decrypt("existing-ciphertext")).thenReturn("previous-token");
+        when(event.getValue(HolonetModalFactory.TEXTINPUT_ID_TOKEN).getAsString()).thenReturn("");
+        when(encryption.encrypt("")).thenReturn("encrypted-empty-token");
+
+        action.handle(event);
+
+        verify(healthChecks, timeout(3000)).check(TicketProvider.GITEA, "https://gitea.example.invalid", "");
+        assertThat(formData.getToken()).isEqualTo("encrypted-empty-token");
+    }
+
+    @Test
+    void completionFailureIsCaughtInsideTheAsynchronousCallback() {
+        doThrow(new IllegalStateException("test-token"))
+                .when(sessions).completeSetup(eq(formData), any(HealthCheckResult.class));
+
+        action.handle(event);
+
+        verify(hook, timeout(3000)).editOriginal("Der Verbindungstest ist fehlgeschlagen. Bitte /setup erneut ausführen.");
+        verify(supportChannel, never()).sendMessage(anyString());
     }
 
     @ParameterizedTest
