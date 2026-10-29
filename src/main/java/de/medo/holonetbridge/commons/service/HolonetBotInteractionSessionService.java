@@ -103,6 +103,10 @@ public class HolonetBotInteractionSessionService {
     public @NonNull HolonetBotInteractionSession getOrCreateBotInteractionSession(long guildId, long memberId, Locale locale) {
         return sessionRepository
                 .findLatestOpenSession(guildId, memberId, Limit.of(1))
+                .map(session -> {
+                    session.setLocale(locale);
+                    return session;
+                })
                 .orElseGet(() -> createAndSaveSession(guildId, memberId, locale));
     }
 

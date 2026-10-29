@@ -1,6 +1,7 @@
 package de.medo.holonetbridge.gitea;
 
 import java.net.URI;
+import java.util.IllformedLocaleException;
 import java.util.Locale;
 import java.util.Map;
 
@@ -35,7 +36,7 @@ public class GiteaTicketProvider implements TicketProvider {
 
     @Override
     public void create(HolonetReportFormData data) {
-        Locale locale = data.getSession().getLocale();
+        Locale locale = accountLocale();
         MarkdownBuilder body = MarkdownBuilder.builder();
         if (data.getDescription() != null && !data.getDescription().isBlank()) {
             body.text(data.getDescription());
@@ -73,6 +74,44 @@ public class GiteaTicketProvider implements TicketProvider {
         } catch (RestClientException failure) {
             // Response bodies, headers and transport exception messages can contain credentials.
             throw new IllegalStateException("Gitea issue creation failed");
+        }
+    }
+
+    private Locale accountLocale() {
+        try {
+            return restClient.get()
+                    .uri("/api/v1/user")
+                    .accept(MediaType.APPLICATION_JSON)
+                    .exchange((request, response) -> {
+                        if (!response.getStatusCode().is2xxSuccessful()) {
+                            throw new IllegalStateException("Gitea account lookup failed");
+                        }
+                        Map<?, ?> user = response.bodyTo(Map.class);
+                        Object id = user == null ? null : user.get("id");
+                        if (!(id instanceof Integer || id instanceof Long) || ((Number) id).longValue() <= 0) {
+                            throw new IllegalStateException("Gitea account lookup failed");
+                        }
+                        return localeFor(user.get("language"));
+                    });
+        } catch (RuntimeException failure) {
+            // Provider responses and JSON diagnostics may reflect credentials; retain no original cause.
+            throw new IllegalStateException("Gitea account lookup failed");
+        }
+    }
+
+    private static Locale localeFor(Object language) {
+        if (!(language instanceof String tag) || tag.isBlank()) {
+            return Locale.ENGLISH;
+        }
+        try {
+            return switch (new Locale.Builder().setLanguageTag(tag).build().getLanguage()) {
+                case "de" -> Locale.GERMAN;
+                case "hr" -> Locale.of("hr");
+                case "ru" -> Locale.of("ru");
+                default -> Locale.ENGLISH;
+            };
+        } catch (IllformedLocaleException invalidTag) {
+            return Locale.ENGLISH;
         }
     }
 }

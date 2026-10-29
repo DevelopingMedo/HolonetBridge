@@ -2,7 +2,10 @@ package de.medo.holonetbridge.commons.discord.modal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
+import java.net.URI;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -10,8 +13,11 @@ import java.util.function.Consumer;
 import de.medo.holonetbridge.commons.discord.i18n.I18nProperties;
 import de.medo.holonetbridge.commons.discord.i18n.MessageSourceConfiguration;
 import de.medo.holonetbridge.commons.domain.HolonetReportFormData;
+import de.medo.holonetbridge.commons.domain.HolonetBotInteractionSession;
+import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import de.medo.holonetbridge.commons.extapi.TicketProvider;
 import de.medo.holonetbridge.commons.provider.HolonetTicketProviderService;
+import de.medo.holonetbridge.gitea.GiteaTicketProvider;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.interactions.InteractionHook;
@@ -20,6 +26,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.context.MessageSource;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.client.ExpectedCount;
+import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.RestClient;
 
 class HolonetTicketSubmitterTest {
     private final ModalInteractionEvent event = mock(ModalInteractionEvent.class, RETURNS_DEEP_STUBS);
@@ -56,6 +68,72 @@ class HolonetTicketSubmitterTest {
 
         verify(hook, timeout(3000)).editOriginal(messages.getMessage("ticket.created", null, Locale.GERMAN));
         verify(provider, times(1)).create(data);
+    }
+
+    @Test
+    void staleCroatianSessionAndDiscordLanguagesDoNotOverrideGermanAccountLabels() {
+        when(event.getUserLocale()).thenReturn(DiscordLocale.ENGLISH_US);
+        when(event.getGuild().getLocale()).thenReturn(DiscordLocale.RUSSIAN);
+        var server = useGiteaProvider();
+        server.expect(requestTo("https://gitea.example.invalid/api/v1/user"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header("Authorization", "token test-token"))
+                .andRespond(withSuccess("{\"id\":42,\"language\":\"de-DE\"}", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://gitea.example.invalid/api/v1/repos/acme/support/issues"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(jsonPath("$.body").value(org.hamcrest.Matchers.containsString("Was hast du vor dem Fehler gemacht?")))
+                .andExpect(jsonPath("$.body").value(org.hamcrest.Matchers.containsString("Was hättest du erwartet?")))
+                .andExpect(jsonPath("$.body").value(org.hamcrest.Matchers.containsString("Was ist stattdessen passiert?")))
+                .andExpect(jsonPath("$.body").value(org.hamcrest.Matchers.containsString("Tritt der Fehler erneut auf?")))
+                .andExpect(jsonPath("$.body").value(org.hamcrest.Matchers.containsString("Jedes Mal")))
+                .andRespond(withStatus(HttpStatus.CREATED));
+
+        submitter.handle(event, data);
+
+        verify(hook, timeout(3000)).editOriginal(messages.getMessage("ticket.created", null, Locale.US));
+        assertThat(data.getSession().getLocale()).isEqualTo(Locale.of("hr"));
+        server.verify();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"en-US", "de", "hr", "ru"})
+    void accountLookupFailurePreventsIssueAndUsesExistingLocalizedFailure(String language) {
+        var locale = DiscordLocale.from(language);
+        when(event.getUserLocale()).thenReturn(locale);
+        var server = useGiteaProvider();
+        server.expect(requestTo("https://gitea.example.invalid/api/v1/user"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withStatus(HttpStatus.FORBIDDEN).body("test-token reflected"));
+        server.expect(ExpectedCount.never(), requestTo("https://gitea.example.invalid/api/v1/repos/acme/support/issues"))
+                .andRespond(withStatus(HttpStatus.CREATED));
+
+        submitter.handle(event, data);
+
+        var expected = messages.getMessage("ticket.create-failed", null, locale.toLocale());
+        verify(hook, timeout(3000)).editOriginal(expected);
+        assertThat(expected).doesNotContain("test-token", "reflected", "403");
+        server.verify();
+    }
+
+    private MockRestServiceServer useGiteaProvider() {
+        var session = new HolonetBotInteractionSession();
+        session.setGuildId(1L);
+        session.setMemberId(2L);
+        session.setLocale(Locale.of("hr"));
+        data.setSession(session);
+        data.setKind(HolonetTicketKind.BUG);
+        data.setTitle("Original title");
+        data.setSteps("Original steps");
+        data.setExpected("Expected");
+        data.setActual("Actual");
+        data.setRecurrence("always");
+        data.setGuildName("Test server");
+        data.setUsername("Tester");
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        when(providers.providerFor(1L)).thenReturn(Optional.of(new GiteaTicketProvider(builder,
+                URI.create("https://gitea.example.invalid"), "test-token", "acme", "support", messages)));
+        return server;
     }
 
     @Test

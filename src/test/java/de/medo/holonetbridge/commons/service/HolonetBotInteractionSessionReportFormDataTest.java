@@ -51,8 +51,9 @@ class HolonetBotInteractionSessionReportFormDataTest {
 
     @Test
     void resumesDraftByGuildAndMemberAndDoesNotResumeClosedSessions() {
-        var original = service.getOrCreate(1, 2, Locale.ENGLISH, HolonetTicketKind.BUG);
+        var original = service.getOrCreate(1, 2, Locale.of("hr"), HolonetTicketKind.BUG);
         original.setTitle("Private draft");
+        original.setSteps("Saved steps\n**unchanged**");
         service.save(original);
         assertThat(service.getOrCreate(9, 2, Locale.ENGLISH, HolonetTicketKind.BUG).getTitle()).isNull();
         assertThat(service.getOrCreate(1, 9, Locale.ENGLISH, HolonetTicketKind.BUG).getTitle()).isNull();
@@ -60,7 +61,17 @@ class HolonetBotInteractionSessionReportFormDataTest {
         entityManager.clear();
         var resumed = service.getOrCreate(1, 2, Locale.GERMAN, HolonetTicketKind.BUG);
         assertThat(resumed.getId()).isEqualTo(original.getId());
+        assertThat(resumed.getSession().getId()).isEqualTo(original.getSession().getId());
         assertThat(resumed.getTitle()).isEqualTo("Private draft");
+        assertThat(resumed.getSteps()).isEqualTo("Saved steps\n**unchanged**");
+        assertThat(resumed.getSession().getLocale()).isEqualTo(Locale.GERMAN);
+        entityManager.flush();
+        entityManager.clear();
+        resumed = entityManager.find(de.medo.holonetbridge.commons.domain.HolonetReportFormData.class, original.getId());
+        assertThat(resumed.getSession().getId()).isEqualTo(original.getSession().getId());
+        assertThat(resumed.getSession().getLocale()).isEqualTo(Locale.GERMAN);
+        assertThat(resumed.getTitle()).isEqualTo("Private draft");
+        assertThat(resumed.getSteps()).isEqualTo("Saved steps\n**unchanged**");
 
         resumed.getSession().setClosedAt(Instant.now());
         entityManager.flush();
