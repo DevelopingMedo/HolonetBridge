@@ -41,6 +41,10 @@ class GiteaProviderFactoryTest {
 
         TicketProvider provider = factory.create("gitea.example.invalid", "a-token", "acme/support");
 
+        server.expect(requestTo("https://gitea.example.invalid/api/v1/user"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header("Authorization", "token a-token"))
+                .andRespond(withSuccess("{\"id\":42,\"language\":\"en\"}", MediaType.APPLICATION_JSON));
         server.expect(requestTo("https://gitea.example.invalid/api/v1/repos/acme/support/issues"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("Authorization", "token a-token"))

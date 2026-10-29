@@ -160,5 +160,5 @@ mvn test
 - Croatian
 - Russian (Latin script)
 
-Personal replies and dialogs follow the user's Discord language. Public messages and
-ticket descriptions use the server's language. Unsupported languages use English.
+Personal replies and dialogs follow the user's Discord language; public Discord messages use the server's language.
+Generated Gitea ticket headings and recurrence labels use the language of the account authenticated by the configured API token, read afresh before each ticket. Supported languages are `en`, `de`, `hr`, and `ru`, including valid regional tags; missing, invalid, or unsupported account languages explicitly use English. A failed account lookup prevents issue creation. User-provided ticket text is not translated.

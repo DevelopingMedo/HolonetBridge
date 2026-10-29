@@ -1,10 +1,12 @@
 package de.medo.holonetbridge.gitea;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
 
+import de.medo.holonetbridge.commons.discord.i18n.I18nProperties;
+import de.medo.holonetbridge.commons.discord.i18n.MessageSourceConfiguration;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import java.net.URI;
+import java.util.Locale;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -41,6 +43,7 @@ class GiteaTicketProviderIntegrationTest {
 
     private static GiteaTicketProvider provider;
     private static RestClient verificationClient;
+    private static final MessageSource MESSAGES = new MessageSourceConfiguration().messageSource(new I18nProperties(null));
 
     @BeforeAll
     static void setUpProvider() throws Exception {
@@ -51,21 +54,52 @@ class GiteaTicketProviderIntegrationTest {
         verificationClient = RestClient.builder().baseUrl(baseUrl.toString())
                 .defaultHeader(HttpHeaders.AUTHORIZATION, "token " + token).build();
         provider = new GiteaTicketProvider(RestClient.builder(), baseUrl, token, ADMIN_USERNAME, REPOSITORY,
-                mock(MessageSource.class));
+                MESSAGES);
     }
 
     @Test
-    void createsAnIssueInTheRunningGiteaInstance() {
+    void createsIssuesUsingFreshAccountLanguageInTheRunningGiteaInstance() {
         var form = GiteaTicketProviderTest.form(HolonetTicketKind.FEATURE);
         form.setDescription("**Original**\nEingeloggt und gewartet");
         provider.create(form);
 
+        var bug = GiteaTicketProviderTest.form(HolonetTicketKind.BUG);
+        bug.getSession().setLocale(Locale.of("hr"));
+        setAccountLanguage("de-DE");
+        bug.setTitle("German account language");
+        provider.create(bug);
+        setAccountLanguage("ru-RU");
+        bug.setTitle("Russian account language");
+        provider.create(bug);
+
         var issues = verificationClient.get().uri("/api/v1/repos/{owner}/{repo}/issues", ADMIN_USERNAME, REPOSITORY)
                 .retrieve().body(java.util.List.class);
-        assertThat(issues).hasSize(1);
-        var issue = (Map<?, ?>) issues.getFirst();
-        assertThat(issue.get("title")).isEqualTo("[Feature] Login fails");
-        assertThat(issue.get("body").toString()).startsWith("**Original**\nEingeloggt und gewartet");
+        assertThat(issues).hasSize(3);
+        for (Object entry : issues) {
+            var issue = (Map<?, ?>) entry;
+            switch (issue.get("title").toString()) {
+                case "[Feature] Login fails" -> assertThat(issue.get("body").toString())
+                        .startsWith("**Original**\nEingeloggt und gewartet");
+                case "[Bug] German account language" -> assertBugLabels(issue, Locale.GERMAN);
+                case "[Bug] Russian account language" -> assertBugLabels(issue, Locale.of("ru"));
+                default -> throw new AssertionError("Unexpected issue title");
+            }
+        }
+    }
+
+    private static void setAccountLanguage(String language) {
+        verificationClient.patch().uri("/api/v1/user/settings").contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("language", language)).retrieve().toBodilessEntity();
+        var user = verificationClient.get().uri("/api/v1/user").retrieve().body(Map.class);
+        assertThat(user.get("language")).isEqualTo(language);
+    }
+
+    private static void assertBugLabels(Map<?, ?> issue, Locale locale) {
+        String body = issue.get("body").toString();
+        for (String key : new String[] {"steps", "expected", "actual", "recurrence"}) {
+            assertThat(body).contains("## " + MESSAGES.getMessage("bug." + key, null, locale));
+        }
+        assertThat(body).contains(MESSAGES.getMessage("bug.recurrence-always", null, locale));
     }
 
     private static void createAdminUser() throws Exception {
