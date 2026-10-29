@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="4-discord-config" author="holonet-bridge">
+        <createTable tableName="holonet_discord_config">
+            <column name="guild_id" type="BIGINT"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="ticket_provider" type="VARCHAR(32)"/>
+            <column name="base_url" type="VARCHAR(255)"/>
+            <column name="target" type="VARCHAR(255)"/>
+            <column name="token" type="VARCHAR(2048)"/>
+            <column name="support_channel_id" type="BIGINT"/>
+        </createTable>
+        <!-- Alte Formulare belegen keinen erfolgreichen Verbindungstest und werden nicht als Config übernommen. -->
+        <rollback><dropTable tableName="holonet_discord_config"/></rollback>
+    </changeSet>
+</databaseChangeLog>

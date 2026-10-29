@@ -3,14 +3,12 @@ package de.medo.holonetbridge.commons.discord.modal;
 import java.net.URI;
 import java.util.Objects;
 
-import static org.springframework.util.StringUtils.hasText;
-
 import de.medo.holonetbridge.commons.crypto.EncryptionService;
 import de.medo.holonetbridge.commons.domain.HolonetReportFormData;
-import de.medo.holonetbridge.commons.domain.HolonetSetupFormData;
+import de.medo.holonetbridge.commons.domain.HolonetDiscordConfig;
 import de.medo.holonetbridge.commons.domain.TicketProvider;
 import de.medo.holonetbridge.commons.extapi.TicketDto;
-import de.medo.holonetbridge.commons.repository.HolonetSetupFormDataRepository;
+import de.medo.holonetbridge.commons.repository.HolonetDiscordConfigRepository;
 import de.medo.holonetbridge.gitea.GiteaProviderFactory;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import org.springframework.context.MessageSource;
@@ -19,12 +17,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class HolonetTicketSubmitter {
 
-    private final HolonetSetupFormDataRepository setupRepository;
+    private final HolonetDiscordConfigRepository setupRepository;
     private final GiteaProviderFactory giteaProviderFactory;
     private final EncryptionService encryptionService;
     private final MessageSource messageSource;
 
-    public HolonetTicketSubmitter(HolonetSetupFormDataRepository setupRepository,
+    public HolonetTicketSubmitter(HolonetDiscordConfigRepository setupRepository,
             GiteaProviderFactory giteaProviderFactory, EncryptionService encryptionService,
             MessageSource messageSource) {
         this.setupRepository = setupRepository;
@@ -38,7 +36,7 @@ public class HolonetTicketSubmitter {
         validateContext(data);
         return switch (provider) {
             case GITEA -> {
-                HolonetSetupFormData setup = configurationFor(data);
+                HolonetDiscordConfig setup = configurationFor(data);
                 if (setup.getTicketProvider() != provider) {
                     throw new IllegalStateException("Requested provider does not match the server configuration");
                 }
@@ -61,23 +59,9 @@ public class HolonetTicketSubmitter {
                 .setEphemeral(true).queue();
     }
 
-    private HolonetSetupFormData configurationFor(HolonetReportFormData data) {
-        // Setup currently has no active-connection model. Never guess between multiple destinations.
-        var configurations = setupRepository.findBySessionGuildId(data.getSession().getGuildId()).stream()
-                .filter(this::isConfigured)
-                .toList();
-        if (configurations.size() != 1) {
-            throw new IllegalStateException("Exactly one complete provider configuration is required for this server");
-        }
-        return configurations.getFirst();
-    }
-
-    private boolean isConfigured(HolonetSetupFormData setup) {
-        return setup.getTicketProvider() != null
-                && hasText(setup.getBaseUrl())
-                && hasText(setup.getTarget())
-                && hasText(setup.getToken())
-                && setup.getSupportChannelId() != null;
+    private HolonetDiscordConfig configurationFor(HolonetReportFormData data) {
+        return setupRepository.findById(data.getSession().getGuildId())
+                .orElseThrow(() -> new IllegalStateException("No saved provider configuration for this server"));
     }
 
     private void validateContext(HolonetReportFormData data) {

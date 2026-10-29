@@ -15,6 +15,7 @@ setup:
     channel-unavailable: "Der ausgewählte Support-Kanal ist nicht mehr verfügbar."
     post-failed: "Die Verbindung wurde geprüft, aber die Support-Nachricht konnte nicht gepostet werden. Prüfe, ob ich den ausgewählten Kanal sehen und Nachrichten senden darf."
   modal:
+    config-found: "Gespeicherte Server-Konfiguration geladen."
     title: "Ticket-Verbindung einrichten"
     provider: "Ticket-Provider"
     channel: "Support-Kanal"

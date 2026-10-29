@@ -61,7 +61,7 @@ class HolonetSetupConnectionHealthCheckTest {
         when(event.getValue(HolonetModalFactory.TEXTINPUT_ID_TARGET).getAsString()).thenReturn("acme/support");
         when(event.getValue(HolonetModalFactory.TEXTINPUT_ID_TOKEN).getAsString()).thenReturn("test-token");
         when(encryption.encrypt("test-token")).thenReturn("encrypted-test-token");
-        when(sessions.getOrCreateSetupFormDataSession(anyLong(), anyLong(), anyLong(), any()))
+        when(sessions.getOrCreateSetupFormDataSession(anyLong(), anyLong(), any()))
                 .thenReturn(formData);
         var deferredReply = event.deferReply(true);
         doAnswer(invocation -> {
@@ -85,6 +85,7 @@ class HolonetSetupConnectionHealthCheckTest {
                 .sendMessage("Du brauchst Unterstützung? Klicke unten, um eine Support-Anfrage zu erstellen.");
         verify(healthChecks).check(TicketProvider.GITEA, "https://gitea.example.invalid", "test-token");
         verify(sessions).saveSetupFormDataSession(formData);
+        verify(sessions, timeout(3000)).completeSetup(formData);
         assertThat(formData.getToken()).isEqualTo("encrypted-test-token");
     }
 
@@ -99,6 +100,7 @@ class HolonetSetupConnectionHealthCheckTest {
         verify(hook, timeout(3000)).editOriginal(reply.capture());
         assertThat(reply.getValue()).contains("/setup").doesNotContain("test-token", "erfolgreich");
         verify(supportChannel, never()).sendMessage(anyString());
+        verify(sessions, never()).completeSetup(any());
     }
 
     @Test
@@ -109,6 +111,7 @@ class HolonetSetupConnectionHealthCheckTest {
 
         verify(hook, timeout(3000)).editOriginal("Der Verbindungstest ist fehlgeschlagen. Bitte /setup erneut ausführen.");
         verify(supportChannel, never()).sendMessage(anyString());
+        verify(sessions, never()).completeSetup(any());
     }
 
     @ParameterizedTest

@@ -1,6 +1,5 @@
 package de.medo.holonetbridge.commons.repository;
 
-import java.util.List;
 import java.util.Optional;
 
 import de.medo.holonetbridge.commons.domain.HolonetSetupFormData;
@@ -18,5 +17,6 @@ public interface HolonetSetupFormDataRepository
             """)
     Optional<HolonetSetupFormData> findBy(@Param("sessionId") Long sessionId);
 
-    List<HolonetSetupFormData> findBySessionGuildId(long guildId);
+    Optional<HolonetSetupFormData> findFirstBySessionGuildIdAndSessionMemberIdAndSessionClosedAtIsNullOrderBySessionUpdatedAtDesc(
+            long guildId, long memberId);
 }

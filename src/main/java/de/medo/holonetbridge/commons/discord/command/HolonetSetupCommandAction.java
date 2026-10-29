@@ -54,7 +54,7 @@ public class HolonetSetupCommandAction {
             replyError(event, messageSource.getMessage("setup.manage-server", null, locale));
             return;
         }
-        var setupFormData = holonetBotInteractionSessionService.getOrCreateSetupFormDataSession(guild.getIdLong(), member.getIdLong(), event.getChannel().getIdLong(), locale);
+        var setupFormData = holonetBotInteractionSessionService.openSetup(guild.getIdLong(), member.getIdLong(), locale);
 
         event.replyModal(holonetModalFactory.createSetupConnectionModal(setupFormData))
                 .queue();
