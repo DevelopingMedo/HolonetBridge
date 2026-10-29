@@ -68,15 +68,18 @@ public class HolonetModalFactory {
                 .setRequiredRange(1, 255)
                 .setValue(setupFormData.getTarget())
                 .build();
-        boolean isTokenRequired = setupFormData.getToken() == null;
-        TextInput token = TextInput.create(TEXTINPUT_ID_TOKEN, TextInputStyle.SHORT)
+        String encryptedToken = setupFormData.getToken();
+        boolean isTokenRequired = encryptedToken == null;
+        var tokenBuilder = TextInput.create(TEXTINPUT_ID_TOKEN, TextInputStyle.SHORT)
                 .setRequired(isTokenRequired)
                 .setRequiredRange(isTokenRequired ? 1 : 0, 200)
-                .setValue(encryptionService.decrypt(setupFormData.getToken()))
                 .setPlaceholder(isTokenRequired
                         ? messageSource.getMessage("setup.modal.token-required", null, locale)
-                        : messageSource.getMessage("setup.modal.token-keep", null, locale))
-                .build();
+                        : messageSource.getMessage("setup.modal.token-keep", null, locale));
+        if (!isTokenRequired) {
+            tokenBuilder.setValue(encryptionService.decrypt(encryptedToken));
+        }
+        TextInput token = tokenBuilder.build();
 
         return Modal.create(MODAL_ID_SETUP_HOLONET, messageSource.getMessage("setup.modal.title", null, locale))
                 .addComponents(
