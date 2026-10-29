@@ -35,7 +35,11 @@ public class HolonetModalFactory {
     }
 
     public Modal createSetupConnectionModal(HolonetSetupFormData setupFormData) {
-        Locale locale = setupFormData.getSession().getLocale();
+        return createSetupConnectionModal(setupFormData, setupFormData.getSession().getLocale(), null);
+    }
+
+    public Modal createSetupConnectionModal(
+            HolonetSetupFormData setupFormData, Locale locale, TicketProvider configuredProvider) {
         EntitySelectMenu.Builder channelBuilder = EntitySelectMenu.create(
                         ENTITYSELECTMENU_ID_CHANNEL,
                         EntitySelectMenu.SelectTarget.CHANNEL)
@@ -83,8 +87,9 @@ public class HolonetModalFactory {
         return Modal.create(MODAL_ID_SETUP_HOLONET, messageSource.getMessage("setup.modal.title", null, locale))
                 .addComponents(
                         Label.of(messageSource.getMessage("setup.modal.provider", null, locale),
-                                setupFormData.isConfigLoaded()
-                                        ? messageSource.getMessage("setup.modal.config-found", null, locale) : null,
+                                configuredProvider != null
+                                        ? messageSource.getMessage("setup.modal.config-found",
+                                                new Object[] {configuredProvider.getDisplayName()}, locale) : null,
                                 stringSelectMenu),
                         Label.of(messageSource.getMessage("setup.modal.channel", null, locale),
                                 messageSource.getMessage("setup.modal.channel-hint", null, locale), channel),

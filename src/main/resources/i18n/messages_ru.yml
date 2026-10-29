@@ -3,6 +3,7 @@ setup:
   guild-only: "/setup mozhno ispolzovat tolko na servere."
   manage-server: "Nuzhno razreshenie \"Upravlenie serverom\"."
   healthcheck:
+    checking: "Proverka dannykh podklyucheniya …"
     success: "Bazovyy URL i token dlya {0} uspeshno provereny."
     invalid-url: "Ukazhi korrektnyy URL http(s) bez dannykh avtorizatsii, zaprosa ili fragmenta i zapusti /setup eshche raz."
     token-required: "Dlya proverki podklyucheniya nuzhen token. Zapusti /setup eshche raz i vvedi token."
@@ -16,7 +17,7 @@ setup:
     channel-unavailable: "Vybrannyy kanal podderzhki bolshe nedostupen."
     post-failed: "Podklyuchenie provereno, no panel podderzhki ne udalos opublikovat. Prover, chto ya mogu videt vybrannyy kanal i otpravlyat v nem soobshcheniya."
   modal:
-    config-found: "Zagruzhena sokhranennaya konfiguratsiya servera."
+    config-found: "Zagruzhena sokhranennaya konfiguratsiya {0}."
     title: "Nastroit ticket-podklyuchenie"
     provider: "Ticket-provayder"
     channel: "Kanal podderzhki"

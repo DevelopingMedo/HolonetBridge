@@ -68,19 +68,19 @@ public class HolonetSetupConnectionSubmitModalAction {
         HolonetSetupFormData setupFormData = botInteractionSessionService.getOrCreateSetupFormDataSession(
                 guild.getIdLong(), member.getIdLong(), locale);
 
-        if (rawToken.isBlank() && setupFormData.getToken() != null) {
-            rawToken = encryptionService.decrypt(setupFormData.getToken());
-        }
-        setupFormData.setToken(encryptionService.encrypt(rawToken));
+        String token = rawToken.isBlank() && setupFormData.getToken() != null
+                ? encryptionService.decrypt(setupFormData.getToken()) : rawToken;
+        setupFormData.setToken(encryptionService.encrypt(token));
         setupFormData.setTicketProvider(ticketProvider);
         setupFormData.setBaseUrl(baseUrl);
         setupFormData.setSupportChannelId(supportChannelId);
         setupFormData.setTarget(target);
         botInteractionSessionService.saveSetupFormDataSession(setupFormData);
 
-        String tokenForCheck = rawToken;
-        event.deferReply(true).queue(hook -> CompletableFuture
-                .supplyAsync(() -> checkConnection(ticketProvider, baseUrl, tokenForCheck, locale, guild.getIdLong()))
+        event.deferReply(true).queue(hook -> hook
+                .editOriginal(messageSource.getMessage("setup.healthcheck.checking", null, locale))
+                .queue(ignored -> CompletableFuture
+                .supplyAsync(() -> checkConnection(ticketProvider, baseUrl, token, locale, guild.getIdLong()))
                 .thenAccept(result -> {
                     if (result.successful()) {
                         botInteractionSessionService.completeSetup(setupFormData);
@@ -92,7 +92,7 @@ public class HolonetSetupConnectionSubmitModalAction {
                             failure.getClass().getSimpleName());
                     hook.editOriginal(messageSource.getMessage("setup.healthcheck.failed", null, locale)).queue();
                     return null;
-                }));
+                })));
     }
 
     private void postSupportPanel(InteractionHook hook, Guild guild, long channelId, Locale userLocale) {
