@@ -8,18 +8,24 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.UnknownHostException;
 import java.time.Duration;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import de.medo.holonetbridge.commons.domain.TicketProvider;
 import de.medo.holonetbridge.commons.net.SsrfBlockedTargetException;
 import de.medo.holonetbridge.commons.net.SsrfSafeHttpClientFactory;
 import de.medo.holonetbridge.commons.provider.ProviderHealthCheckException;
 import de.medo.holonetbridge.commons.provider.ProviderHealthCheckException.Reason;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
@@ -32,13 +38,23 @@ class GiteaHealthCheckTest {
     private static final String USER_URL = "https://gitea.example.invalid/gitea/api/v1/user";
     private final SsrfSafeHttpClientFactory factory = mock(SsrfSafeHttpClientFactory.class);
     private final GiteaHealthCheck healthCheck = new GiteaHealthCheck(factory);
+    private final Logger logger = (Logger) LoggerFactory.getLogger(GiteaHealthCheck.class);
+    private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
     private MockRestServiceServer server;
 
     @BeforeEach
     void setUp() {
+        logs.start();
+        logger.addAppender(logs);
         RestClient.Builder builder = RestClient.builder().baseUrl(BASE_URL.toString());
         server = MockRestServiceServer.bindTo(builder).build();
         when(factory.restClientBuilderFor(BASE_URL, Duration.ofSeconds(10))).thenReturn(builder);
+    }
+
+    @AfterEach
+    void tearDown() {
+        logger.detachAppender(logs);
+        logs.stop();
     }
 
     @Test
@@ -98,9 +114,10 @@ class GiteaHealthCheckTest {
 
     @Test
     void mapsNetworkFailuresToUnreachable() {
-        server.expect(requestTo(USER_URL)).andRespond(withException(new IOException("test network failure")));
+        server.expect(requestTo(USER_URL)).andRespond(withException(new IOException("reflected test-token")));
 
         assertFailure(Reason.UNREACHABLE);
+        assertThat(logs.list.getFirst().getFormattedMessage()).contains("diagnostic=IOException", "port=443");
         server.verify();
     }
 
@@ -110,6 +127,17 @@ class GiteaHealthCheckTest {
                 .thenThrow(new SsrfBlockedTargetException("blocked test target"));
 
         assertFailure(Reason.UNREACHABLE);
+        assertThat(logs.list.getFirst().getFormattedMessage()).contains("diagnostic=SsrfBlockedTargetException");
+    }
+
+    @Test
+    void logsDnsFailuresDistinctlyFromSecurityPolicyBlocks() {
+        when(factory.restClientBuilderFor(BASE_URL, Duration.ofSeconds(10)))
+                .thenThrow(new SsrfBlockedTargetException("reflected test-token", new UnknownHostException("test-token")));
+
+        assertFailure(Reason.UNREACHABLE);
+
+        assertThat(logs.list.getFirst().getFormattedMessage()).contains("diagnostic=UnknownHostException");
     }
 
     @Test
@@ -122,11 +150,22 @@ class GiteaHealthCheckTest {
                     assertThat(e.getMessage()).doesNotContain("test-token");
                     assertThat(e.getCause()).isNull();
                 });
+        assertSafeFailureLog();
     }
 
     private void assertFailure(Reason reason) {
         assertThatThrownBy(() -> healthCheck.check(BASE_URL, "test-token"))
                 .isInstanceOfSatisfying(ProviderHealthCheckException.class,
                         e -> assertThat(e.getReason()).isEqualTo(reason));
+        assertSafeFailureLog();
+    }
+
+    private void assertSafeFailureLog() {
+        assertThat(logs.list).singleElement().satisfies(event -> {
+            assertThat(event.getLevel()).isEqualTo(ch.qos.logback.classic.Level.WARN);
+            assertThat(event.getFormattedMessage()).contains("Gitea healthcheck failed", "host=gitea.example.invalid")
+                    .doesNotContain("test-token", "reflected");
+            assertThat(event.getThrowableProxy()).isNull();
+        });
     }
 }
