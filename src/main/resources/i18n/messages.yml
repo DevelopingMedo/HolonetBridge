@@ -1,6 +1,9 @@
 setup:
   guild-only: "/setup can only be used in a server."
   manage-server: "You need the \"Manage Server\" permission."
+  form-saved: "Connection details saved."
+  form-unchanged: "Connection details unchanged."
+  completed: "✅ Setup completed. The support panel was published in {0}."
   healthcheck:
     checking: "Testing connection details …"
     success: "Base URL and token for {0} were checked successfully."
@@ -13,6 +16,7 @@ setup:
     rejected: "The provider rejected the connection test. Check the URL and token and run /setup again."
     failed: "The connection test failed. Please run /setup again."
   panel:
+    posted: "Support panel published in {0}."
     channel-unavailable: "The selected support channel is no longer available."
     post-failed: "The connection was checked, but I could not post the support panel. Check that I can view and send messages in the selected channel."
   modal:

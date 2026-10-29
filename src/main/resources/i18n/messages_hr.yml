@@ -1,6 +1,9 @@
 setup:
   guild-only: "/setup se može koristiti samo na poslužitelju."
   manage-server: "Potrebna ti je dozvola \"Upravljanje poslužiteljem\"."
+  form-saved: "Podaci za povezivanje su spremljeni."
+  form-unchanged: "Podaci za povezivanje nisu promijenjeni."
+  completed: "✅ Postavljanje je dovršeno. Panel podrške objavljen je u {0}."
   healthcheck:
     checking: "Provjeravam podatke za povezivanje …"
     success: "Osnovna adresa i token za {0} uspješno su provjereni."
@@ -13,6 +16,7 @@ setup:
     rejected: "Pružatelj je odbio provjeru veze. Provjeri adresu i token i ponovno pokreni /setup."
     failed: "Provjera veze nije uspjela. Ponovno pokreni /setup."
   panel:
+    posted: "Panel podrške objavljen je u {0}."
     channel-unavailable: "Odabrani kanal podrške više nije dostupan."
     post-failed: "Veza je provjerena, ali poruku podrške nije bilo moguće objaviti. Provjeri mogu li vidjeti odabrani kanal i slati poruke u njemu."
   modal:
