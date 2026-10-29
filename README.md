@@ -110,11 +110,13 @@ SPRING_PROFILES_ACTIVE=dev java -jar target/holonet-bridge-*.jar
 
 ## Database schema migrations
 
-Schema changes go through Liquibase (`src/main/resources/db/changelog/db.changelog-master.xml`, including per-version changelog files such as `db.changelog-1.0-baseline.xml`) instead of Hibernate's own DDL generation: `spring.jpa.hibernate.ddl-auto` is `validate`, so Hibernate only checks the entity mapping against whatever Liquibase has produced and refuses to start on a mismatch, rather than silently creating or altering tables. `db.changelog-1.0-baseline.xml` is a versioning foundation, not a schema change: it describes the two tables (`holonet_discord_server`, `holonet_support_channel`) exactly as the previous `ddl-auto: update` setup had already been creating them. Its changeSets each carry a `tableExists` preCondition with `onFail="MARK_RAN"`, so both a brand-new database (tables created) and an existing one from before Liquibase (tables already present, changeSet marked as applied instead of re-run) end up on the same recorded schema history without any destructive recreation or manual `changelog-sync` step. Add new changelog files for future schema changes; never edit or remove an already-released one.
+Schema changes go through Liquibase (`src/main/resources/db/changelog/db.changelog-master.xml`) instead of Hibernate's own DDL generation. `spring.jpa.hibernate.ddl-auto` is `validate`, so Hibernate checks the entity mappings against the schema produced by Liquibase.
+
+The development migration history has been reset to one baseline, `db.changelog-1.0-baseline.xml`, containing only the four tables used by the current entities: `holonet_support_channel`, `holonet_guild_sequence`, `holonet_bot_interaction_session`, and `holonet_setup_form_data`. Old development databases are not migrated to this baseline: stop the application and delete the configured H2 database file (`data/holonet-bridge.mv.db` by default) once, discarding its data. Liquibase creates the schema on the next start. This is a one-time development reset, not an automatic drop on every startup. For subsequent schema changes, add new changelog files; do not rename or rewrite applied changesets.
 
 The default/`dev` H2 database is a file rather than in-memory, so data survives process/container restarts: `DB_FILE_PATH` (default `./data/holonet-bridge`) controls where. The `.ci/deployment` Compose setup mounts that path as a named volume (`holonet-bridge-data`) so it also survives container re-creation, not just process restarts.
 
-`MigrationSmokeTest` (under `bootstrap`) starts the full Spring context against both a brand-new database file and a fixture representing a pre-Liquibase one (`src/test/resources/fixtures/legacy-h2`), asserting both that the context starts at all (which Hibernate's `validate` would otherwise have refused) and, for the legacy fixture, that its pre-existing data is unchanged afterward.
+`SchemaMigrationTest` (under `bootstrap`) starts the persistence context against a fresh database file and then reopens it, checking Hibernate validation, the exact set of tables, migration history, and persisted setup data without connecting to Discord.
 
 ## Build and test
 
@@ -129,7 +131,7 @@ The provider port is the seam for isolated adapter tests: `GiteaTicketProviderTe
 
 `GiteaTicketProviderIntegrationTest` additionally drives `GiteaTicketProvider` against a real Gitea instance started with Testcontainers (image `gitea/gitea:1.22`, mirroring the init steps from `.ci/deployment/docker-compose.yml`). It is skipped automatically when no Docker environment is reachable (`disabledWithoutDocker`).
 
-`TokenCryptoServiceTest` and `MasterKeyProviderTest` cover the encryption service and master-key resolution from "Provider-token encryption at rest" above (round-trip, tamper/context-mismatch detection, key rotation, fail-fast on missing/invalid key material); `MigrationSmokeTest` covers the Liquibase/Hibernate-validate migration setup from "Database schema migrations" above.
+`SchemaMigrationTest` covers the Liquibase/Hibernate-validate migration setup from "Database schema migrations" above.
 
 Testcontainers auto-detects Docker via `/var/run/docker.sock`, but colima puts its socket at `~/.colima/default/docker.sock`. Expose it at the standard path once (requires sudo) and the test runs without any extra configuration:
 

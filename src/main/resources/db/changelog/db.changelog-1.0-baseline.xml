@@ -5,45 +5,7 @@
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
             https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
-    <!--
-        Baseline: describes the schema exactly as Hibernate's own `ddl-auto: update` had already been
-        creating it (see the DDL Hibernate itself logs for HolonetDiscordServer/HolonetSupportChannel),
-        so this is a versioning foundation, not a schema change. Every changeSet below is guarded with a
-        "tableExists" preCondition set to onFail="MARK_RAN":
-          - a brand-new database has neither table yet, so Liquibase runs the changeSet and creates it.
-          - an existing database already has the table (created previously by `ddl-auto: update`), so
-            Liquibase marks the changeSet as already applied instead of re-running (and failing on) a
-            CREATE TABLE against an existing table. No data is touched either way.
-        Column types/constraints must keep matching the entities exactly, since `ddl-auto` is now
-        `validate`: Hibernate will refuse to start if this changelog's result and the entity mapping
-        disagree.
-    -->
-
-    <changeSet id="1-holonet-discord-server" author="holonet-bridge">
-        <preConditions onFail="MARK_RAN" onFailMessage="holonet_discord_server already exists from a pre-Liquibase install; marking this changeSet as already applied.">
-            <not>
-                <tableExists tableName="holonet_discord_server"/>
-            </not>
-        </preConditions>
-        <createTable tableName="holonet_discord_server">
-            <column name="guild_id" type="BIGINT">
-                <constraints primaryKey="true" nullable="false"/>
-            </column>
-            <column name="channel_id" type="BIGINT">
-                <constraints nullable="false"/>
-            </column>
-            <column name="message_id" type="BIGINT">
-                <constraints nullable="false"/>
-            </column>
-        </createTable>
-    </changeSet>
-
-    <changeSet id="2-holonet-support-channel" author="holonet-bridge">
-        <preConditions onFail="MARK_RAN" onFailMessage="holonet_support_channel already exists from a pre-Liquibase install; marking this changeSet as already applied.">
-            <not>
-                <tableExists tableName="holonet_support_channel"/>
-            </not>
-        </preConditions>
+    <changeSet id="1-current-schema" author="holonet-bridge">
         <createTable tableName="holonet_support_channel">
             <column name="channel_id" type="BIGINT">
                 <constraints primaryKey="true" nullable="false"/>
@@ -57,8 +19,67 @@
             <column name="number" type="BIGINT">
                 <constraints nullable="false"/>
             </column>
+            <column name="connection_id" type="UUID"/>
             <column name="ticket_id" type="VARCHAR(255)"/>
+            <column name="ticket_url" type="VARCHAR(2048)"/>
+            <column name="status" type="VARCHAR(20)" defaultValue="OPEN">
+                <constraints nullable="false"/>
+            </column>
         </createTable>
+        <createIndex tableName="holonet_support_channel" indexName="idx_holonet_support_channel_connection_ticket">
+            <column name="connection_id"/>
+            <column name="ticket_id"/>
+        </createIndex>
+
+        <createTable tableName="holonet_guild_sequence">
+            <column name="guild_id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="current_number" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createSequence sequenceName="holonet_bot_interaction_session_seq" startValue="1" incrementBy="1"/>
+        <createTable tableName="holonet_bot_interaction_session">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="locale" type="VARCHAR(255)"/>
+            <column name="guild_id" type="BIGINT"/>
+            <column name="channel_id" type="BIGINT"/>
+            <column name="member_id" type="BIGINT"/>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE"/>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE"/>
+            <column name="closed_at" type="TIMESTAMP WITH TIME ZONE"/>
+        </createTable>
+        <createIndex tableName="holonet_bot_interaction_session" indexName="idx_holonet_interaction_session_lookup">
+            <column name="guild_id"/>
+            <column name="member_id"/>
+            <column name="channel_id"/>
+            <column name="closed_at"/>
+        </createIndex>
+
+        <createSequence sequenceName="holonet_setup_form_data_seq" startValue="1" incrementBy="1"/>
+        <createTable tableName="holonet_setup_form_data">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="session_id" type="BIGINT">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uk_holonet_setup_form_data_session"/>
+            </column>
+            <column name="ticket_provider" type="VARCHAR(32)"/>
+            <column name="base_url" type="VARCHAR(255)"/>
+            <column name="target" type="VARCHAR(255)"/>
+            <column name="token" type="VARCHAR(2048)"/>
+            <column name="support_channel_id" type="BIGINT"/>
+        </createTable>
+        <addForeignKeyConstraint
+                baseTableName="holonet_setup_form_data"
+                baseColumnNames="session_id"
+                constraintName="fk_holonet_setup_form_data_session"
+                referencedTableName="holonet_bot_interaction_session"
+                referencedColumnNames="id"/>
     </changeSet>
 
 </databaseChangeLog>
