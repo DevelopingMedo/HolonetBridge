@@ -4,6 +4,7 @@ import de.medo.holonetbridge.commons.domain.HolonetBotInteractionSession;
 import de.medo.holonetbridge.commons.domain.HolonetDiscordConfig;
 import de.medo.holonetbridge.commons.domain.HolonetReportFormData;
 import de.medo.holonetbridge.commons.domain.HolonetSetupFormData;
+import de.medo.holonetbridge.commons.domain.TicketProvider;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import de.medo.holonetbridge.commons.repository.HolonetBotInteractionSessionRepository;
 import de.medo.holonetbridge.commons.repository.HolonetDiscordConfigRepository;
@@ -11,6 +12,7 @@ import de.medo.holonetbridge.commons.repository.HolonetReportFormDataRepository;
 import de.medo.holonetbridge.commons.repository.HolonetSetupFormDataRepository;
 import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Limit;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
@@ -38,28 +40,30 @@ public class HolonetBotInteractionSessionService {
         this.reportFormDataRepository = reportFormDataRepository;
     }
 
-    /** Bei jedem /setup haben gespeicherte Server-Einstellungen Vorrang vor dem persönlichen Entwurf. */
     @Transactional
-    public HolonetSetupFormData openSetup(long guildId, long memberId, Locale locale) {
+    public SetupForm openSetup(long guildId, long memberId, Locale locale) {
         var config = configRepository.findById(guildId);
-        var form = getOrCreateSetupFormDataSession(guildId, memberId, locale);
-        config.ifPresent(value -> {
-            copyToForm(value, form);
-            form.setConfigLoaded(true);
-        });
-        return form;
+        if (config.isPresent()) {
+            // Existing server settings always populate a fresh form, without creating a draft session.
+            var form = new HolonetSetupFormData();
+            copyToForm(config.get(), form);
+            return new SetupForm(form, config.get().getTicketProvider());
+        }
+        return new SetupForm(getOrCreateSetupFormDataSession(guildId, memberId, locale), null);
     }
+
+    public record SetupForm(HolonetSetupFormData formData, TicketProvider configuredProvider) {}
 
     @Transactional
     public HolonetSetupFormData getOrCreateSetupFormDataSession(long guildId, long memberId, Locale locale) {
         var existing = formDataRepository
-                .findFirstBySessionGuildIdAndSessionMemberIdAndSessionClosedAtIsNullOrderBySessionUpdatedAtDesc(guildId, memberId);
+                .findLatestOpenDraft(guildId, memberId, Limit.of(1));
         if (existing.isPresent()) {
             var form = existing.get();
             var session = form.getSession();
             if (session.getUpdatedAt().isAfter(Instant.now().minus(SETUP_IDLE_TIMEOUT))) {
                 session.setLocale(locale);
-                session.touch();
+                session.update();
                 return form;
             }
             session.setClosedAt(Instant.now());
@@ -79,7 +83,6 @@ public class HolonetBotInteractionSessionService {
         form.setSupportChannelId(config.getSupportChannelId());
     }
 
-    /** Erst ein erfolgreicher Verbindungstest macht aus dem Entwurf die gültige Server-Konfiguration. */
     @Transactional
     public void completeSetup(HolonetSetupFormData form) {
         var config = configRepository.findById(form.getSession().getGuildId())
@@ -121,7 +124,7 @@ public class HolonetBotInteractionSessionService {
     @Transactional
     public void saveSetupFormDataSession(HolonetSetupFormData setupFormData) {
         formDataRepository.save(setupFormData);
-        setupFormData.getSession().touch();
+        setupFormData.getSession().update();
         sessionRepository.save(setupFormData.getSession());
     }
 

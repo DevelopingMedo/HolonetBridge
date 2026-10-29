@@ -6,7 +6,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import lombok.Data;
 
-/** Die erfolgreich geprüfte Verbindung eines Discord-Servers, unabhängig vom bearbeitenden Mitglied. */
 @Entity
 @Data
 public class HolonetDiscordConfig {

@@ -63,6 +63,11 @@ class HolonetSetupConnectionHealthCheckTest {
         when(encryption.encrypt("test-token")).thenReturn("encrypted-test-token");
         when(sessions.getOrCreateSetupFormDataSession(anyLong(), anyLong(), any()))
                 .thenReturn(formData);
+        doAnswer(invocation -> {
+            Consumer<net.dv8tion.jda.api.entities.Message> callback = invocation.getArgument(0);
+            callback.accept(null);
+            return null;
+        }).when(hook.editOriginal("Teste Verbindungsdaten …")).queue(any());
         var deferredReply = event.deferReply(true);
         doAnswer(invocation -> {
             Consumer<InteractionHook> callback = invocation.getArgument(0);
@@ -75,6 +80,7 @@ class HolonetSetupConnectionHealthCheckTest {
     void acknowledgesPrivatelyBeforeCheckingAndRepliesWithSuccess() {
         doAnswer(invocation -> {
             verify(event.deferReply(true)).queue(any());
+            verify(hook).editOriginal("Teste Verbindungsdaten …");
             return null;
         }).when(healthChecks).check(TicketProvider.GITEA, "https://gitea.example.invalid", "test-token");
 
@@ -97,7 +103,7 @@ class HolonetSetupConnectionHealthCheckTest {
         action.handle(event);
 
         ArgumentCaptor<String> reply = ArgumentCaptor.forClass(String.class);
-        verify(hook, timeout(3000)).editOriginal(reply.capture());
+        verify(hook, timeout(3000).times(2)).editOriginal(reply.capture());
         assertThat(reply.getValue()).contains("/setup").doesNotContain("test-token", "erfolgreich");
         verify(supportChannel, never()).sendMessage(anyString());
         verify(sessions, never()).completeSetup(any());

@@ -36,7 +36,7 @@ public class HolonetTicketSubmitter {
         validateContext(data);
         return switch (provider) {
             case GITEA -> {
-                HolonetDiscordConfig setup = configurationFor(data);
+                HolonetDiscordConfig setup = configFor(data);
                 if (setup.getTicketProvider() != provider) {
                     throw new IllegalStateException("Requested provider does not match the server configuration");
                 }
@@ -59,9 +59,11 @@ public class HolonetTicketSubmitter {
                 .setEphemeral(true).queue();
     }
 
-    private HolonetDiscordConfig configurationFor(HolonetReportFormData data) {
+    private HolonetDiscordConfig configFor(HolonetReportFormData data) {
         return setupRepository.findById(data.getSession().getGuildId())
-                .orElseThrow(() -> new IllegalStateException("No saved provider configuration for this server"));
+                .orElseThrow(() -> new IllegalStateException("No saved provider configuration for guildId="
+                        + data.getSession().getGuildId()
+                        + " in holonet_discord_config. Complete /setup for this server."));
     }
 
     private void validateContext(HolonetReportFormData data) {

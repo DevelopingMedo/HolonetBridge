@@ -29,14 +29,13 @@ class HolonetBotInteractionSessionServiceTest {
         var form = new HolonetSetupFormData();
         form.setSession(session);
         form.setBaseUrl("https://draft.example");
-        when(forms.findFirstBySessionGuildIdAndSessionMemberIdAndSessionClosedAtIsNullOrderBySessionUpdatedAtDesc(100, 200))
+        when(forms.findLatestOpenDraft(eq(100L), eq(200L), any()))
                 .thenReturn(Optional.of(form));
         return form;
     }
 
     @Test
     void savedConfigWinsOverAnActivePersonalDraft() {
-        var form = draft();
         var config = new HolonetDiscordConfig();
         config.setGuildId(100L);
         config.setBaseUrl("https://saved.example");
@@ -46,16 +45,17 @@ class HolonetBotInteractionSessionServiceTest {
         config.setSupportChannelId(99L);
         when(configs.findById(100L)).thenReturn(Optional.of(config));
 
-        var opened = service.openSetup(100, 200, Locale.GERMAN);
+        var result = service.openSetup(100, 200, Locale.GERMAN);
+        var opened = result.formData();
 
-        assertThat(opened).isSameAs(form);
-        assertThat(opened.isConfigLoaded()).isTrue();
+        assertThat(opened.getSession()).isNull();
+        assertThat(result.configuredProvider()).isEqualTo(TicketProvider.GITEA);
+        verifyNoInteractions(forms, sessions);
         assertThat(opened.getBaseUrl()).isEqualTo(config.getBaseUrl());
         assertThat(opened.getToken()).isEqualTo("encrypted");
         assertThat(opened.getTicketProvider()).isEqualTo(TicketProvider.GITEA);
         assertThat(opened.getTarget()).isEqualTo("acme/support");
         assertThat(opened.getSupportChannelId()).isEqualTo(99L);
-        assertThat(opened.getSession().getLocale()).isEqualTo(Locale.GERMAN);
     }
 
     @Test
@@ -63,9 +63,8 @@ class HolonetBotInteractionSessionServiceTest {
         var form = draft();
         var previous = Instant.now().minusSeconds(600);
         ReflectionTestUtils.setField(form.getSession(), "updatedAt", previous);
-        assertThat(service.openSetup(100, 200, Locale.ENGLISH)).isSameAs(form);
+        assertThat(service.openSetup(100, 200, Locale.ENGLISH).formData()).isSameAs(form);
         assertThat(form.getBaseUrl()).isEqualTo("https://draft.example");
-        assertThat(form.isConfigLoaded()).isFalse();
         assertThat(form.getSession().getUpdatedAt()).isAfter(previous);
     }
 

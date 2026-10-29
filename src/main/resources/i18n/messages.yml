@@ -2,6 +2,7 @@ setup:
   guild-only: "/setup can only be used in a server."
   manage-server: "You need the \"Manage Server\" permission."
   healthcheck:
+    checking: "Testing connection details …"
     success: "Base URL and token for {0} were checked successfully."
     invalid-url: "Enter a valid http(s) base URL without credentials, query or fragment and run /setup again."
     token-required: "A token is required for the connection test. Run /setup again and enter a token."
@@ -15,7 +16,7 @@ setup:
     channel-unavailable: "The selected support channel is no longer available."
     post-failed: "The connection was checked, but I could not post the support panel. Check that I can view and send messages in the selected channel."
   modal:
-    config-found: "Saved server configuration loaded."
+    config-found: "Saved {0} configuration loaded."
     title: "Configure ticket connection"
     provider: "Ticket provider"
     channel: "Support channel"
