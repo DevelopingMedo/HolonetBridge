@@ -1,7 +1,6 @@
 package de.medo.holonetbridge.commons.discord.button;
 
 import de.holonetbridge.commons.message.SupportMessageCodes;
-import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketInteractionGuard;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.selections.EntitySelectMenu;
@@ -22,15 +21,12 @@ public class HolonetAddWatcherButton {
     public static final String SELECT_ID = "ticket:watcher:select";
 
     private final MessageSourceAccessor messageSource;
-    private final HolonetTicketInteractionGuard guard;
 
-    public HolonetAddWatcherButton(MessageSource messageSource, HolonetTicketInteractionGuard guard) {
+    public HolonetAddWatcherButton(MessageSource messageSource) {
         this.messageSource = new MessageSourceAccessor(messageSource);
-        this.guard = guard;
     }
 
     public void handle(ButtonInteractionEvent event) {
-        if (!guard.allowWatcher(event)) return;
         Locale userLocale = event.getUserLocale().toLocale();
         EntitySelectMenu menu = EntitySelectMenu.create(SELECT_ID, EntitySelectMenu.SelectTarget.USER)
                                                 .setRequiredRange(1, 1)

@@ -12,7 +12,7 @@ The domain `TicketProvider` enum selects a provider during setup/restoration; th
 
 Internally, created/edited tickets are still called "tickets" everywhere in this codebase and towards Discord users, even for the Gitea adapter, where they map onto Gitea's "issues". This keeps the user-facing and cross-provider vocabulary provider-agnostic.
 
-Members, including watchers, may create reports and add watchers with effective **`VIEW_CHANNEL` and `MESSAGE_SEND`** permissions in the concrete text channel. **Archive channel** requires **`MANAGE_SERVER`** and archives only the Discord channel; external tickets are not closed automatically. Discord owners and administrators can bypass channel write restrictions.
+Report creation and watcher addition do not perform an application-level check of the requesting member's channel permissions. **Archive channel** requires **`MANAGE_SERVER`** and archives only the Discord channel; external tickets are not closed automatically. Discord owners and administrators can bypass channel write restrictions.
 
 The support workflow does not persist channel registrations or external ticket identities. Form drafts and provider configuration remain persistent, but there are no durable creation reservations, recovery or duplicate-prevention guarantees. Submitting again may create another external ticket.
 

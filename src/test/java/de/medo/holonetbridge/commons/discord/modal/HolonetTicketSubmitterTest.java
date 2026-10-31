@@ -18,9 +18,7 @@ import de.medo.holonetbridge.commons.domain.HolonetBotInteractionSession;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import de.medo.holonetbridge.commons.extapi.TicketProvider;
 import de.medo.holonetbridge.commons.extapi.TicketReference;
-import de.medo.holonetbridge.commons.discord.ticketing.*;
-import net.dv8tion.jda.api.entities.channel.ChannelType;
-import net.dv8tion.jda.api.Permission;
+import de.medo.holonetbridge.commons.discord.ticketing.HolonetChannelCoordinator;
 import de.medo.holonetbridge.commons.provider.HolonetTicketProviderService;
 import de.medo.holonetbridge.gitea.GiteaTicketProvider;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
@@ -45,8 +43,7 @@ class HolonetTicketSubmitterTest {
     private final TicketProvider provider = mock(TicketProvider.class);
     private final MessageSource messages = new MessageSourceConfiguration().messageSource(new I18nProperties(null));
     private final HolonetChannelCoordinator channels = new HolonetChannelCoordinator();
-    private final HolonetTicketInteractionGuard guard = new HolonetTicketInteractionGuard(messages);
-    private final HolonetTicketSubmitter submitter = new HolonetTicketSubmitter(providers, messages, channels, guard);
+    private final HolonetTicketSubmitter submitter = new HolonetTicketSubmitter(providers, messages, channels);
     private final HolonetReportFormData data = new HolonetReportFormData();
 
     @BeforeEach
@@ -55,8 +52,6 @@ class HolonetTicketSubmitterTest {
         when(event.getGuild().getIdLong()).thenReturn(1L);
         when(event.getUser().getIdLong()).thenReturn(2L);
         when(event.getChannel().getIdLong()).thenReturn(3L);
-        when(event.getChannel().getType()).thenReturn(ChannelType.TEXT);
-        when(event.getMember().hasPermission(event.getGuildChannel(), Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND)).thenReturn(true);
         var session = new HolonetBotInteractionSession();
         session.setGuildId(1L);
         session.setMemberId(2L);
@@ -163,17 +158,6 @@ class HolonetTicketSubmitterTest {
 
         verify(hook, timeout(3000)).editOriginal(messages.getMessage("ticket.not-configured", null, Locale.GERMAN));
         verifyNoInteractions(provider);
-    }
-
-    @Test
-    void finalGuardRejectsAnOutstandingModalAfterChannelAccessIsRevoked() {
-        channels.withChannel(3, () -> {
-            submitter.handle(event, data);
-            when(event.getMember().hasPermission(event.getGuildChannel(), Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND)).thenReturn(false);
-            return null;
-        });
-        verify(hook, timeout(3000)).editOriginal(messages.getMessage(SupportMessageCodes.ACTION_UNAVAILABLE, null, Locale.GERMAN));
-        verify(provider, never()).create(any());
     }
 
     @Test

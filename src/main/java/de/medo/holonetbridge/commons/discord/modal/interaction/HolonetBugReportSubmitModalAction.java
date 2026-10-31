@@ -2,7 +2,6 @@ package de.medo.holonetbridge.commons.discord.modal.interaction;
 
 import de.medo.holonetbridge.commons.discord.modal.HolonetTicketReportModalFactory;
 import de.medo.holonetbridge.commons.discord.modal.HolonetTicketSubmitter;
-import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketInteractionGuard;
 import de.medo.holonetbridge.commons.domain.HolonetReportFormData;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import de.medo.holonetbridge.commons.service.HolonetBotInteractionSessionService;
@@ -17,18 +16,15 @@ public class HolonetBugReportSubmitModalAction {
     private final HolonetTicketSubmitter ticketSubmitter;
     private final MessageSource messageSource;
     private final HolonetBotInteractionSessionService formDataService;
-    private final HolonetTicketInteractionGuard guard;
 
     public HolonetBugReportSubmitModalAction(HolonetTicketSubmitter ticketSubmitter, MessageSource messageSource,
-            HolonetBotInteractionSessionService formDataService, HolonetTicketInteractionGuard guard) {
+            HolonetBotInteractionSessionService formDataService) {
         this.ticketSubmitter = ticketSubmitter;
         this.messageSource = messageSource;
         this.formDataService = formDataService;
-        this.guard = guard;
     }
 
     public void handle(ModalInteractionEvent event) {
-        if (!guard.allowCreate(event)) return;
         long userId = event.getUser().getIdLong();
         String steps = event.getValue(HolonetTicketReportModalFactory.INPUT_STEPS).getAsString();
         String expected = event.getValue(HolonetTicketReportModalFactory.INPUT_EXPECTED).getAsString();

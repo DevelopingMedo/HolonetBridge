@@ -16,7 +16,6 @@ import de.medo.holonetbridge.commons.discord.listener.HolonetOnModalInteractionL
 import de.medo.holonetbridge.commons.discord.modal.interaction.HolonetBugReportSubmitModalAction;
 import de.medo.holonetbridge.commons.discord.modal.interaction.HolonetFeatureSubmittedModalAction;
 import de.medo.holonetbridge.commons.discord.modal.interaction.HolonetSetupConnectionSubmitModalAction;
-import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketInteractionGuard;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetChannelCoordinator;
 import de.medo.holonetbridge.commons.domain.HolonetReportFormData;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
@@ -31,9 +30,6 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.dao.DataAccessResourceFailureException;
 
 class HolonetReportFormInteractionTest {
-    private final HolonetTicketInteractionGuard guard = mock(HolonetTicketInteractionGuard.class);
-    @org.junit.jupiter.api.BeforeEach
-    void allowOpenChannel() { when(guard.allowCreate(any())).thenReturn(true); }
     private final HolonetBotInteractionSessionService dataService = mock(HolonetBotInteractionSessionService.class);
     private final HolonetTicketSubmitter submitter = mock(HolonetTicketSubmitter.class);
     private final org.springframework.context.MessageSource messages =
@@ -58,9 +54,9 @@ class HolonetReportFormInteractionTest {
         var factory = new HolonetTicketReportModalFactory(messages);
 
         if (kind == HolonetTicketKind.BUG) {
-            new HolonetReportBugButton(messages, factory, dataService, guard).handle(event);
+            new HolonetReportBugButton(messages, factory, dataService).handle(event);
         } else {
-            new HolonetReportFeatureButton(messages, factory, dataService, guard).handle(event);
+            new HolonetReportFeatureButton(messages, factory, dataService).handle(event);
         }
 
         var modal = org.mockito.ArgumentCaptor.forClass(Modal.class);
@@ -90,7 +86,7 @@ class HolonetReportFormInteractionTest {
         doThrow(new IllegalStateException("Later processing failed"))
                 .when(submitter).handle(event, data);
 
-        assertThatThrownBy(() -> new HolonetFeatureSubmittedModalAction(submitter, dataService, messages, guard).handle(event))
+        assertThatThrownBy(() -> new HolonetFeatureSubmittedModalAction(submitter, dataService, messages).handle(event))
                 .isInstanceOf(IllegalStateException.class);
 
         var order = inOrder(dataService, submitter);
@@ -107,7 +103,7 @@ class HolonetReportFormInteractionTest {
         when(dataService.getOrCreate(1, 2, Locale.US, HolonetTicketKind.FEATURE)).thenReturn(data);
         doThrow(new DataAccessResourceFailureException("unavailable")).when(dataService).save(data);
 
-        new HolonetFeatureSubmittedModalAction(submitter, dataService, messages, guard).handle(event);
+        new HolonetFeatureSubmittedModalAction(submitter, dataService, messages).handle(event);
 
         verifyNoInteractions(submitter);
         verify(event).reply(messages.getMessage("ticket.draft-save-failed", null, Locale.US));
@@ -122,9 +118,9 @@ class HolonetReportFormInteractionTest {
                 .thenThrow(new DataAccessResourceFailureException("unavailable"));
         var factory = new HolonetTicketReportModalFactory(messages);
         if (kind == HolonetTicketKind.BUG) {
-            new HolonetReportBugButton(messages, factory, dataService, guard).handle(event);
+            new HolonetReportBugButton(messages, factory, dataService).handle(event);
         } else {
-            new HolonetReportFeatureButton(messages, factory, dataService, guard).handle(event);
+            new HolonetReportFeatureButton(messages, factory, dataService).handle(event);
         }
 
         verify(event, never()).replyModal(any());
@@ -136,14 +132,14 @@ class HolonetReportFormInteractionTest {
         var event = mock(ModalInteractionEvent.class);
         var setup = mock(HolonetSetupConnectionSubmitModalAction.class);
         var listener = new HolonetOnModalInteractionListener(
-                new HolonetFeatureSubmittedModalAction(submitter, dataService, messages, guard),
-                new HolonetBugReportSubmitModalAction(submitter, messages, dataService, guard), setup);
+                new HolonetFeatureSubmittedModalAction(submitter, dataService, messages),
+                new HolonetBugReportSubmitModalAction(submitter, messages, dataService), setup);
 
         listener.onModalInteraction(event);
 
         verify(event).isFromGuild();
         verifyNoMoreInteractions(event);
-        verifyNoInteractions(guard, dataService, submitter, setup);
+        verifyNoInteractions(dataService, submitter, setup);
     }
 
     @ParameterizedTest
@@ -191,11 +187,10 @@ class HolonetReportFormInteractionTest {
             callback.accept(hook);
             return null;
         }).when(reply).queue(any());
-        when(guard.canAccess(event)).thenReturn(true);
-        var realSubmitter = new HolonetTicketSubmitter(providers, messages, new HolonetChannelCoordinator(), guard);
+        var realSubmitter = new HolonetTicketSubmitter(providers, messages, new HolonetChannelCoordinator());
         var listener = new HolonetOnModalInteractionListener(
-                new HolonetFeatureSubmittedModalAction(realSubmitter, dataService, messages, guard),
-                new HolonetBugReportSubmitModalAction(realSubmitter, messages, dataService, guard),
+                new HolonetFeatureSubmittedModalAction(realSubmitter, dataService, messages),
+                new HolonetBugReportSubmitModalAction(realSubmitter, messages, dataService),
                 mock(HolonetSetupConnectionSubmitModalAction.class));
 
         listener.onModalInteraction(event);

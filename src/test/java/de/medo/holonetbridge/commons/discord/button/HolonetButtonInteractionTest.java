@@ -3,7 +3,6 @@ package de.medo.holonetbridge.commons.discord.button;
 import de.medo.holonetbridge.commons.discord.i18n.I18nProperties;
 import de.medo.holonetbridge.commons.discord.i18n.MessageSourceConfiguration;
 import de.medo.holonetbridge.commons.discord.listener.HolonetOnButtonInteractionListener;
-import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketInteractionGuard;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.selections.EntitySelectMenu;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
@@ -60,12 +59,10 @@ class HolonetButtonInteractionTest {
     @Test
     void addWatcherOpensAnEphemeralSingleUserSelectorInTheUserLanguage() {
         var messages = new MessageSourceConfiguration().messageSource(new I18nProperties(null));
-        var guard = mock(HolonetTicketInteractionGuard.class);
         var event = mock(ButtonInteractionEvent.class, RETURNS_DEEP_STUBS);
         when(event.getUserLocale()).thenReturn(DiscordLocale.GERMAN);
-        when(guard.allowWatcher(event)).thenReturn(true);
 
-        new HolonetAddWatcherButton(messages, guard).handle(event);
+        new HolonetAddWatcherButton(messages).handle(event);
 
         var row = ArgumentCaptor.forClass(ActionRow.class);
         var reply = event.reply("Wähle eine Person aus, die den Kanal sehen und kommentieren darf.");

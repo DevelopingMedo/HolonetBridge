@@ -2,7 +2,6 @@ package de.medo.holonetbridge.commons.discord.button;
 
 import de.holonetbridge.commons.message.SupportMessageCodes;
 import de.medo.holonetbridge.commons.discord.modal.HolonetTicketReportModalFactory;
-import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketInteractionGuard;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import de.medo.holonetbridge.commons.service.HolonetBotInteractionSessionService;
 import lombok.extern.slf4j.Slf4j;
@@ -25,20 +24,16 @@ public class HolonetReportBugButton {
     private final MessageSourceAccessor messageSource;
     private final HolonetTicketReportModalFactory modalFactory;
     private final HolonetBotInteractionSessionService formDataService;
-    private final HolonetTicketInteractionGuard guard;
 
     public HolonetReportBugButton(MessageSource messageSource,
                                   HolonetTicketReportModalFactory modalFactory,
-                                  HolonetBotInteractionSessionService formDataService,
-                                  HolonetTicketInteractionGuard guard) {
+                                  HolonetBotInteractionSessionService formDataService) {
         this.messageSource = new MessageSourceAccessor(messageSource);
         this.modalFactory = modalFactory;
         this.formDataService = formDataService;
-        this.guard = guard;
     }
 
     public void handle(ButtonInteractionEvent event) {
-        if (!guard.allowCreate(event)) return;
         Locale userLocale = event.getUserLocale().toLocale();
         try {
             var data = formDataService.getOrCreate(event.getGuild().getIdLong(), event.getUser().getIdLong(),
