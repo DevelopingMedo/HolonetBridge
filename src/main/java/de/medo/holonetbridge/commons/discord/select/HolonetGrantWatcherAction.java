@@ -3,7 +3,6 @@ package de.medo.holonetbridge.commons.discord.select;
 import de.holonetbridge.commons.message.SupportMessageCodes;
 import de.medo.holonetbridge.commons.discord.interaction.HolonetInteractionResponder;
 import de.medo.holonetbridge.commons.discord.ticketing.HolonetChannelCoordinator;
-import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketInteractionGuard;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
@@ -22,20 +21,16 @@ public class HolonetGrantWatcherAction {
     private final MessageSourceAccessor messageSource;
     private final HolonetInteractionResponder interactionResponder;
     private final HolonetChannelCoordinator channels;
-    private final HolonetTicketInteractionGuard guard;
 
     public HolonetGrantWatcherAction(MessageSource messageSource,
                                      HolonetInteractionResponder interactionResponder,
-                                     HolonetChannelCoordinator channels,
-                                     HolonetTicketInteractionGuard guard) {
+                                     HolonetChannelCoordinator channels) {
         this.messageSource = new MessageSourceAccessor(messageSource);
         this.interactionResponder = interactionResponder;
         this.channels = channels;
-        this.guard = guard;
     }
 
     public void handle(EntitySelectInteractionEvent event) {
-        if (!guard.allowWatcher(event)) return;
         Locale userLocale = event.getUserLocale().toLocale();
         Member member = event.getMentions().getMembers().stream().findFirst().orElse(null);
         if (member == null) {
@@ -53,7 +48,6 @@ public class HolonetGrantWatcherAction {
         long guildId = event.getGuild().getIdLong();
         long channelId = event.getChannel().getIdLong();
         channels.async(channelId, () -> {
-            if (!guard.canAccess(event)) return SupportMessageCodes.ACTION_UNAVAILABLE;
             if (member.getGuild().getIdLong() != guildId) return SupportMessageCodes.WATCHER_ADD_NOT_FOUND;
             event.getChannel()
                 .asTextChannel()
