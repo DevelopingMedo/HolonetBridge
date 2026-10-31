@@ -1,7 +1,6 @@
 # Russian is intentionally transliterated into Latin script.
 setup:
   failed: "Ne udalos zavershit nastroyku. Prezhnee podklyuchenie ne izmeneno. Prover dannye podklyucheniya i tselevoy repozitoriy, zatem zapusti /setup eshche raz."
-  guild-only: "/setup mozhno ispolzovat tolko na servere."
   form-saved: "Dannye podklyucheniya sokhraneny."
   form-unchanged: "Dannye podklyucheniya ne izmenilis."
   completed: "✅ Nastroyka zavershena. Panel podderzhki opublikovana v {0}."

@@ -55,10 +55,6 @@ public class HolonetSetupConnectionSubmitModalAction {
         Locale locale = event.getUserLocale().toLocale();
         Guild guild = event.getGuild();
         Member member = event.getMember();
-        if (guild == null || member == null) {
-            event.reply(messageSource.getMessage("setup.guild-only", null, locale)).setEphemeral(true).queue();
-            return;
-        }
         if (!member.hasPermission(Permission.MANAGE_SERVER)) {
             event.reply(messageSource.getMessage(DiscordMessageCodes.MANAGE_SERVER_REQUIRED, null, locale)).setEphemeral(true).queue();
             return;

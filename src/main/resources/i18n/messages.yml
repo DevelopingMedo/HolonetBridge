@@ -1,5 +1,4 @@
 setup:
-  guild-only: "/setup can only be used in a server."
   form-saved: "Connection details saved."
   form-unchanged: "Connection details unchanged."
   completed: "✅ Setup completed. The support panel was published in {0}."
