@@ -61,7 +61,7 @@ class GiteaTicketProviderIntegrationTest {
     void createsIssuesUsingFreshAccountLanguageInTheRunningGiteaInstance() {
         var form = GiteaTicketProviderTest.form(HolonetTicketKind.FEATURE);
         form.setDescription("**Original**\nEingeloggt und gewartet");
-        provider.create(form);
+        var reference = provider.create(form);
 
         var bug = GiteaTicketProviderTest.form(HolonetTicketKind.BUG);
         bug.getSession().setLocale(Locale.of("hr"));
@@ -85,6 +85,12 @@ class GiteaTicketProviderIntegrationTest {
                 default -> throw new AssertionError("Unexpected issue title");
             }
         }
+        provider.close(reference);
+        provider.close(reference);
+        var closed = verificationClient.get().uri("/api/v1/repos/{owner}/{repo}/issues/{number}",
+                ADMIN_USERNAME, REPOSITORY, reference.number()).retrieve().body(Map.class);
+        assertThat(closed.get("state")).isEqualTo("closed");
+        assertThat(((Number) closed.get("id")).longValue()).isEqualTo(reference.issueId());
     }
 
     private static void setAccountLanguage(String language) {

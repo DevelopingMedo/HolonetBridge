@@ -1,6 +1,5 @@
 setup:
   guild-only: "/setup can only be used in a server."
-  manage-server: "You need the \"Manage Server\" permission."
   form-saved: "Connection details saved."
   form-unchanged: "Connection details unchanged."
   completed: "✅ Setup completed. The support panel was published in {0}."
@@ -34,21 +33,7 @@ setup:
     token-required: "Provider access token"
     token-keep: "Leave blank to keep the existing token"
 support:
-  guild-only: "Support channels can only be created in a server."
   panel-message: "Need support? Click below to open a support request."
-  open-button: "Request support"
-  choose-kind: "Did you find a bug or do you have a new idea?"
-  bug: "Bug"
-  feature: "Idea"
-  add-watcher: "Add watcher"
-  created: "Support channel created: {0}"
-  failed: "The support channel could not be created."
-watcher:
-  placeholder: "Select a person"
-  prompt: "Select a person who may view and comment in this channel."
-  not-found: "The person could not be found."
-  added: "{0} was added as a watcher."
-  failed: "The permissions could not be granted."
 bug:
   modal:
     title: "Report a bug"
@@ -71,13 +56,63 @@ feature:
   description-hint: "What should be possible? Please be as specific as possible."
 ticket:
   created: "✅ Your ticket was created."
-  create-failed: "Ticket creation could not be confirmed. Your form is saved. Check the provider before trying again to avoid a duplicate."
+  create-failed: "Ticket creation could not be confirmed. Your form is saved. Check the provider before submitting again: another submission may create a duplicate."
   not-configured: "No active ticket connection is available for this server. Your form is saved. Ask an administrator to run /setup."
-  draft-saved: "Your form was saved. Reopen Bug or Idea in this channel to continue. No external ticket has been created yet."
-  draft-load-failed: "The saved form could not be loaded. Please try again later."
+  draft-saved: "Your form was saved. Reopen Bug or Idea in this channel to continue. Saving the form does not create an external ticket."
   draft-save-failed: "Your form could not be saved. Please keep a copy of your text and try again later."
   title: "Title"
   description: "Description"
 commands:
   setup:
     description: "Set up the support ticket panel in a channel"
+holonet:
+  discord:
+    support:
+      action:
+        unavailable: "This action is unavailable. Reports and watchers require View Channel and Send Messages in this text channel."
+      channel:
+        create:
+          button:
+            label: "Request support"
+          in-progress: "Your support channel is being created …"
+          success: "Your support channel was created: {0}"
+          failure: "Channel creation could not be confirmed. A channel may already exist; ask an administrator to check before creating another."
+          incomplete: "Channel {0} was created, but its controls could not be fully initialized. Ask an administrator to check this channel instead of creating another."
+      report-kind:
+        prompt: "Did you find a bug or do you have a new idea?"
+        bug:
+          label: "Bug"
+        feature:
+          label: "Idea"
+      watcher:
+        add:
+          button:
+            label: "Add watcher"
+          placeholder: "Select a person"
+          prompt: "Select a person who may view and comment in this channel."
+          in-progress: "The watcher is being added …"
+          not-found: "The person could not be found."
+          success: "{0} was added as a watcher."
+          failure: "I could not grant the permissions."
+      report:
+        draft:
+          load:
+            failure: "The saved form could not be loaded. Please try again later."
+      close:
+        button:
+          label: "Archive channel"
+        in-progress: "The Discord channel is being archived …"
+        failure: "Channel archiving could not be confirmed. Partial changes may have succeeded. Check the channel before retrying."
+        discord:
+          success: "Discord channel archived: history and read access are preserved; ordinary members cannot send messages or write in threads."
+          failure: "Discord archive protection could not be fully confirmed. Write protection may be incomplete. The diagnostic below identifies the failed step."
+        diagnostic: "Copy this single diagnostic line when reporting the failure: {0}"
+        missing-permissions: "I am missing the following permissions in this channel: {0}."
+        permission:
+          view: "View Channel"
+          channel: "Manage Channels"
+          permissions: "Manage Permissions"
+    error:
+      manage-server-required: "You need the \"Manage Server\" permission."
+      bot-permission-missing: "I am missing the following Discord permission: {0}."
+      unknown: "An unexpected error occurred."

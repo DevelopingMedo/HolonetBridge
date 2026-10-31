@@ -52,7 +52,7 @@ class GiteaTicketProviderTest {
         issueRequest().andExpect(content().json("""
                         {"title":"[Bug] Login fails","body":"## Was hast du vor dem Fehler gemacht?\\n\\n1. **Log in**\\n2. Wait\\n\\n## Was hättest du erwartet?\\n\\nA dashboard\\n\\n## Was ist stattdessen passiert?\\n\\nAn error\\n\\n## Tritt der Fehler erneut auf?\\n\\nJedes Mal\\n\\n## Discord\\n\\nServer: Test server (ID: 1)\\n\\nUser: Tester (ID: 2)"}
                         """))
-                .andRespond(withStatus(HttpStatus.CREATED));
+                .andRespond(createdIssue());
 
         provider.create(data);
 
@@ -68,7 +68,7 @@ class GiteaTicketProviderTest {
             issueRequest().andExpect(content().json("""
                             {"title":"[Feature] Login fails","body":"  Original\\n**text**  \\n\\n## Discord\\n\\nServer: Test server (ID: 1)\\n\\nUser: Tester (ID: 2)"}
                             """))
-                    .andRespond(withStatus(HttpStatus.CREATED));
+                    .andRespond(createdIssue());
         }
 
         provider.create(data);
@@ -195,6 +195,29 @@ class GiteaTicketProviderTest {
         assertAccountLookupFails();
     }
 
+    @Test
+    void creationReturnsSecretFreeStableIdentityFromTheCreatingProvider() {
+        expectAccount("{\"id\":42,\"language\":\"en\"}");
+        issueRequest().andRespond(createdIssue());
+        var reference = provider.create(form(HolonetTicketKind.FEATURE));
+        org.assertj.core.api.Assertions.assertThat(reference).isEqualTo(new de.medo.holonetbridge.commons.extapi.TicketReference(
+                "gitea", BASE_URL, "acme", "support", 11L, 101L, 3L));
+        org.assertj.core.api.Assertions.assertThat(reference.toString()).doesNotContain("secret-test-token");
+        server.verify();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "{}", "not-json secret-test-token", "null",
+            "{\"id\":101,\"number\":3,\"state\":\"open\",\"pull_request\":{}}",
+            "{\"id\":101,\"number\":3,\"state\":\"open\",\"repository\":{\"id\":12}}"})
+    void creationWithoutValidIdentityNeverClaimsConfirmedSuccess(String body) {
+        expectAccount("{\"id\":42,\"language\":\"en\"}");
+        issueRequest().andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+        assertThatThrownBy(() -> provider.create(form(HolonetTicketKind.FEATURE)))
+                .isInstanceOf(IllegalStateException.class).hasMessageNotContaining("secret-test-token").hasNoCause();
+        server.verify();
+    }
+
     private void assertAccountLookupFails() {
         assertThatThrownBy(() -> provider.create(form(HolonetTicketKind.BUG)))
                 .isInstanceOf(IllegalStateException.class).hasMessage("Gitea account lookup failed").hasNoCause();
@@ -213,6 +236,9 @@ class GiteaTicketProviderTest {
     }
 
     private ResponseActions issueRequest() {
+        server.expect(requestTo(BASE_URL + "/api/v1/repos/acme/support"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("{\"id\":11,\"full_name\":\"acme/support\"}", MediaType.APPLICATION_JSON));
         return server.expect(requestTo(ISSUE_URL)).andExpect(method(HttpMethod.POST))
                 .andExpect(header("Authorization", "token secret-test-token"))
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON));
@@ -224,11 +250,16 @@ class GiteaTicketProviderTest {
             expected.andExpect(jsonPath("$.body").value(containsString("## " + messages.getMessage("bug." + key, null, locale))));
         }
         expected.andExpect(jsonPath("$.body").value(containsString(messages.getMessage("bug.recurrence-always", null, locale))))
-                .andRespond(withStatus(HttpStatus.CREATED));
+                .andRespond(createdIssue());
     }
 
     private void expectNoIssue() {
         server.expect(ExpectedCount.never(), requestTo(ISSUE_URL)).andRespond(withStatus(HttpStatus.CREATED));
+    }
+
+    private static org.springframework.test.web.client.response.DefaultResponseCreator createdIssue() {
+        return withStatus(HttpStatus.CREATED).contentType(MediaType.APPLICATION_JSON)
+                .body("{\"id\":101,\"number\":3,\"state\":\"open\",\"repository\":{\"id\":11}}");
     }
 
     static HolonetReportFormData form(HolonetTicketKind kind) {

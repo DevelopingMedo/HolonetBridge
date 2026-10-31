@@ -31,6 +31,7 @@ public class HolonetOnModalInteractionListener extends ListenerAdapter {
 
     @Override
     public void onModalInteraction(ModalInteractionEvent event) {
+        if (!event.isFromGuild()) return;
         switch (event.getModalId()) {
             case HolonetTicketReportModalFactory.MODAL_ID_FEATURE_REPORT -> featureSubmitted.handle(event);
             case HolonetTicketReportModalFactory.MODAL_ID_BUG_REPORT -> bugReportSubmit.handle(event);

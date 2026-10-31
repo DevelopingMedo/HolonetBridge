@@ -1,7 +1,8 @@
 package de.medo.holonetbridge.commons.discord.modal.interaction;
 
+import de.holonetbridge.commons.message.DiscordMessageCodes;
 import de.medo.holonetbridge.commons.crypto.EncryptionService;
-import de.medo.holonetbridge.commons.discord.button.HolonetOpenSupportButton;
+import de.medo.holonetbridge.commons.discord.button.HolonetButtonFactory;
 import de.medo.holonetbridge.commons.discord.modal.HolonetModalFactory;
 import de.medo.holonetbridge.commons.domain.HolonetSetupFormData;
 import de.medo.holonetbridge.commons.domain.TicketProvider;
@@ -12,7 +13,6 @@ import de.medo.holonetbridge.commons.provider.ProviderHealthCheckService;
 import de.medo.holonetbridge.commons.service.HolonetBotInteractionSessionService;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
-import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
@@ -34,18 +34,21 @@ public class HolonetSetupConnectionSubmitModalAction {
     private final EncryptionService encryptionService;
     private final ProviderHealthCheckService providerHealthCheckService;
     private final HolonetTicketProviderService ticketProviders;
+    private final HolonetButtonFactory buttonFactory;
 
     public HolonetSetupConnectionSubmitModalAction(
             MessageSource messageSource,
             HolonetBotInteractionSessionService botInteractionSessionService,
             EncryptionService encryptionService,
             ProviderHealthCheckService providerHealthCheckService,
-            HolonetTicketProviderService ticketProviders) {
+            HolonetTicketProviderService ticketProviders,
+            HolonetButtonFactory buttonFactory) {
         this.messageSource = messageSource;
         this.botInteractionSessionService = botInteractionSessionService;
         this.encryptionService = encryptionService;
         this.providerHealthCheckService = providerHealthCheckService;
         this.ticketProviders = ticketProviders;
+        this.buttonFactory = buttonFactory;
     }
 
     public void handle(ModalInteractionEvent event) {
@@ -57,7 +60,7 @@ public class HolonetSetupConnectionSubmitModalAction {
             return;
         }
         if (!member.hasPermission(Permission.MANAGE_SERVER)) {
-            event.reply(messageSource.getMessage("setup.manage-server", null, locale)).setEphemeral(true).queue();
+            event.reply(messageSource.getMessage(DiscordMessageCodes.MANAGE_SERVER_REQUIRED, null, locale)).setEphemeral(true).queue();
             return;
         }
         String unencryptedToken = event.getValue(HolonetModalFactory.TEXTINPUT_ID_TOKEN).getAsString();
@@ -139,9 +142,7 @@ public class HolonetSetupConnectionSubmitModalAction {
 
         Locale guildLocale = guild.getLocale().toLocale();
         return channel.sendMessage(messageSource.getMessage("support.panel-message", null, guildLocale))
-                .addComponents(ActionRow.of(Button.success(
-                        HolonetOpenSupportButton.BUTTON_ID,
-                        messageSource.getMessage("support.open-button", null, guildLocale))))
+                .addComponents(ActionRow.of(buttonFactory.createOpenSupportButton(guildLocale)))
                 .submit()
                 .handle((postedMessage, failure) -> failure == null
                         ? new Message(null, messageSource.getMessage(

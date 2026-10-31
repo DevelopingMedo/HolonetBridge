@@ -34,8 +34,10 @@ class HolonetBugReportSubmitModalActionTest {
         var messages = mock(org.springframework.context.MessageSource.class);
         var submitter = mock(HolonetTicketSubmitter.class);
         doThrow(new IllegalStateException("Later processing failed")).when(submitter).handle(event, data);
+        var guard = mock(de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketInteractionGuard.class);
+        when(guard.allowCreate(event)).thenReturn(true);
 
-        assertThatThrownBy(() -> new HolonetBugReportSubmitModalAction(submitter, messages, dataService).handle(event))
+        assertThatThrownBy(() -> new HolonetBugReportSubmitModalAction(submitter, messages, dataService, guard).handle(event))
                 .isInstanceOf(IllegalStateException.class);
 
         var order = inOrder(dataService, submitter);

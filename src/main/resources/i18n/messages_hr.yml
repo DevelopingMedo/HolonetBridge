@@ -1,7 +1,6 @@
 setup:
   failed: "Postavljanje nije dovršeno. Prethodna veza ostaje nepromijenjena. Provjeri podatke veze i ciljni repozitorij pa ponovno pokreni /setup."
   guild-only: "/setup se može koristiti samo na poslužitelju."
-  manage-server: "Potrebna ti je dozvola \"Upravljanje poslužiteljem\"."
   form-saved: "Podaci za povezivanje su spremljeni."
   form-unchanged: "Podaci za povezivanje nisu promijenjeni."
   completed: "✅ Postavljanje je dovršeno. Panel podrške objavljen je u {0}."
@@ -34,21 +33,7 @@ setup:
     token-required: "Pristupni token pružatelja"
     token-keep: "Ostavi prazno za zadržavanje postojećeg tokena"
 support:
-  guild-only: "Kanali za podršku mogu se otvoriti samo na poslužitelju."
   panel-message: "Trebaš podršku? Klikni ispod za otvaranje zahtjeva za podršku."
-  open-button: "Zatraži podršku"
-  choose-kind: "Jesi li pronašao grešku ili imaš novu ideju?"
-  bug: "Greška"
-  feature: "Ideja"
-  add-watcher: "Dodaj promatrača"
-  created: "Kanal za podršku je otvoren: {0}"
-  failed: "Kanal za podršku nije otvoren."
-watcher:
-  placeholder: "Odaberi osobu"
-  prompt: "Odaberi osobu koja smije vidjeti kanal i pisati komentare."
-  not-found: "Osoba nije pronađena."
-  added: "{0} je dodan kao promatrač."
-  failed: "Dozvole nisu dodijeljene."
 bug:
   modal:
     title: "Prijavi grešku"
@@ -71,13 +56,63 @@ feature:
   description-hint: "Što bi trebalo biti moguće? Opiši što preciznije."
 ticket:
   created: "✅ Tvoja je prijava izrađena."
-  create-failed: "Izradu prijave nije moguće potvrditi. Obrazac je spremljen. Prije ponovnog pokušaja provjeri pružatelja kako bi izbjegao duplikate."
+  create-failed: "Izrada prijave nije potvrđena. Obrazac je spremljen. Prije ponovnog slanja provjeri pružatelja: ponovno slanje može stvoriti duplikat."
   not-configured: "Za ovaj poslužitelj nema aktivne veze za prijave. Obrazac je spremljen. Zamoli administratora da pokrene /setup."
-  draft-saved: "Obrazac je spremljen. Ponovno otvori Grešku ili Ideju u ovom kanalu za nastavak. Vanjska prijava još nije stvorena."
-  draft-load-failed: "Spremljeni obrazac nije moguće učitati. Pokušaj ponovno kasnije."
+  draft-saved: "Obrazac je spremljen. Ponovno otvori Grešku ili Ideju u ovom kanalu za nastavak. Spremanje obrasca ne stvara vanjsku prijavu."
   draft-save-failed: "Obrazac nije moguće spremiti. Sačuvaj kopiju teksta i pokušaj ponovno kasnije."
   title: "Naslov"
   description: "Opis"
 commands:
   setup:
     description: "Postavi poruku za podršku u kanalu"
+holonet:
+  discord:
+    support:
+      action:
+        unavailable: "Ova radnja nije dostupna. Za prijave i promatrače potrebne su ti dozvole za prikaz kanala i slanje poruka u ovom tekstualnom kanalu."
+      channel:
+        create:
+          button:
+            label: "Zatraži podršku"
+          in-progress: "Tvoj kanal za podršku se stvara …"
+          success: "Tvoj kanal za podršku je stvoren: {0}"
+          failure: "Stvaranje kanala nije potvrđeno. Kanal možda već postoji; zamoli administratora da provjeri prije stvaranja novog."
+          incomplete: "Kanal {0} je stvoren, ali kontrole nisu potpuno postavljene. Zamoli administratora da provjeri ovaj kanal umjesto stvaranja novog."
+      report-kind:
+        prompt: "Jesi li pronašao grešku ili imaš novu ideju?"
+        bug:
+          label: "Greška"
+        feature:
+          label: "Ideja"
+      watcher:
+        add:
+          button:
+            label: "Dodaj promatrača"
+          placeholder: "Odaberi osobu"
+          prompt: "Odaberi osobu koja smije vidjeti kanal i pisati komentare."
+          in-progress: "Dodajem promatrača …"
+          not-found: "Osoba nije pronađena."
+          success: "{0} je dodan kao promatrač."
+          failure: "Nisam uspio dodijeliti dozvole."
+      report:
+        draft:
+          load:
+            failure: "Spremljeni obrazac nije moguće učitati. Pokušaj ponovno kasnije."
+      close:
+        button:
+          label: "Arhiviraj kanal"
+        in-progress: "Arhiviram Discord kanal …"
+        failure: "Arhiviranje kanala nije potvrđeno. Neki koraci možda su uspjeli. Provjeri kanal prije ponovnog pokušaja."
+        discord:
+          success: "Discord kanal je arhiviran: povijest i čitanje su sačuvani; obični članovi ne mogu slati poruke ni pisati u nitima."
+          failure: "Zaštita Discord arhive nije potpuno potvrđena i možda nije potpuna. Dijagnostika ispod navodi neuspjeli korak."
+        diagnostic: "Za prijavu pogreške kopiraj ovaj jedan dijagnostički redak: {0}"
+        missing-permissions: "U ovom kanalu nedostaju mi sljedeće dozvole: {0}."
+        permission:
+          view: "Prikaz kanala"
+          channel: "Upravljanje kanalima"
+          permissions: "Upravljanje dozvolama"
+    error:
+      manage-server-required: "Potrebna ti je dozvola \"Upravljanje poslužiteljem\"."
+      bot-permission-missing: "Nedostaje mi sljedeća Discord dozvola: {0}."
+      unknown: "Dogodila se neočekivana greška."

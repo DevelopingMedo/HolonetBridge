@@ -14,6 +14,7 @@ import de.medo.holonetbridge.commons.discord.listener.HolonetOnSlashCommandInter
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.utils.cache.CacheFlag;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.interactions.InteractionContextType;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
@@ -29,9 +30,7 @@ import org.springframework.context.annotation.Configuration;
  * net.dv8tion.jda.api.hooks.ListenerAdapter}s, and registers the {@code
  * /setup} slash command.
  *
- * <p>The bot does not need to see or cache guild/member state for either flow - everything happens through
- * slash-command and component interactions - so {@link JDABuilder#createLight(String, java.util.Collection)} is
- * used with zero gateway intents.
+ * <p>Member overrides are retained so ordinary watcher grants can preserve existing permission bits.
  */
 @Configuration
 public class DiscordGatewayConfiguration {
@@ -46,6 +45,7 @@ public class DiscordGatewayConfiguration {
             HolonetOnEntitySelectInteractionListener entitySelectListener,
             HolonetOnSlashCommandInteractionListener slashCommandListener) {
         JDA jda = JDABuilder.createLight(discordProperties.token(), Collections.emptyList())
+                .enableCache(CacheFlag.MEMBER_OVERRIDES)
                 .addEventListeners(buttonListener, modalListener, entitySelectListener, slashCommandListener)
                 .build();
 

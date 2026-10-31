@@ -21,6 +21,7 @@ public class HolonetOnEntitySelectInteractionListener extends ListenerAdapter {
 
     @Override
     public void onEntitySelectInteraction(EntitySelectInteractionEvent event) {
+        if (!event.isFromGuild()) return;
         if (HolonetAddWatcherButton.SELECT_ID.equals(event.getComponentId())) {
             grantWatcher.handle(event);
         }

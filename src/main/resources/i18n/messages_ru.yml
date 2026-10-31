@@ -2,7 +2,6 @@
 setup:
   failed: "Ne udalos zavershit nastroyku. Prezhnee podklyuchenie ne izmeneno. Prover dannye podklyucheniya i tselevoy repozitoriy, zatem zapusti /setup eshche raz."
   guild-only: "/setup mozhno ispolzovat tolko na servere."
-  manage-server: "Nuzhno razreshenie \"Upravlenie serverom\"."
   form-saved: "Dannye podklyucheniya sokhraneny."
   form-unchanged: "Dannye podklyucheniya ne izmenilis."
   completed: "✅ Nastroyka zavershena. Panel podderzhki opublikovana v {0}."
@@ -35,21 +34,7 @@ setup:
     token-required: "Token dostupa provaydera"
     token-keep: "Ostav pustym, chtoby sokhranit tekushchiy token"
 support:
-  guild-only: "Kanaly podderzhki mozhno sozdavat tolko na servere."
   panel-message: "Nuzhna podderzhka? Nazhmi knopku nizhe, chtoby otkryt obrashchenie."
-  open-button: "Zaprosit podderzhku"
-  choose-kind: "Nashli oshibku ili est novaya ideya?"
-  bug: "Oshibka"
-  feature: "Ideya"
-  add-watcher: "Dobavit nablyudatelya"
-  created: "Kanal podderzhki sozdan: {0}"
-  failed: "Ne udalos sozdat kanal podderzhki."
-watcher:
-  placeholder: "Vyberi polzovatelya"
-  prompt: "Vyberi polzovatelya, kotoryy smozhet videt kanal i pisat v nem."
-  not-found: "Polzovatel ne nayden."
-  added: "{0} dobavlen kak nablyudatel."
-  failed: "Ne udalos predostavit prava."
 bug:
   modal:
     title: "Soobshchit ob oshibke"
@@ -72,13 +57,63 @@ feature:
   description-hint: "Chto dolzhno stat vozmozhnym? Opishi kak mozhno tochnee."
 ticket:
   created: "✅ Tvoya zayavka sozdana."
-  create-failed: "Ne udalos podtverdit sozdanie zayavki. Forma sokhranena. Pered povtornoy popytkoy prover provaydera, chtoby izbezhat duplikatov."
+  create-failed: "Sozdanie zayavki ne podtverzhdeno. Forma sokhranena. Prover provaydera pered povtornoy otpravkoy: ona mozhet sozdat duplikat."
   not-configured: "Dlya etogo servera net aktivnogo ticket-podklyucheniya. Forma sokhranena. Poprosi administratora zapustit /setup."
-  draft-saved: "Forma sokhranena. Snova otkroy Oshibku ili Ideyu v etom kanale, chtoby prodolzhit. Vneshnyaya zayavka eshche ne sozdana."
-  draft-load-failed: "Ne udalos zagruzit sokhranennuyu formu. Poprobuy pozhe."
+  draft-saved: "Forma sokhranena. Snova otkroy Oshibku ili Ideyu v etom kanale, chtoby prodolzhit. Sokhranenie formy ne sozdaet vneshnyuyu zayavku."
   draft-save-failed: "Ne udalos sokhranit formu. Sokhrani kopiyu teksta i poprobuy pozhe."
   title: "Zagolovok"
   description: "Opisanie"
 commands:
   setup:
     description: "Nastroit panel obrashcheniy v kanale"
+holonet:
+  discord:
+    support:
+      action:
+        unavailable: "Deystvie nedostupno. Dlya zayavok i nablyudateley nuzhny prava prosmotra kanala i otpravki soobshcheniy v etom tekstovom kanale."
+      channel:
+        create:
+          button:
+            label: "Zaprosit podderzhku"
+          in-progress: "Tvoy kanal podderzhki sozdaetsya …"
+          success: "Tvoy kanal podderzhki sozdan: {0}"
+          failure: "Sozdanie kanala ne podtverzhdeno. Kanal uzhe mozhet sushchestvovat; poprosi administratora proverit pered sozdaniem novogo."
+          incomplete: "Kanal {0} sozdan, no elementy upravleniya ustanovleny ne polnostyu. Poprosi administratora proverit etot kanal vmesto sozdaniya novogo."
+      report-kind:
+        prompt: "Nashli oshibku ili est novaya ideya?"
+        bug:
+          label: "Oshibka"
+        feature:
+          label: "Ideya"
+      watcher:
+        add:
+          button:
+            label: "Dobavit nablyudatelya"
+          placeholder: "Vyberi polzovatelya"
+          prompt: "Vyberi polzovatelya, kotoryy smozhet videt kanal i pisat v nem."
+          in-progress: "Nablyudatel dobavlyaetsya …"
+          not-found: "Polzovatel ne nayden."
+          success: "{0} dobavlen kak nablyudatel."
+          failure: "Ya ne smog predostavit prava."
+      report:
+        draft:
+          load:
+            failure: "Ne udalos zagruzit sokhranennuyu formu. Poprobuy pozhe."
+      close:
+        button:
+          label: "Arkhivirovat kanal"
+        in-progress: "Kanal Discord arkhiviruetsya …"
+        failure: "Arkhivatsiya kanala ne podtverzhdena. Chast izmeneniy mogla byt vypolnena. Prover kanal pered povtornoy popytkoy."
+        discord:
+          success: "Discord kanal arkhivirovan: istoriya i chtenie sokhraneny; obychnye uchastniki ne mogut pisat soobshcheniya ili v vetkakh."
+          failure: "Zashchita arkhiva Discord podtverzhdena ne polnostyu i mozhet byt nepolnoy. Diagnostika nizhe ukazyvaet neudavshiysya shag."
+        diagnostic: "Dlya soobshcheniya ob oshibke skopiruy etu odnu stroku diagnostiki: {0}"
+        missing-permissions: "Mne ne khvataet sleduyushchikh razresheniy v etom kanale: {0}."
+        permission:
+          view: "Prosmotr kanala"
+          channel: "Upravlenie kanalami"
+          permissions: "Upravlenie razresheniyami"
+    error:
+      manage-server-required: "Nuzhno razreshenie \"Upravlenie serverom\"."
+      bot-permission-missing: "Mne ne khvataet sleduyushchego razresheniya Discord: {0}."
+      unknown: "Proizoshla neozhidannaya oshibka."
