@@ -27,3 +27,7 @@ data/
 .classpath
 .project
 .settings/
+
+# Local AI/agent working files (not versioned)
+docs/planning/
+.opencode/memory/
