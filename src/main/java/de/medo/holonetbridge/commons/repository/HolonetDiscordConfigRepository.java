@@ -9,4 +9,7 @@ public interface HolonetDiscordConfigRepository extends JpaRepository<HolonetDis
 
     @Query("select config.guildId from HolonetDiscordConfig config")
     List<Long> findAllGuildIds();
+
+    @Query(value = "SELECT NEXT VALUE FOR holonet_channel_suffix_seq", nativeQuery = true)
+    long nextTicketChannelSuffixNumber();
 }

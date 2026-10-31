@@ -9,7 +9,9 @@ import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
+import de.holonetbridge.commons.message.SupportMessageCodes;
 import de.medo.holonetbridge.commons.crypto.EncryptionService;
+import de.medo.holonetbridge.commons.discord.button.HolonetButtonFactory;
 import de.medo.holonetbridge.commons.discord.i18n.I18nProperties;
 import de.medo.holonetbridge.commons.discord.i18n.MessageSourceConfiguration;
 import de.medo.holonetbridge.commons.discord.modal.HolonetModalFactory;
@@ -55,7 +57,8 @@ class HolonetSetupConnectionHealthCheckTest {
     private final HolonetTicketProviderService providers = new HolonetTicketProviderService(
             mock(HolonetDiscordConfigRepository.class), sessions, providerFactory);
     private final HolonetSetupConnectionSubmitModalAction action =
-            new HolonetSetupConnectionSubmitModalAction(messages, sessions, encryption, healthChecks, providers);
+            new HolonetSetupConnectionSubmitModalAction(messages, sessions, encryption, healthChecks, providers,
+                    new HolonetButtonFactory(messages));
 
     private final MessageCreateAction panelAction = mock(MessageCreateAction.class, RETURNS_SELF);
     private final CompletableFuture<net.dv8tion.jda.api.entities.Message> panelPost = new CompletableFuture<>();
@@ -308,7 +311,7 @@ class HolonetSetupConnectionHealthCheckTest {
                 DiscordLocale.from(language).toLocale())).contains("<#4>");
         assertThat(messages.getMessage("support.panel-message", null, DiscordLocale.from(language).toLocale()))
                 .isNotBlank();
-        assertThat(messages.getMessage("support.open-button", null, DiscordLocale.from(language).toLocale()))
+        assertThat(messages.getMessage(SupportMessageCodes.CHANNEL_CREATE_BUTTON_LABEL, null, DiscordLocale.from(language).toLocale()))
                 .isNotBlank();
         assertThat(messages.getMessage("setup.failed", null, DiscordLocale.from(language).toLocale()))
                 .contains("/setup");

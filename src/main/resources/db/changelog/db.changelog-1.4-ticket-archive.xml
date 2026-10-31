@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="1.4-ticket-archive" author="holonet-bridge">
+        <addColumn tableName="holonet_support_channel">
+            <column name="version" type="BIGINT" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="external_state" type="VARCHAR(32)" defaultValue="UNKNOWN"><constraints nullable="false"/></column>
+            <column name="archive_requested" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="discord_archived" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="external_provider" type="VARCHAR(255)"/>
+            <column name="external_base_url" type="VARCHAR(2048)"/>
+            <column name="external_owner" type="VARCHAR(255)"/>
+            <column name="external_repository" type="VARCHAR(255)"/>
+            <column name="external_repository_id" type="BIGINT"/>
+            <column name="external_issue_id" type="BIGINT"/>
+            <column name="external_issue_number" type="BIGINT"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

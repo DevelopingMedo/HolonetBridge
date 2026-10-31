@@ -9,6 +9,7 @@ import java.util.Locale;
 import java.util.Properties;
 import java.util.regex.Pattern;
 
+import de.holonetbridge.commons.message.SupportMessageCodes;
 import de.medo.holonetbridge.commons.crypto.EncryptionProperties;
 import de.medo.holonetbridge.commons.crypto.EncryptionService;
 import de.medo.holonetbridge.commons.discord.modal.HolonetModalFactory;
@@ -36,11 +37,11 @@ class MessageSourceConfigurationTest {
         Locale original = Locale.getDefault();
         try {
             Locale.setDefault(Locale.GERMAN);
-            assertThat(messageSource.getMessage("support.feature", null, Locale.forLanguageTag("hr"))).isEqualTo("Ideja");
-            assertThat(messageSource.getMessage("support.feature", null, Locale.GERMANY)).isEqualTo("Idee");
-            assertThat(messageSource.getMessage("support.feature", null, Locale.US)).isEqualTo("Idea");
-            assertThat(messageSource.getMessage("support.feature", null, Locale.FRENCH)).isEqualTo("Idea");
-            assertThat(messageSource.getMessage("support.feature", null, Locale.ROOT)).isEqualTo("Idea");
+            assertThat(messageSource.getMessage(SupportMessageCodes.REPORT_KIND_FEATURE_LABEL, null, Locale.forLanguageTag("hr"))).isEqualTo("Ideja");
+            assertThat(messageSource.getMessage(SupportMessageCodes.REPORT_KIND_FEATURE_LABEL, null, Locale.GERMANY)).isEqualTo("Idee");
+            assertThat(messageSource.getMessage(SupportMessageCodes.REPORT_KIND_FEATURE_LABEL, null, Locale.US)).isEqualTo("Idea");
+            assertThat(messageSource.getMessage(SupportMessageCodes.REPORT_KIND_FEATURE_LABEL, null, Locale.FRENCH)).isEqualTo("Idea");
+            assertThat(messageSource.getMessage(SupportMessageCodes.REPORT_KIND_FEATURE_LABEL, null, Locale.ROOT)).isEqualTo("Idea");
         } finally {
             Locale.setDefault(original);
         }
@@ -48,12 +49,19 @@ class MessageSourceConfigurationTest {
 
     @Test
     void externalFilesOverrideIndividualKeysWithoutLosingBundledDefaults(@TempDir Path directory) throws Exception {
-        Files.writeString(directory.resolve("messages_de.yml"), "support:\n  feature: \"Meine Idee\"\n");
+        Files.writeString(directory.resolve("messages_de.yml"), """
+                holonet:
+                  discord:
+                    support:
+                      report-kind:
+                        feature:
+                          label: "Meine Idee"
+                """);
         MessageSource customized = new MessageSourceConfiguration().messageSource(new I18nProperties(directory));
 
-        assertThat(customized.getMessage("support.feature", null, Locale.GERMANY)).isEqualTo("Meine Idee");
-        assertThat(customized.getMessage("support.bug", null, Locale.GERMAN)).isEqualTo("Bug");
-        assertThat(customized.getMessage("support.feature", null, Locale.US)).isEqualTo("Idea");
+        assertThat(customized.getMessage(SupportMessageCodes.REPORT_KIND_FEATURE_LABEL, null, Locale.GERMANY)).isEqualTo("Meine Idee");
+        assertThat(customized.getMessage(SupportMessageCodes.REPORT_KIND_BUG_LABEL, null, Locale.GERMAN)).isEqualTo("Bug");
+        assertThat(customized.getMessage(SupportMessageCodes.REPORT_KIND_FEATURE_LABEL, null, Locale.US)).isEqualTo("Idea");
     }
 
     @Test
@@ -86,6 +94,22 @@ class MessageSourceConfigurationTest {
                 }
             }
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"en", "de", "hr", "ru"})
+    void catalogsDoNotRetainReplacedMessageKeys(String language) {
+        assertThat(catalog(language)).doesNotContainKeys(
+                "support.open-button", "support.created", "support.failed", "support.created-incomplete",
+                "support.choose-kind", "support.bug", "support.feature", "support.add-watcher", "archive.button",
+                "setup.manage-server", "support.guild-only", "support.created-untracked", "ticket.unavailable",
+                "ticket.state-failed", "ticket.draft-load-failed", "holonet.discord.support.guild-only",
+                "holonet.discord.support.state.check.failure", "holonet.discord.support.close.discord.save-failure",
+                "holonet.discord.support.close.privileged-requester-warning");
+        assertThat(catalog(language).stringPropertyNames()).noneMatch(key ->
+                key.startsWith("watcher.") || key.startsWith("archive.")
+                        || key.startsWith("support.error.") || key.startsWith("support.operation.")
+                        || key.startsWith("holonet.discord.support.close.external."));
     }
 
     @Test

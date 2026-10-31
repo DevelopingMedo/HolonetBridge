@@ -3,6 +3,8 @@ package de.medo.holonetbridge.bootstrap;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.Locale;
 
 import de.medo.holonetbridge.commons.domain.HolonetBotInteractionSession;
@@ -10,6 +12,7 @@ import de.medo.holonetbridge.commons.domain.HolonetSetupFormData;
 import de.medo.holonetbridge.commons.domain.HolonetReportFormData;
 import de.medo.holonetbridge.commons.domain.ticket.HolonetTicketKind;
 import de.medo.holonetbridge.commons.domain.TicketProvider;
+import de.medo.holonetbridge.commons.repository.HolonetDiscordConfigRepository;
 import de.medo.holonetbridge.commons.repository.HolonetBotInteractionSessionRepository;
 import de.medo.holonetbridge.commons.repository.HolonetSetupFormDataRepository;
 import de.medo.holonetbridge.commons.repository.HolonetReportFormDataRepository;
@@ -35,6 +38,7 @@ class SchemaMigrationTest {
         Long reportId;
         try (var context = start()) {
             var jdbc = context.getBean(JdbcTemplate.class);
+            assertThat(context.getBean(HolonetDiscordConfigRepository.class).nextTicketChannelSuffixNumber()).isEqualTo(1L);
             assertThat(jdbc.queryForList(
                             "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'PUBLIC'",
                             String.class))
@@ -76,7 +80,7 @@ class SchemaMigrationTest {
         try (var context = start()) {
             var jdbc = context.getBean(JdbcTemplate.class);
             assertThat(jdbc.queryForList("SELECT ID FROM DATABASECHANGELOG", String.class))
-                    .containsExactlyInAnyOrder("1-current-schema", "2-report-drafts", "3-report-context", "4-discord-config");
+                    .containsExactlyInAnyOrder("1-current-schema", "2-report-drafts", "3-report-context", "4-discord-config", "1.4-ticket-archive", "1.5-channel-suffix");
             var form = context.getBean(HolonetSetupFormDataRepository.class).findById(formId).orElseThrow();
             assertThat(form.getTicketProvider()).isEqualTo(TicketProvider.GITEA);
             assertThat(form.getTarget()).isEqualTo("acme/support");
@@ -89,7 +93,47 @@ class SchemaMigrationTest {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"80,90,91", "100,90,101"})
+    void suffixMigrationStartsAboveBothLegacyMaximaAndBackfillsConfigTimestamps(
+            long channelNumber, long counterNumber, long expectedNext) {
+        Instant beforeMigration;
+        try (var context = start("db.changelog-before-channel-suffix-test.xml", false)) {
+            var jdbc = context.getBean(JdbcTemplate.class);
+            jdbc.update("INSERT INTO holonet_support_channel (channel_id,guild_id,requester_user_id,number) VALUES (3,1,2,?)", channelNumber);
+            jdbc.update("INSERT INTO holonet_guild_sequence (guild_id,current_number) VALUES (1,?)", counterNumber);
+            jdbc.update("INSERT INTO holonet_discord_config (guild_id,target,support_channel_id) VALUES (1,'existing/target',9)");
+            beforeMigration = jdbc.queryForObject("SELECT CURRENT_TIMESTAMP", OffsetDateTime.class).toInstant();
+        }
+        Instant createdAt;
+        try (var context = start()) {
+            var configs = context.getBean(HolonetDiscordConfigRepository.class);
+            assertThat(configs.nextTicketChannelSuffixNumber()).isEqualTo(expectedNext);
+            var config = configs.findById(1L).orElseThrow();
+            createdAt = config.getCreatedAt();
+            assertThat(createdAt).isAfterOrEqualTo(beforeMigration);
+            assertThat(config.getUpdatedAt()).isEqualTo(createdAt);
+            assertThat(config.getNextTicketChannelSuffixNumber()).isNull();
+            assertThat(config.getTarget()).isEqualTo("existing/target");
+            assertThat(config.getSupportChannelId()).isEqualTo(9L);
+            var jdbc = context.getBean(JdbcTemplate.class);
+            assertThat(jdbc.queryForObject("SELECT current_number FROM holonet_guild_sequence WHERE guild_id=1", Long.class))
+                    .isEqualTo(counterNumber);
+            assertThat(jdbc.queryForObject("SELECT number FROM holonet_support_channel WHERE channel_id=3", Long.class))
+                    .isEqualTo(channelNumber);
+        }
+        try (var context = start()) {
+            var configs = context.getBean(HolonetDiscordConfigRepository.class);
+            assertThat(configs.nextTicketChannelSuffixNumber()).isEqualTo(expectedNext + 1);
+            assertThat(configs.findById(1L).orElseThrow().getCreatedAt()).isEqualTo(createdAt);
+        }
+    }
+
     private ConfigurableApplicationContext start() {
+        return start("db.changelog-master.xml", true);
+    }
+
+    private ConfigurableApplicationContext start(String changelog, boolean validate) {
         return new SpringApplicationBuilder(PersistenceConfiguration.class)
                 .web(WebApplicationType.NONE)
                 .run(
@@ -99,8 +143,8 @@ class SchemaMigrationTest {
                                 + ";DB_CLOSE_ON_EXIT=FALSE",
                         "--spring.datasource.username=sa",
                         "--spring.datasource.password=",
-                        "--spring.jpa.hibernate.ddl-auto=validate",
-                        "--spring.liquibase.change-log=classpath:db/changelog/db.changelog-master.xml");
+                        "--spring.jpa.hibernate.ddl-auto=" + (validate ? "validate" : "none"),
+                        "--spring.liquibase.change-log=classpath:db/changelog/" + changelog);
     }
 
     @Configuration(proxyBeanMethods = false)

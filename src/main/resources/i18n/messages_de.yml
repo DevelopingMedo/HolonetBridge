@@ -1,6 +1,5 @@
 setup:
   guild-only: "/setup kann nur innerhalb eines Servers ausgeführt werden."
-  manage-server: "Dazu fehlt dir die Berechtigung \"Server verwalten\"."
   form-saved: "Verbindungsdaten gespeichert."
   form-unchanged: "Verbindungsdaten unverändert."
   completed: "✅ Setup abgeschlossen. Das Support-Panel wurde in {0} veröffentlicht."
@@ -34,21 +33,7 @@ setup:
     token-required: "Zugriffstoken des Providers"
     token-keep: "Leer lassen, um das vorhandene Token zu behalten"
 support:
-  guild-only: "Support-Kanäle können nur innerhalb eines Servers erstellt werden."
   panel-message: "Du brauchst Unterstützung? Klicke unten, um eine Support-Anfrage zu erstellen."
-  open-button: "Support anfragen"
-  choose-kind: "Hast du einen Bug gefunden oder hast du eine neue Idee?"
-  bug: "Bug"
-  feature: "Idee"
-  add-watcher: "Beobachter hinzufügen"
-  created: "Support-Kanal erstellt: {0}"
-  failed: "Der Support-Kanal konnte nicht erstellt werden."
-watcher:
-  placeholder: "Person auswählen"
-  prompt: "Wähle eine Person aus, die den Kanal sehen und kommentieren darf."
-  not-found: "Die Person konnte nicht aufgelöst werden."
-  added: "{0} wurde als Beobachter hinzugefügt."
-  failed: "Die Rechte konnten nicht vergeben werden."
 bug:
   modal:
     title: "Bug melden"
@@ -71,13 +56,63 @@ feature:
   description-hint: "Was soll am Ende möglich sein? Bitte so konkret wie möglich beschreiben."
 ticket:
   created: "✅ Dein Ticket wurde erstellt."
-  create-failed: "Die Ticketerstellung konnte nicht bestätigt werden. Dein Formular ist gespeichert. Prüfe vor einem erneuten Versuch den Provider, um Duplikate zu vermeiden."
+  create-failed: "Die Ticketerstellung konnte nicht bestätigt werden. Dein Formular ist gespeichert. Prüfe vor erneutem Absenden den Anbieter: Eine weitere Übermittlung kann ein Duplikat erstellen."
   not-configured: "Für diesen Server ist keine aktive Ticket-Verbindung verfügbar. Dein Formular ist gespeichert. Bitte einen Administrator, /setup auszuführen."
-  draft-saved: "Dein Formular wurde gespeichert. Öffne Bug oder Idee in diesem Kanal erneut, um fortzufahren. Es wurde noch kein externes Ticket erstellt."
-  draft-load-failed: "Das gespeicherte Formular konnte nicht geladen werden. Bitte versuche es später erneut."
+  draft-saved: "Dein Formular wurde gespeichert. Öffne Bug oder Idee in diesem Kanal erneut, um fortzufahren. Das Speichern des Formulars erstellt kein externes Ticket."
   draft-save-failed: "Dein Formular konnte nicht gespeichert werden. Bitte sichere deinen Text und versuche es später erneut."
   title: "Titel"
   description: "Beschreibung"
 commands:
   setup:
     description: "Richtet die Support-Ticket-Nachricht in einem Kanal ein"
+holonet:
+  discord:
+    support:
+      action:
+        unavailable: "Diese Aktion ist hier nicht verfügbar. Für Reports und Beobachter benötigst du in diesem Textkanal die Rechte Kanal ansehen und Nachrichten senden."
+      channel:
+        create:
+          button:
+            label: "Support anfragen"
+          in-progress: "Dein Support-Kanal wird erstellt …"
+          success: "Dein Support-Kanal wurde erstellt: {0}"
+          failure: "Die Kanalerstellung konnte nicht bestätigt werden. Möglicherweise existiert bereits ein Kanal; bitte vor einer weiteren Erstellung einen Administrator um Prüfung."
+          incomplete: "Kanal {0} wurde erstellt, aber seine Bedienelemente konnten nicht vollständig eingerichtet werden. Bitte einen Administrator, diesen Kanal zu prüfen, statt einen weiteren zu erstellen."
+      report-kind:
+        prompt: "Hast du einen Bug gefunden oder hast du eine neue Idee?"
+        bug:
+          label: "Bug"
+        feature:
+          label: "Idee"
+      watcher:
+        add:
+          button:
+            label: "Beobachter hinzufügen"
+          placeholder: "Person auswählen"
+          prompt: "Wähle eine Person aus, die den Kanal sehen und kommentieren darf."
+          in-progress: "Der Beobachter wird hinzugefügt …"
+          not-found: "Die Person konnte nicht aufgelöst werden."
+          success: "{0} wurde als Beobachter hinzugefügt."
+          failure: "Ich konnte die Berechtigungen nicht vergeben."
+      report:
+        draft:
+          load:
+            failure: "Das gespeicherte Formular konnte nicht geladen werden. Bitte versuche es später erneut."
+      close:
+        button:
+          label: "Kanal archivieren"
+        in-progress: "Der Discord-Kanal wird archiviert …"
+        failure: "Die Kanalarchivierung konnte nicht bestätigt werden. Teilschritte könnten erfolgreich sein. Prüfe den Kanal vor einem erneuten Versuch."
+        discord:
+          success: "Discord-Kanal archiviert: Verlauf und Leserechte bleiben erhalten; gewöhnliche Mitglieder können keine Nachrichten senden oder in Threads schreiben."
+          failure: "Der Discord-Schreibschutz konnte nicht vollständig bestätigt werden und kann unvollständig sein. Die Diagnose unten benennt den fehlgeschlagenen Schritt."
+        diagnostic: "Kopiere zur Fehlermeldung diese einzelne Diagnosezeile: {0}"
+        missing-permissions: "Mir fehlen in diesem Kanal folgende Berechtigungen: {0}."
+        permission:
+          view: "Kanal ansehen"
+          channel: "Kanäle verwalten"
+          permissions: "Berechtigungen verwalten"
+    error:
+      manage-server-required: "Dazu fehlt dir die Berechtigung \"Server verwalten\"."
+      bot-permission-missing: "Mir fehlt folgende Discord-Berechtigung: {0}."
+      unknown: "Ein unerwarteter Fehler ist aufgetreten."

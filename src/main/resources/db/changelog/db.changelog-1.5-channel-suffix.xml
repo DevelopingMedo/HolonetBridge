@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="1.5-channel-suffix" author="holonet-bridge">
+        <sql>
+            CREATE SEQUENCE holonet_channel_suffix_seq START WITH (
+                SELECT GREATEST(
+                    COALESCE((SELECT MAX(number) FROM holonet_support_channel), 0),
+                    COALESCE((SELECT MAX(current_number) FROM holonet_guild_sequence), 0)
+                ) + 1
+            )
+        </sql>
+        <addColumn tableName="holonet_discord_config">
+            <column name="next_ticket_channel_suffix_number" type="BIGINT"/>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE"/>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE"/>
+        </addColumn>
+        <!-- Historical creation times are unknown; existing configs receive the migration time. -->
+        <sql>UPDATE holonet_discord_config SET created_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP</sql>
+        <addNotNullConstraint tableName="holonet_discord_config" columnName="created_at" columnDataType="TIMESTAMP WITH TIME ZONE"/>
+        <addNotNullConstraint tableName="holonet_discord_config" columnName="updated_at" columnDataType="TIMESTAMP WITH TIME ZONE"/>
+    </changeSet>
+</databaseChangeLog>

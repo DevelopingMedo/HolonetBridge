@@ -1,42 +1,45 @@
 package de.medo.holonetbridge.commons.discord.button;
 
-import java.util.Locale;
-
+import de.holonetbridge.commons.message.SupportMessageCodes;
+import de.medo.holonetbridge.commons.discord.ticketing.HolonetTicketInteractionGuard;
+import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.selections.EntitySelectMenu;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import org.springframework.context.MessageSource;
+import org.springframework.context.support.MessageSourceAccessor;
 import org.springframework.stereotype.Component;
 
-/**
- * Handles the "Beobachter hinzufügen" button (custom id {@code ticket:watcher:add}) by opening an ephemeral
- * user selector (custom id {@code ticket:watcher:select}) from which the requester picks one person to grant
- * channel access to.
- */
+import java.util.Locale;
+
+import static org.apache.commons.lang3.function.Consumers.nop;
+
 @Component
+@Slf4j
 public class HolonetAddWatcherButton {
 
-    private final MessageSource messageSource;
-
-    /** Custom id of the "Beobachter hinzufügen" button. */
     public static final String BUTTON_ID = "ticket:watcher:add";
-
-    /** Custom id of the user selector menu this button opens. */
     public static final String SELECT_ID = "ticket:watcher:select";
 
-    public HolonetAddWatcherButton(MessageSource messageSource) {
-        this.messageSource = messageSource;
+    private final MessageSourceAccessor messageSource;
+    private final HolonetTicketInteractionGuard guard;
+
+    public HolonetAddWatcherButton(MessageSource messageSource, HolonetTicketInteractionGuard guard) {
+        this.messageSource = new MessageSourceAccessor(messageSource);
+        this.guard = guard;
     }
 
     public void handle(ButtonInteractionEvent event) {
+        if (!guard.allowWatcher(event)) return;
         Locale userLocale = event.getUserLocale().toLocale();
         EntitySelectMenu menu = EntitySelectMenu.create(SELECT_ID, EntitySelectMenu.SelectTarget.USER)
-                .setRequiredRange(1, 1)
-                .setPlaceholder(messageSource.getMessage("watcher.placeholder", null, userLocale))
-                .build();
-        event.reply(messageSource.getMessage("watcher.prompt", null, userLocale))
-                .addComponents(ActionRow.of(menu))
-                .setEphemeral(true)
-                .queue();
+                                                .setRequiredRange(1, 1)
+                                                .setPlaceholder(messageSource.getMessage(
+                                                        SupportMessageCodes.WATCHER_ADD_PLACEHOLDER, userLocale))
+                                                .build();
+        event.reply(messageSource.getMessage(SupportMessageCodes.WATCHER_ADD_PROMPT, userLocale))
+             .addComponents(ActionRow.of(menu))
+             .setEphemeral(true)
+             .queue(nop(), failure -> log.error("Watcher selection reply failed", failure));
     }
 }

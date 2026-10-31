@@ -4,13 +4,17 @@ Holonet Bridge is a self-hosted Java application that connects Discord to one co
 
 ## Current foundation
 
-- A provider-neutral `TicketProvider` interface with one operation: `void create(HolonetReportFormData)`.
-- A Gitea adapter that posts reports to the repository's issue API. No response DTO or unused CRUD methods are needed.
-- Guild-specific connections configured through `/setup`; Bug and Idea modals save their draft and submit an external ticket asynchronously. See [the current setup and submission lifecycle](docs/ticket-submission.md). The older configuration and `/ticket` examples below are historical and do not describe this current flow.
+- A provider-neutral `TicketProvider` interface for external report creation.
+- A Gitea adapter that posts reports to the configured repository.
+- Guild-specific connections configured through `/setup`; Bug and Idea modals save their draft and submit an external ticket asynchronously. The older configuration and `/ticket` examples below are historical and do not describe this current flow.
 
 The domain `TicketProvider` enum selects a provider during setup/restoration; the `commons.extapi.TicketProvider` interface performs ticket creation. Only Gitea is implemented.
 
 Internally, created/edited tickets are still called "tickets" everywhere in this codebase and towards Discord users, even for the Gitea adapter, where they map onto Gitea's "issues". This keeps the user-facing and cross-provider vocabulary provider-agnostic.
+
+Members, including watchers, may create reports and add watchers with effective **`VIEW_CHANNEL` and `MESSAGE_SEND`** permissions in the concrete text channel. **Archive channel** requires **`MANAGE_SERVER`** and archives only the Discord channel; external tickets are not closed automatically. Discord owners and administrators can bypass channel write restrictions.
+
+The support workflow does not persist channel registrations or external ticket identities. Form drafts and provider configuration remain persistent, but there are no durable creation reservations, recovery or duplicate-prevention guarantees. Submitting again may create another external ticket.
 
 ## Package layout
 
@@ -113,6 +117,8 @@ SPRING_PROFILES_ACTIVE=dev java -jar target/holonet-bridge-*.jar
 Schema changes go through Liquibase (`src/main/resources/db/changelog/db.changelog-master.xml`) instead of Hibernate's own DDL generation. `spring.jpa.hibernate.ddl-auto` is `validate`, so Hibernate checks the entity mappings against the schema produced by Liquibase.
 
 The development migration history has been reset to one baseline, `db.changelog-1.0-baseline.xml`, containing only the four tables used by the current entities: `holonet_support_channel`, `holonet_guild_sequence`, `holonet_bot_interaction_session`, and `holonet_setup_form_data`. Old development databases are not migrated to this baseline: stop the application and delete the configured H2 database file (`data/holonet-bridge.mv.db` by default) once, discarding its data. Liquibase creates the schema on the next start. This is a one-time development reset, not an automatic drop on every startup. For subsequent schema changes, add new changelog files; do not rename or rewrite applied changesets.
+
+Channel suffixes now come from the global H2 sequence `holonet_channel_suffix_seq`, not a per-guild counter. Each creation attempt reserves a number before contacting Discord; failed attempts may leave gaps. Channel names use at least seven suffix digits (for example, `holonetbridge-0000001`). After Discord creates the channel, the reserved number is saved in the guild config's `nextTicketChannelSuffixNumber` field. Migration starts above existing channel/counter numbers and retains the historical counter table. Config timestamps track insertion and actual JPA updates; existing configs receive the migration time because their historical creation time is unknown.
 
 The default/`dev` H2 database is a file rather than in-memory, so data survives process/container restarts: `DB_FILE_PATH` (default `./data/holonet-bridge`) controls where. The `.ci/deployment` Compose setup mounts that path as a named volume (`holonet-bridge-data`) so it also survives container re-creation, not just process restarts.
 

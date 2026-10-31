@@ -46,11 +46,13 @@ class ProviderFactoryTest {
                 .andExpect(method(HttpMethod.GET))
                 .andExpect(header("Authorization", "token a-token"))
                 .andRespond(withSuccess("{\"id\":42,\"language\":\"en\"}", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(BASE_URL + "/api/v1/repos/acme/support"))
+                .andRespond(withSuccess("{\"id\":11,\"full_name\":\"acme/support\"}", MediaType.APPLICATION_JSON));
         server.expect(requestTo(BASE_URL + "/api/v1/repos/acme/support/issues"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("Authorization", "token a-token"))
                 .andExpect(jsonPath("$.title").value("[Feature] Original title"))
-                .andRespond(withStatus(HttpStatus.CREATED));
+                .andRespond(withSuccess("{\"id\":101,\"number\":3,\"state\":\"open\"}", MediaType.APPLICATION_JSON));
         var report = new HolonetReportFormData();
         var session = new HolonetBotInteractionSession();
         session.setGuildId(1L);
