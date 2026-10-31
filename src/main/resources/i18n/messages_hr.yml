@@ -1,6 +1,5 @@
 setup:
   failed: "Postavljanje nije dovršeno. Prethodna veza ostaje nepromijenjena. Provjeri podatke veze i ciljni repozitorij pa ponovno pokreni /setup."
-  guild-only: "/setup se može koristiti samo na poslužitelju."
   form-saved: "Podaci za povezivanje su spremljeni."
   form-unchanged: "Podaci za povezivanje nisu promijenjeni."
   completed: "✅ Postavljanje je dovršeno. Panel podrške objavljen je u {0}."

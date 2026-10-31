@@ -45,17 +45,14 @@ public class HolonetSetupCommandAction {
 
     public void handle(SlashCommandInteractionEvent event) {
         Locale locale = event.getUserLocale().toLocale();
-
-        Guild guild = event.getGuild();
         Member member = event.getMember();
-        if (guild == null || member == null) {
-            replyError(event, messageSource.getMessage("setup.guild-only", null, locale));
-            return;
-        }
+        assert member != null;
         if (!member.hasPermission(Permission.MANAGE_SERVER)) {
             replyError(event, messageSource.getMessage(DiscordMessageCodes.MANAGE_SERVER_REQUIRED, null, locale));
             return;
         }
+        Guild guild = event.getGuild();
+        assert guild != null;
         HolonetSetupFormData setupFormData = holonetBotInteractionSessionService.getOrCreateSetupFormDataSession(guild.getIdLong(), member.getIdLong(), locale);
 
         event.replyModal(holonetModalFactory.createSetupConnectionModal(setupFormData))

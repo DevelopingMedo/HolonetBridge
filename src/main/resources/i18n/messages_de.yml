@@ -1,5 +1,4 @@
 setup:
-  guild-only: "/setup kann nur innerhalb eines Servers ausgeführt werden."
   form-saved: "Verbindungsdaten gespeichert."
   form-unchanged: "Verbindungsdaten unverändert."
   completed: "✅ Setup abgeschlossen. Das Support-Panel wurde in {0} veröffentlicht."
